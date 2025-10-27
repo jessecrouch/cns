@@ -1,0 +1,40 @@
+# Common Lisp compiled files
+*.fasl
+*.fas
+*.lib
+*.dx64fsl
+*.lx64fsl
+*.lx32fsl
+*.ufsl
+*.o
+*.so
+*.dylib
+*.dll
+
+# SBCL
+*.sbcl
+
+# Quicklisp
+quicklisp/
+
+# Editor artifacts
+*~
+*.bak
+*.swp
+*.swo
+.#*
+\#*\#
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.sublime-*
+
+# Test artifacts
+test-output/
+*.log
