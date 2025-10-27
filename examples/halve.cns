@@ -1,0 +1,11 @@
+Story: Divide a number by 2 using division operator
+
+Given:
+  n: Integer = 100
+  result: Integer = 0
+
+Step 1 → Divide n by 2
+  Because: we want to find half of n
+  Then: result becomes n / 2
+
+End: Return result

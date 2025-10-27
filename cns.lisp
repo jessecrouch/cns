@@ -126,8 +126,9 @@
 ;;; Expression Evaluator
 ;;; ============================================================================
 
-(defun eval-expr (expr env)
-  "Simple evaluator for expressions. Handles basic ops and vars."
+(defun eval-expr (expr env &optional context)
+  "Simple evaluator for expressions. Handles basic ops and vars.
+   Optional context string provides better error messages."
   (cond
    ;; Already a number
    ((numberp expr) expr)
@@ -184,24 +185,38 @@
               (- (eval-expr (trim (car parts)) env)
                  (eval-expr (trim (cadr parts)) env))))
            
-           ;; Arithmetic: n + 1
-           ((search "+" trimmed)
-            (let ((parts (split-string trimmed #\+)))
-              (+ (eval-expr (trim (car parts)) env)
-                 (eval-expr (trim (cadr parts)) env))))
-           
-           ;; Action: Multiply result by n
+            ;; Arithmetic: n + 1
+            ((search "+" trimmed)
+             (let ((parts (split-string trimmed #\+)))
+               (+ (eval-expr (trim (car parts)) env)
+                  (eval-expr (trim (cadr parts)) env))))
+            
+            ;; Arithmetic: n / 2 (division)
+            ((search "/" trimmed)
+             (let ((parts (split-string trimmed #\/)))
+               (floor (/ (eval-expr (trim (car parts)) env)
+                         (eval-expr (trim (cadr parts)) env)))))
+            
+            ;; Arithmetic: n % 2 (modulo)
+            ((search "%" trimmed)
+             (let ((parts (split-string trimmed #\%)))
+               (mod (eval-expr (trim (car parts)) env)
+                    (eval-expr (trim (cadr parts)) env))))
+            
+            ;; Action: Multiply result by n
            ((starts-with (string-upcase trimmed) "MULTIPLY")
             (let ((parts (split-string trimmed #\Space)))
               (setf (gethash (trim (cadr parts)) env)
                     (* (gethash (trim (cadr parts)) env)
                        (gethash (trim (fourth parts)) env)))))
            
-           ;; Default: try to read as Lisp expression
-           (t (read-from-string trimmed))))
-      (error (e) 
-        (format t "Warning: Could not evaluate expression '~A': ~A~%" expr e)
-        nil)))
+            ;; Default: try to read as Lisp expression
+            (t (read-from-string trimmed))))
+       (error (e) 
+         (if context
+             (format t "ERROR in ~A: Could not evaluate '~A' - ~A~%" context expr e)
+             (format t "ERROR: Could not evaluate '~A' - ~A~%" expr e))
+         nil)))
    
    ;; Fallback
    (t expr)))
@@ -244,38 +259,55 @@
     ;; Phase 2: Execute steps in loop
     (when verbose (format t "~%Execution Trace:~%"))
     (loop while (< pc (length steps)) do
-          (let* ((step (nth pc steps))
-                 (step-num (cadr step))
-                 (step-body (cddr step))
-                 (action (cadr (assoc 'action step-body)))
-                 (because (cadr (assoc 'because step-body)))
-                 (then-clause (cadr (assoc 'then step-body)))
-                 (effects (mapcar #'cadr (remove-if-not (lambda (x) (eq (car x) 'effect)) step-body)))
-                 (if-node (assoc 'if step-body))
-                 (otherwise-clause (cadr (assoc 'otherwise step-body))))
+           (let* ((step (nth pc steps))
+                  (step-num (cadr step))
+                  (step-body (cddr step))
+                  (action (cadr (assoc 'action step-body)))
+                  (because (cadr (assoc 'because step-body)))
+                  (then-clause (cadr (assoc 'then step-body)))
+                  (effects (mapcar #'cadr (remove-if-not (lambda (x) (eq (car x) 'effect)) step-body)))
+                  (if-node (assoc 'if step-body))
+                  (otherwise-clause (cadr (assoc 'otherwise step-body))))
+             
+             (when verbose
+               ;; Display step - handle both actions and conditionals
+               (if if-node
+                   (format t "~%Step ~A: If ~A~%" step-num (cadr if-node))
+                   (format t "~%Step ~A: ~A~%" step-num action))
+               (when because
+                 (format t "  Because: ~A~%" because)))
             
-            (when verbose
-              (format t "~%Step ~A: ~A~%" step-num action)
-              (format t "  Because: ~A~%" because))
+             ;; Execute action (if not a conditional)
+             (when action
+               (eval-expr action env (format nil "Step ~A action" step-num)))
+             
+             ;; Execute Then clause if present
+             (when then-clause
+               (eval-expr then-clause env (format nil "Step ~A Then clause" step-num))
+               (when verbose
+                 (format t "  Then: ~A~%" then-clause)))
+             
+             ;; Apply effects (mock for now)
+             (dolist (eff effects)
+               (when verbose
+                 (format t "  Effect: ~A~%" eff)))
+             
+             ;; Display current variable state
+             (when verbose
+               (let ((vars '()))
+                 (maphash (lambda (k v) (push (cons k v) vars)) env)
+                 (when vars
+                   (format t "  State: ")
+                   (loop for (k . v) in (sort vars #'string< :key #'car)
+                         for first = t then nil
+                         do (unless first (format t ", "))
+                         do (format t "~A=~A" k v))
+                   (format t "~%"))))
             
-            ;; Execute action
-            (eval-expr action env)
-            
-            ;; Execute Then clause if present
-            (when then-clause
-              (eval-expr then-clause env)
-              (when verbose
-                (format t "  Then: ~A~%" then-clause)))
-            
-            ;; Apply effects (mock for now)
-            (dolist (eff effects)
-              (when verbose
-                (format t "  Effect: ~A~%" eff)))
-            
-            ;; Handle conditional
-            (if if-node
-                (let ((cond-expr (cadr if-node)))
-                  (if (eval-expr cond-expr env)
+             ;; Handle conditional
+             (if if-node
+                 (let ((cond-expr (cadr if-node)))
+                   (if (eval-expr cond-expr env (format nil "Step ~A condition" step-num))
                       ;; Condition true - handle repeat
                       (if (and then-clause (search "repeat from Step" then-clause))
                           (let* ((step-pos (search "Step " then-clause))
@@ -300,11 +332,11 @@
       (let* ((end-node result)
              (return-expr (cadr (assoc 'return (cdr end-node))))
              (because-clause (cadr (assoc 'because (cdr end-node)))))
-        (setf result (eval-expr return-expr env))
-        (when verbose
-          (format t "~%=== End ===~%")
-          (format t "Return: ~A~%" result)
-          (format t "Because: ~A~%" because-clause))))
+         (setf result (eval-expr return-expr env "End Return"))
+         (when verbose
+           (format t "~%=== End ===~%")
+           (format t "Return: ~A~%" result)
+           (format t "Because: ~A~%" because-clause))))
     
     result))
 
