@@ -45,7 +45,8 @@
         (step-id nil)
         (current-step nil))
     (dolist (line lines)
-      (let ((trimmed (trim line)))
+      (let ((trimmed (trim line))
+            (indented (starts-with line "  ")))
         (cond
          ;; Story header
          ((starts-with trimmed "Story:")
@@ -58,49 +59,67 @@
           (push '(given) ast))
          
          ;; Variable declaration in Given section
-         ((and (eql current-section :given) (starts-with trimmed "  "))
-          (let* ((parts (split-string (trim (subseq trimmed 2)) #\:))
+         ((and (eql current-section :given) indented)
+          (let* ((parts (split-string trimmed #\:))
                  (name (trim (car parts)))
                  (rest (cdr parts))
                  (type-val (if rest (split-string (trim (car rest)) #\=) nil))
                  (type (trim (car type-val)))
                  (val (if (cdr type-val) (trim (cadr type-val)) nil))
                  (tag (if (and rest (cdr rest)) (trim (cadr rest)) nil)))
-            (push `(var ,name ,type ,val ,tag) (cadr ast))))
+            ;; Append to the given node (which is at (car ast))
+            (setf (cdar ast) (append (cdar ast) (list `(var ,name ,type ,val ,tag))))))
          
          ;; Step with arrow
          ((starts-with trimmed "Step")
+          ;; Finish previous step if any
+          (when current-step
+            (push (nreverse current-step) ast))
           (setf current-section :steps)
-          (let ((step-parts (split-string trimmed #\→)))
+          (let* ((step-parts (split-string trimmed #\→))
+                 (step-content (trim (cadr step-parts))))
             (setf step-id (parse-integer (trim (subseq (car step-parts) 4))))
-            (setf current-step `(step ,step-id (action ,(trim (cadr step-parts)))))
-            (push current-step ast)))
+            ;; Check if step content starts with "If" - make it a conditional
+            (if (starts-with (string-upcase step-content) "IF")
+                (setf current-step (list (list 'if (trim (subseq step-content 2))) step-id 'step))
+                (setf current-step (list (list 'action step-content) step-id 'step)))))
          
          ;; Because clause (causality explanation)
-         ((and current-step (starts-with trimmed "  Because:"))
-          (push `(because ,(trim (subseq trimmed 10))) current-step))
+         ((and current-step indented (starts-with trimmed "Because:"))
+          (push `(because ,(trim (subseq trimmed 8))) current-step))
          
          ;; Effect declaration
-         ((and current-step (starts-with trimmed "  Effect:"))
-          (push `(effect ,(trim (subseq trimmed 9))) current-step))
+         ((and current-step indented (starts-with trimmed "Effect:"))
+          (push `(effect ,(trim (subseq trimmed 7))) current-step))
          
          ;; Then clause (state transformation)
-         ((and current-step (starts-with trimmed "  Then:"))
-          (push `(then ,(trim (subseq trimmed 7))) current-step))
+         ((and current-step indented (starts-with trimmed "Then:"))
+          (push `(then ,(trim (subseq trimmed 5))) current-step))
          
          ;; Otherwise clause
-         ((and current-step (starts-with trimmed "  Otherwise:"))
-          (push `(otherwise ,(trim (subseq trimmed 13))) current-step))
+         ((and current-step indented (starts-with trimmed "Otherwise:"))
+          (push `(otherwise ,(trim (subseq trimmed 10))) current-step))
          
          ;; If conditional
-         ((and current-step (starts-with trimmed "  If"))
-          (let ((cond-str (trim (subseq trimmed 5))))
+         ((and current-step indented (starts-with trimmed "If"))
+          (let ((cond-str (trim (subseq trimmed 2))))
             (push `(if ,cond-str) current-step)))
          
          ;; End section
          ((starts-with trimmed "End:")
+          ;; Finish previous step if any
+          (when current-step
+            (push (nreverse current-step) ast))
           (setf current-section :end)
-          (push `(end (return ,(trim (subseq trimmed 4))) (because "computation complete")) ast)))))
+          (setf current-step nil)
+          (let* ((end-content (trim (subseq trimmed 4)))
+                 (return-value (if (starts-with (string-upcase end-content) "RETURN")
+                                   (trim (subseq end-content 6))
+                                   end-content)))
+            (push `(end (return ,return-value) (because "computation complete")) ast))))))
+    ;; Finish last step if any
+    (when current-step
+      (push (nreverse current-step) ast))
     (nreverse ast)))
 
 ;;; ============================================================================
@@ -118,8 +137,9 @@
     (handler-case
         (let ((trimmed (trim expr)))
           (cond
-           ;; Variable lookup
-           ((gethash trimmed env) (gethash trimmed env))
+           ;; Variable lookup (use multiple-value-bind to check existence)
+           ((multiple-value-bind (value exists) (gethash trimmed env)
+              (when exists value)))
            
            ;; Try to parse as number
            ((every #'digit-char-p trimmed) (parse-integer trimmed))
@@ -144,9 +164,13 @@
            
            ;; Assignment: n becomes n - 1
            ((search "becomes" trimmed)
-            (let ((parts (split-string trimmed #\Space)))
-              (setf (gethash (trim (car parts)) env)
-                    (eval-expr (trim (fourth parts)) env))))
+            (let* ((parts (split-string trimmed #\Space))
+                   (becomes-pos (position "becomes" parts :test #'string=))
+                   (var-name (trim (car parts)))
+                   (expr-parts (subseq parts (1+ becomes-pos)))
+                   (expr (format nil "~{~A~^ ~}" expr-parts)))
+              (setf (gethash var-name env)
+                    (eval-expr expr env))))
            
            ;; Arithmetic: result * n
            ((search "*" trimmed)
@@ -222,12 +246,13 @@
     (loop while (< pc (length steps)) do
           (let* ((step (nth pc steps))
                  (step-num (cadr step))
-                 (action (cadr (assoc 'action (cdr step))))
-                 (because (cadr (assoc 'because (cdr step))))
-                 (then-clause (cadr (assoc 'then (cdr step))))
-                 (effects (mapcar #'cadr (remove-if-not (lambda (x) (eq (car x) 'effect)) (cdr step))))
-                 (if-node (assoc 'if (cdr step)))
-                 (otherwise-clause (cadr (assoc 'otherwise (cdr step)))))
+                 (step-body (cddr step))
+                 (action (cadr (assoc 'action step-body)))
+                 (because (cadr (assoc 'because step-body)))
+                 (then-clause (cadr (assoc 'then step-body)))
+                 (effects (mapcar #'cadr (remove-if-not (lambda (x) (eq (car x) 'effect)) step-body)))
+                 (if-node (assoc 'if step-body))
+                 (otherwise-clause (cadr (assoc 'otherwise step-body))))
             
             (when verbose
               (format t "~%Step ~A: ~A~%" step-num action)
@@ -253,8 +278,9 @@
                   (if (eval-expr cond-expr env)
                       ;; Condition true - handle repeat
                       (if (and then-clause (search "repeat from Step" then-clause))
-                          (let ((target-step (parse-integer (subseq then-clause (search "Step " then-clause) 
-                                                                    (+ 5 (search "Step " then-clause))))))
+                          (let* ((step-pos (search "Step " then-clause))
+                                 (num-start (+ step-pos 5))
+                                 (target-step (parse-integer then-clause :start num-start :junk-allowed t)))
                             (when verbose
                               (format t "  -> Jumping to Step ~A~%" target-step))
                             (setf pc (1- target-step)))
@@ -271,12 +297,14 @@
     
     ;; Phase 3: Handle End
     (when result
-      (let ((return-expr (cadadr result)))
+      (let* ((end-node result)
+             (return-expr (cadr (assoc 'return (cdr end-node))))
+             (because-clause (cadr (assoc 'because (cdr end-node)))))
         (setf result (eval-expr return-expr env))
         (when verbose
           (format t "~%=== End ===~%")
           (format t "Return: ~A~%" result)
-          (format t "Because: ~A~%" (cadr (assoc 'because (cdr result)))))))
+          (format t "Because: ~A~%" because-clause))))
     
     result))
 
