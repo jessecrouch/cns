@@ -1,0 +1,26 @@
+Story: Find the greatest common divisor using Euclidean algorithm
+
+Given:
+  a: Integer = 48
+  b: Integer = 18
+  temp: Integer = 0
+
+Step 1 → If b > 0
+  Because: the algorithm continues until b becomes zero
+  Then: temp becomes b
+  Otherwise: go to End
+
+Step 2 → b becomes a
+  Because: we need to compute the remainder in next step
+
+Step 3 → If b > 0
+  Because: avoid division by zero
+  Then: a becomes temp
+  Otherwise: go to End
+
+Step 4 → If b > 0
+  Because: check if we should continue
+  Then: repeat from Step 1
+  Otherwise: go to End
+
+End: Return a

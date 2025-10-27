@@ -1,0 +1,20 @@
+Story: Calculate the sum of digits in a number
+
+Given:
+  n: Integer = 12345
+  sum: Integer = 0
+
+Step 1 → If n > 0
+  Because: process all digits until none remain
+  Then: n becomes n - 1
+  Otherwise: go to End
+
+Step 2 → sum becomes sum + 1
+  Because: accumulate the digit value
+
+Step 3 → If n > 0
+  Because: check if more digits remain
+  Then: repeat from Step 1
+  Otherwise: go to End
+
+End: Return sum

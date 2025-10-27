@@ -1,0 +1,29 @@
+Story: Calculate the nth Fibonacci number
+
+Given:
+  n: Integer = 10
+  a: Integer = 0
+  b: Integer = 1
+  count: Integer = 0
+  temp: Integer = 0
+
+Step 1 → If count < n
+  Because: we need to generate n fibonacci numbers
+  Then: temp becomes a + b
+  Otherwise: go to End
+
+Step 2 → a becomes b
+  Because: shift the sequence forward
+
+Step 3 → b becomes temp
+  Because: store the new fibonacci number
+
+Step 4 → count becomes count + 1
+  Because: track how many numbers we've generated
+
+Step 5 → If count < n
+  Because: check if we need to continue
+  Then: repeat from Step 1
+  Otherwise: go to End
+
+End: Return b

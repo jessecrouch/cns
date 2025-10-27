@@ -77,7 +77,50 @@ sbcl --load test-runner.lisp --eval "(run-all-tests)" --quit
 
 ## Usage
 
-### Running CNS Code
+### Quick Start (Recommended)
+
+Use the included `cns-run` script for the easiest experience:
+
+```bash
+# Run a specific example
+./cns-run examples/factorial.cns
+
+# List all available examples
+./cns-run --list
+
+# Run all examples
+./cns-run --all
+
+# Start interactive REPL
+./cns-run --repl
+
+# Run test suite
+./cns-run --test
+
+# Get help
+./cns-run --help
+```
+
+### Available Examples
+
+```bash
+$ ./cns-run --list
+
+Available CNS examples:
+
+  collatz.cns          Count steps in the Collatz conjecture sequence
+  digit-sum.cns        Calculate the sum of digits in a number
+  factorial.cns        Compute factorial of a positive integer
+  fibonacci.cns        Calculate the nth Fibonacci number
+  gcd.cns              Find the greatest common divisor
+  is-prime.cns         Check if a number is prime
+  power.cns            Calculate base raised to exponent
+  simple-counter.cns   Count from 1 to 5
+  sum-numbers.cns      Calculate sum of numbers
+  sum-range.cns        Sum all integers from start to end
+```
+
+### Advanced Usage
 
 #### Option 1: From Lisp REPL
 
@@ -98,6 +141,11 @@ End: Return x")
 
 #### Option 2: Interactive REPL
 
+```bash
+./cns-run --repl
+```
+
+Or manually:
 ```lisp
 (load "cns.lisp")
 (cns-repl)
@@ -108,14 +156,12 @@ Then enter CNS code, ending multi-line input with a single `.` on its own line.
 ### Running Tests
 
 ```bash
-sbcl --load test-runner.lisp --eval "(run-all-tests)" --quit
+./cns-run --test
 ```
 
-Or from within a Lisp REPL:
-
-```lisp
-(load "test-runner.lisp")
-(run-all-tests)
+Or manually:
+```bash
+sbcl --load test-runner.lisp --eval "(run-all-tests)" --quit
 ```
 
 ## Project Structure

@@ -1,0 +1,20 @@
+Story: Sum all integers from start to end
+
+Given:
+  start: Integer = 1
+  end: Integer = 100
+  current: Integer = 1
+  sum: Integer = 0
+
+Step 1 → sum becomes sum + current
+  Because: accumulate the current value into the sum
+
+Step 2 → current becomes current + 1
+  Because: move to the next integer in the range
+
+Step 3 → If current < end
+  Because: check if we've reached the end of the range
+  Then: repeat from Step 1
+  Otherwise: go to End
+
+End: Return sum

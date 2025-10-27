@@ -1,0 +1,22 @@
+Story: Calculate base raised to the power of exponent
+
+Given:
+  base: Integer = 2
+  exponent: Integer = 8
+  result: Integer = 1
+  counter: Integer = 0
+
+Step 1 → If counter < exponent
+  Because: we need to multiply base by itself exponent times
+  Then: result becomes result * base
+  Otherwise: go to End
+
+Step 2 → counter becomes counter + 1
+  Because: track how many multiplications we've done
+
+Step 3 → If counter < exponent
+  Because: check if more multiplications are needed
+  Then: repeat from Step 1
+  Otherwise: go to End
+
+End: Return result
