@@ -1,0 +1,26 @@
+Story: Test boolean logic and comparison operators
+
+Given:
+  age: Integer = 25
+  has_license: Integer = 1
+  score: Integer = 85
+  result: String = "unknown"
+
+Step 1 → If age ≥ 18 AND has_license = 1
+  Because: check if person can drive
+  Then: result becomes "can drive"
+  Effect: Print "Person can drive!"
+  Otherwise: go to Step 2
+
+Step 2 → If score ≥ 90
+  Because: check for A grade
+  Then: result becomes "grade A"
+  Effect: Print "Grade: A"
+  Otherwise: go to Step 3
+
+Step 3 → If score ≥ 80
+  Because: check for B grade  
+  Then: result becomes "grade B"
+  Effect: Print "Grade: B"
+
+End: Return result

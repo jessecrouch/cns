@@ -142,8 +142,22 @@
            ((multiple-value-bind (value exists) (gethash trimmed env)
               (when exists value)))
            
-           ;; Try to parse as number
-           ((every #'digit-char-p trimmed) (parse-integer trimmed))
+            ;; String literal: "hello"
+            ((and (> (length trimmed) 1)
+                  (char= (char trimmed 0) #\")
+                  (char= (char trimmed (1- (length trimmed))) #\"))
+             (subseq trimmed 1 (1- (length trimmed))))
+            
+            ;; List literal: [1, 2, 3]
+            ((and (> (length trimmed) 1)
+                  (char= (char trimmed 0) #\[)
+                  (char= (char trimmed (1- (length trimmed))) #\]))
+             (let* ((content (subseq trimmed 1 (1- (length trimmed))))
+                    (items (split-string content #\,)))
+               (mapcar (lambda (item) (eval-expr (trim item) env)) items)))
+            
+            ;; Try to parse as number
+            ((every #'digit-char-p trimmed) (parse-integer trimmed))
            
            ;; Comparison: n > 1
            ((position #\> trimmed)
@@ -157,14 +171,52 @@
               (< (eval-expr (trim (car parts)) env)
                  (eval-expr (trim (cadr parts)) env))))
            
-           ;; Comparison: n = 1
-           ((position #\= trimmed)
-            (let ((parts (split-string trimmed #\=)))
-              (= (eval-expr (trim (car parts)) env)
-                 (eval-expr (trim (cadr parts)) env))))
+            ;; Comparison: n ≠ 1 (not equal)
+            ((search "≠" trimmed)
+             (let ((parts (split-string trimmed #\≠)))
+               (/= (eval-expr (trim (car parts)) env)
+                   (eval-expr (trim (cadr parts)) env))))
+            
+            ;; Comparison: n ≤ 1 (less than or equal)
+            ((search "≤" trimmed)
+             (let ((parts (split-string trimmed #\≤)))
+               (<= (eval-expr (trim (car parts)) env)
+                   (eval-expr (trim (cadr parts)) env))))
+            
+            ;; Comparison: n ≥ 1 (greater than or equal)
+            ((search "≥" trimmed)
+             (let ((parts (split-string trimmed #\≥)))
+               (>= (eval-expr (trim (car parts)) env)
+                   (eval-expr (trim (cadr parts)) env))))
+            
+            ;; Comparison: n = 1 (must come after ≠, ≤, ≥)
+            ((position #\= trimmed)
+             (let ((parts (split-string trimmed #\=)))
+               (= (eval-expr (trim (car parts)) env)
+                  (eval-expr (trim (cadr parts)) env))))
            
-           ;; Assignment: n becomes n - 1
-           ((search "becomes" trimmed)
+            ;; Boolean: NOT expression
+            ((starts-with (string-upcase trimmed) "NOT ")
+             (not (eval-expr (trim (subseq trimmed 4)) env)))
+            
+            ;; Boolean: a AND b
+            ((search " AND " (string-upcase trimmed))
+             (let* ((pos (search " AND " (string-upcase trimmed)))
+                    (left (subseq trimmed 0 pos))
+                    (right (subseq trimmed (+ pos 5))))
+               (and (eval-expr (trim left) env)
+                    (eval-expr (trim right) env))))
+            
+            ;; Boolean: a OR b
+            ((search " OR " (string-upcase trimmed))
+             (let* ((pos (search " OR " (string-upcase trimmed)))
+                    (left (subseq trimmed 0 pos))
+                    (right (subseq trimmed (+ pos 4))))
+               (or (eval-expr (trim left) env)
+                   (eval-expr (trim right) env))))
+            
+            ;; Assignment: n becomes n - 1
+            ((search "becomes" trimmed)
             (let* ((parts (split-string trimmed #\Space))
                    (becomes-pos (position "becomes" parts :test #'string=))
                    (var-name (trim (car parts)))
@@ -203,23 +255,128 @@
                (mod (eval-expr (trim (car parts)) env)
                     (eval-expr (trim (cadr parts)) env))))
             
+            ;; List operations: length of list
+            ((starts-with (string-upcase trimmed) "LENGTH OF ")
+             (let ((var-name (trim (subseq trimmed 10))))
+               (length (gethash var-name env))))
+            
+            ;; List operations: get item at index (0-based)
+            ((search " AT " (string-upcase trimmed))
+             (let* ((at-pos (search " AT " (string-upcase trimmed)))
+                    (list-expr (trim (subseq trimmed 0 at-pos)))
+                    (index-expr (trim (subseq trimmed (+ at-pos 4))))
+                    (list-val (eval-expr list-expr env))
+                    (index (eval-expr index-expr env)))
+               (nth index list-val)))
+            
             ;; Action: Multiply result by n
-           ((starts-with (string-upcase trimmed) "MULTIPLY")
+            ((starts-with (string-upcase trimmed) "MULTIPLY")
             (let ((parts (split-string trimmed #\Space)))
               (setf (gethash (trim (cadr parts)) env)
                     (* (gethash (trim (cadr parts)) env)
                        (gethash (trim (fourth parts)) env)))))
            
-            ;; Default: try to read as Lisp expression
-            (t (read-from-string trimmed))))
-       (error (e) 
-         (if context
-             (format t "ERROR in ~A: Could not evaluate '~A' - ~A~%" context expr e)
-             (format t "ERROR: Could not evaluate '~A' - ~A~%" expr e))
+            ;; Boolean literals
+            ((string-equal trimmed "TRUE") t)
+            ((string-equal trimmed "FALSE") nil)
+            ((string-equal trimmed "T") t)
+            ((string-equal trimmed "NIL") nil)
+            
+            ;; Default: try variable lookup one more time, else error
+            (t (or (gethash trimmed env)
+                   (error "Unknown variable or expression: ~A" trimmed)))))
+       (error (e)
+         ;; Silently return nil for errors - don't spam user
+         ;; Only show errors in non-context calls
+         (unless context
+           (format t "ERROR: Could not evaluate '~A' - ~A~%" expr e))
          nil)))
    
    ;; Fallback
    (t expr)))
+
+;;; ============================================================================
+;;; Effect System - Handle side effects
+;;; ============================================================================
+
+(defun substitute-vars (text env)
+  "Replace {varname} with variable values in text."
+  (let ((result text))
+    (loop for start = (position #\{ result)
+          while start
+          do (let ((end (position #\} result :start start)))
+               (when end
+                 (let* ((var-name (subseq result (1+ start) end))
+                        (value (gethash var-name env)))
+                   (setf result (concatenate 'string
+                                            (subseq result 0 start)
+                                            (format nil "~A" value)
+                                            (subseq result (1+ end))))))))
+    result))
+
+(defun apply-effect (effect-str env verbose)
+  "Execute an effect (Print, Write, etc.)."
+  (let ((trimmed (trim effect-str)))
+    (cond
+     ;; Print "text" or Print {var} or Print "text {var}"
+     ((starts-with (string-upcase trimmed) "PRINT ")
+      (let* ((msg (trim (subseq trimmed 6)))
+             ;; Remove quotes if present
+             (unquoted (if (and (> (length msg) 1)
+                               (char= (char msg 0) #\")
+                               (char= (char msg (1- (length msg))) #\"))
+                          (subseq msg 1 (1- (length msg)))
+                          msg))
+             (expanded (substitute-vars unquoted env)))
+        (format t ">>> ~A~%" expanded)
+        (when verbose
+          (format t "  Effect: Print~%"))))
+     
+     ;; Write to file
+     ((starts-with (string-upcase trimmed) "WRITE ")
+      (let* ((rest (trim (subseq trimmed 6)))
+             (to-pos (search " TO " (string-upcase rest))))
+        (when to-pos
+          (let* ((content (trim (subseq rest 0 to-pos)))
+                 ;; Remove quotes if present
+                 (unquoted (if (and (> (length content) 1)
+                                   (char= (char content 0) #\")
+                                   (char= (char content (1- (length content))) #\"))
+                              (subseq content 1 (1- (length content)))
+                              content))
+                 (filepath (trim (subseq rest (+ to-pos 4))))
+                 (expanded (substitute-vars unquoted env)))
+            (with-open-file (stream filepath :direction :output 
+                                   :if-exists :supersede
+                                   :if-does-not-exist :create)
+              (write-line expanded stream))
+            (when verbose
+              (format t "  Effect: Write to ~A~%" filepath))))))
+     
+     ;; Append to file
+     ((starts-with (string-upcase trimmed) "APPEND ")
+      (let* ((rest (trim (subseq trimmed 7)))
+             (to-pos (search " TO " (string-upcase rest))))
+        (when to-pos
+          (let* ((content (trim (subseq rest 0 to-pos)))
+                 ;; Remove quotes if present
+                 (unquoted (if (and (> (length content) 1)
+                                   (char= (char content 0) #\")
+                                   (char= (char content (1- (length content))) #\"))
+                              (subseq content 1 (1- (length content)))
+                              content))
+                 (filepath (trim (subseq rest (+ to-pos 4))))
+                 (expanded (substitute-vars unquoted env)))
+            (with-open-file (stream filepath :direction :output 
+                                   :if-exists :append
+                                   :if-does-not-exist :create)
+              (write-line expanded stream))
+            (when verbose
+              (format t "  Effect: Append to ~A~%" filepath))))))
+     
+     ;; Default: just display
+     (t (when verbose
+          (format t "  Effect: ~A~%" effect-str))))))
 
 ;;; ============================================================================
 ;;; Interpreter: Execute the AST
@@ -246,7 +403,7 @@
            (let ((name (cadr var))
                  (type (caddr var))
                  (val (cadddr var)))
-             (setf (gethash name env) (if val (read-from-string val) nil))
+             (setf (gethash name env) (if val (eval-expr val env) nil))
              (when verbose
                (format t "  ~A: ~A = ~A~%" name type (gethash name env))))))
         
@@ -264,7 +421,7 @@
                   (step-body (cddr step))
                   (action (cadr (assoc 'action step-body)))
                   (because (cadr (assoc 'because step-body)))
-                  (then-clause (cadr (assoc 'then step-body)))
+                  (then-clauses (mapcar #'cadr (remove-if-not (lambda (x) (eq (car x) 'then)) step-body)))
                   (effects (mapcar #'cadr (remove-if-not (lambda (x) (eq (car x) 'effect)) step-body)))
                   (if-node (assoc 'if step-body))
                   (otherwise-clause (cadr (assoc 'otherwise step-body))))
@@ -281,16 +438,15 @@
              (when action
                (eval-expr action env (format nil "Step ~A action" step-num)))
              
-             ;; Execute Then clause if present
-             (when then-clause
+             ;; Execute Then clauses if present (can be multiple)
+             (dolist (then-clause then-clauses)
                (eval-expr then-clause env (format nil "Step ~A Then clause" step-num))
                (when verbose
                  (format t "  Then: ~A~%" then-clause)))
              
-             ;; Apply effects (mock for now)
-             (dolist (eff effects)
-               (when verbose
-                 (format t "  Effect: ~A~%" eff)))
+              ;; Apply effects (real implementation)
+              (dolist (eff effects)
+                (apply-effect eff env verbose))
              
              ;; Display current variable state
              (when verbose
@@ -308,22 +464,30 @@
              (if if-node
                  (let ((cond-expr (cadr if-node)))
                    (if (eval-expr cond-expr env (format nil "Step ~A condition" step-num))
-                      ;; Condition true - handle repeat
-                      (if (and then-clause (search "repeat from Step" then-clause))
-                          (let* ((step-pos (search "Step " then-clause))
-                                 (num-start (+ step-pos 5))
-                                 (target-step (parse-integer then-clause :start num-start :junk-allowed t)))
-                            (when verbose
-                              (format t "  -> Jumping to Step ~A~%" target-step))
-                            (setf pc (1- target-step)))
-                          (incf pc))
-                      ;; Condition false - handle otherwise
-                      (if (and otherwise-clause (search "go to End" otherwise-clause))
-                          (progn
-                            (when verbose
-                              (format t "  -> Going to End~%"))
-                            (return))
-                          (incf pc))))
+                      ;; Condition true - check last Then clause for repeat
+                      (let ((last-then (car (last then-clauses))))
+                        (if (and last-then (search "repeat from Step" last-then))
+                            (let* ((step-pos (search "Step " last-then))
+                                   (num-start (+ step-pos 5))
+                                   (target-step (parse-integer last-then :start num-start :junk-allowed t)))
+                              (when verbose
+                                (format t "  -> Jumping to Step ~A~%" target-step))
+                              (setf pc (1- target-step)))
+                            (incf pc)))
+                     ;; Condition false - handle otherwise
+                     (cond
+                      ((and otherwise-clause (search "go to End" otherwise-clause))
+                       (when verbose
+                         (format t "  -> Going to End~%"))
+                       (return))
+                      ((and otherwise-clause (search "go to Step" otherwise-clause))
+                       (let* ((step-pos (search "Step " otherwise-clause))
+                              (num-start (+ step-pos 5))
+                              (target-step (parse-integer otherwise-clause :start num-start :junk-allowed t)))
+                         (when verbose
+                           (format t "  -> Going to Step ~A~%"target-step))
+                         (setf pc (1- target-step))))
+                      (t (incf pc)))))
                 ;; No conditional, just advance
                 (incf pc))))
     

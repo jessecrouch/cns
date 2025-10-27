@@ -1,0 +1,20 @@
+Story: Demonstrate file I/O operations
+
+Given:
+  filename: String = "/tmp/cns-test.txt"
+  count: Integer = 42
+  message: String = "Hello from CNS"
+
+Step 1 → Write to file
+  Because: we want to save data
+  Effect: Write "{message} - Count: {count}" to /tmp/cns-test.txt
+
+Step 2 → Append more data
+  Because: demonstrate appending
+  Effect: Append "Second line: {count}" to /tmp/cns-test.txt
+
+Step 3 → Print confirmation
+  Because: let user know we're done
+  Effect: Print "File written successfully!"
+
+End: Return count

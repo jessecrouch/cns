@@ -1,0 +1,16 @@
+Story: Demonstrate Print effect with variable substitution
+
+Given:
+  name: String = "CNS"
+  version: Integer = 1
+  count: Integer = 42
+
+Step 1 → Print greeting
+  Because: we want to show output to the user
+  Effect: Print "Hello from {name} version {version}!"
+
+Step 2 → Print the count
+  Because: demonstrate variable interpolation
+  Effect: Print "The count is: {count}"
+
+End: Return count
