@@ -1,0 +1,15 @@
+Story: A simple greeting program
+
+Given:
+  greetings: Integer = 3
+  count: Integer = 0
+
+Step 1 → count becomes count + 1
+  Because: we want to count our greetings
+
+Step 2 → If count < greetings
+  Because: we should greet multiple times
+  Then: repeat from Step 1
+  Otherwise: go to End
+
+End: Return count
