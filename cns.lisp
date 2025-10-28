@@ -35,6 +35,48 @@
   "Check if string is empty after trim."
   (zerop (length (trim str))))
 
+(defun extract-quoted-string (str)
+  "Extract a quoted string from str, handling escape sequences.
+   Returns (values extracted-string rest-of-string).
+   Supports: \\n \\r \\t \\\" \\\\
+   Example: '\"Hello\\nWorld\" rest' -> 'Hello
+World' and ' rest'"
+  (let ((start (position #\" str)))
+    (when start
+      (let ((result (make-array 0 :element-type 'character :fill-pointer 0 :adjustable t))
+            (i (1+ start))
+            (escaped nil))
+        (loop while (< i (length str)) do
+              (let ((ch (char str i)))
+                 (cond
+                  (escaped
+                   (case ch
+                     (#\n (vector-push-extend #\Newline result))
+                     (#\r (vector-push-extend #\Return result))
+                     (#\t (vector-push-extend #\Tab result))
+                     (#\" (vector-push-extend #\" result))
+                     (#\\ (vector-push-extend #\\ result))
+                     (#\{ 
+                      ;; Preserve as placeholder for substitute-vars
+                      (vector-push-extend #\\ result)
+                      (vector-push-extend #\{ result))
+                     (#\} 
+                      (vector-push-extend #\\ result)
+                      (vector-push-extend #\} result))
+                     (t (vector-push-extend ch result)))
+                   (setf escaped nil))
+                 ((char= ch #\\)
+                  (setf escaped t))
+                 ((char= ch #\")
+                  ;; End of string
+                  (return-from extract-quoted-string
+                    (values result (subseq str (1+ i)))))
+                 (t
+                  (vector-push-extend ch result)))
+                (incf i)))
+        ;; If we get here, string was not closed
+        (values result "")))))
+
 (defun parse-http-request (request-string)
   "Parse HTTP request string into structured data.
    Example: 'GET /path HTTP/1.1' -> (:method 'GET' :url '/path' :version 'HTTP/1.1')"
@@ -89,7 +131,7 @@
 (defun socket-send (stream data)
   "Send data through the socket stream."
   (write-string data stream)
-  (force-output stream))
+  (finish-output stream))
 
 (defun socket-receive (stream &key (timeout 5))
   "Receive data from socket stream with optional timeout.
@@ -157,11 +199,18 @@
                                 (when bracket-end
                                   (subseq type-and-value (1+ bracket-start) bracket-end)))
                               nil))
-                      (type-val-parts (split-string actual-type-val #\=))
-                      (type (trim (car type-val-parts)))
-                      (val (if (cdr type-val-parts) (trim (cadr type-val-parts)) nil)))
-                 ;; Append to the given node (which is at (car ast))
-                 (setf (cdar ast) (append (cdar ast) (list `(var ,name ,type ,val ,tag))))))))
+                        (type-val-parts (split-string actual-type-val #\=))
+                        (type (trim (car type-val-parts)))
+                        (val (if (cdr type-val-parts)
+                                 (let ((val-str (trim (cadr type-val-parts))))
+                                   ;; Check if value is a quoted string
+                                   (if (and (> (length val-str) 0) (char= (char val-str 0) #\"))
+                                       ;; Extract and re-wrap with quotes to preserve string literal
+                                       (format nil "\"~A\"" (extract-quoted-string val-str))
+                                       val-str))
+                                 nil)))
+                  ;; Append to the given node (which is at (car ast))
+                  (setf (cdar ast) (append (cdar ast) (list `(var ,name ,type ,val ,tag))))))))
          
          ;; Step with arrow
          ((starts-with trimmed "Step")
@@ -181,9 +230,11 @@
          ((and current-step indented (starts-with trimmed "Because:"))
           (push `(because ,(trim (subseq trimmed 8))) current-step))
          
-         ;; Effect declaration
-         ((and current-step indented (starts-with trimmed "Effect:"))
-          (push `(effect ,(trim (subseq trimmed 7))) current-step))
+          ;; Effect declaration
+          ((and current-step indented (starts-with trimmed "Effect:"))
+           (let ((effect-str (trim (subseq trimmed 7))))
+              ;; Keep effect string as-is - let apply-effect handle quote extraction
+              (push `(effect ,effect-str) current-step)))
          
          ;; Then clause (state transformation)
          ((and current-step indented (starts-with trimmed "Then:"))
@@ -213,9 +264,10 @@
             ((starts-with trimmed "Return")
              (let ((return-value (trim (subseq trimmed 6))))
                (setf (cdar ast) (append (cdar ast) (list `(return ,return-value))))))
-            ((starts-with trimmed "Effect:")
-             (let ((effect-str (trim (subseq trimmed 7))))
-               (setf (cdar ast) (append (cdar ast) (list `(effect ,effect-str))))))
+              ((starts-with trimmed "Effect:")
+               (let ((effect-str (trim (subseq trimmed 7))))
+                  ;; Keep as-is - apply-effect will handle quote extraction
+                  (setf (cdar ast) (append (cdar ast) (list `(effect ,effect-str))))))
             ((starts-with trimmed "Because:")
              (let ((because-str (trim (subseq trimmed 8))))
                (setf (cdar ast) (append (cdar ast) (list `(because ,because-str))))))))
@@ -248,20 +300,20 @@
    ;; Already a number
    ((numberp expr) expr)
    
-   ;; String expression - try to parse
-   ((stringp expr)
-    (handler-case
-        (let ((trimmed (trim expr)))
-          (cond
-           ;; Variable lookup (use multiple-value-bind to check existence)
-           ((multiple-value-bind (value exists) (gethash trimmed env)
-              (when exists value)))
-           
-            ;; String literal: "hello"
-            ((and (> (length trimmed) 1)
-                  (char= (char trimmed 0) #\")
-                  (char= (char trimmed (1- (length trimmed))) #\"))
-             (subseq trimmed 1 (1- (length trimmed))))
+    ;; String expression - try to parse
+    ((stringp expr)
+     (handler-case
+         (let ((trimmed (trim expr)))
+           (cond
+             ;; String literal: "hello" (check BEFORE variable lookup!)
+             ((and (> (length trimmed) 1)
+                   (char= (char trimmed 0) #\")
+                   (char= (char trimmed (1- (length trimmed))) #\"))
+              (subseq trimmed 1 (1- (length trimmed))))
+            
+            ;; Variable lookup (use multiple-value-bind to check existence)
+            ((multiple-value-bind (value exists) (gethash trimmed env)
+               (when exists value)))
             
             ;; List literal: [1, 2, 3]
             ((and (> (length trimmed) 1)
@@ -271,8 +323,14 @@
                     (items (split-string content #\,)))
                (mapcar (lambda (item) (eval-expr (trim item) env)) items)))
             
-            ;; Try to parse as number
-            ((every #'digit-char-p trimmed) (parse-integer trimmed))
+             ;; Try to parse as number (handles negative numbers)
+             ((and (> (length trimmed) 0)
+                   (or (digit-char-p (char trimmed 0))
+                       (and (char= (char trimmed 0) #\-)
+                            (> (length trimmed) 1))))
+              (handler-case
+                  (parse-integer trimmed)
+                (error () nil)))
            
            ;; Comparison: n > 1
            ((position #\> trimmed)
@@ -463,9 +521,26 @@
 ;;; Effect System - Handle side effects
 ;;; ============================================================================
 
+(defun search-replace (string search replacement)
+  "Replace all occurrences of search with replacement in string."
+  (let ((result string)
+        (search-len (length search)))
+    (loop for pos = (search search result)
+          while pos
+          do (setf result (concatenate 'string
+                                      (subseq result 0 pos)
+                                      replacement
+                                      (subseq result (+ pos search-len)))))
+    result))
+
 (defun substitute-vars (text env)
-  "Replace {varname} with variable values in text."
+  "Replace {varname} with variable values in text. Supports \\{ and \\} for literal braces."
   (let ((result text))
+    ;; First pass: replace escaped braces with placeholders
+    (setf result (search-replace result "\\{" "<<<LBRACE>>>"))
+    (setf result (search-replace result "\\}" "<<<RBRACE>>>"))
+    
+    ;; Second pass: substitute variables
     (loop for start = (position #\{ result)
           while start
           do (let ((end (position #\} result :start start)))
@@ -476,6 +551,10 @@
                                             (subseq result 0 start)
                                             (format nil "~A" value)
                                             (subseq result (1+ end))))))))
+    
+    ;; Third pass: restore escaped braces
+    (setf result (search-replace result "<<<LBRACE>>>" "{"))
+    (setf result (search-replace result "<<<RBRACE>>>" "}"))
     result))
 
 (defun apply-effect (effect-str env verbose)
@@ -610,21 +689,23 @@
        (when verbose
          (format t "  Effect: Network write (simulated)~%")))
       
-      ;; Socket: Send response (REAL implementation)
-      ((starts-with (string-upcase trimmed) "SEND ")
-       (let* ((rest (trim (subseq trimmed 5)))
-              (to-pos (search " TO " (string-upcase rest))))
-         (when to-pos
-           (let* ((content (trim (subseq rest 0 to-pos)))
-                  ;; Remove quotes if present
-                  (unquoted (if (and (> (length content) 1)
-                                    (char= (char content 0) #\")
-                                    (char= (char content (1- (length content))) #\"))
-                               (subseq content 1 (1- (length content)))
-                               content))
-                  (target (trim (subseq rest (+ to-pos 4))))
-                  (expanded (substitute-vars unquoted env))
-                  (stream (gethash "client_stream" env)))
+       ;; Socket: Send response (REAL implementation)
+       ((starts-with (string-upcase trimmed) "SEND ")
+        (let* ((rest (trim (subseq trimmed 5))))
+           ;; First, extract the quoted string if present
+           (multiple-value-bind (content after-content)
+               (if (and (> (length rest) 0) (char= (char rest 0) #\"))
+                   (extract-quoted-string rest)
+                   (values rest ""))
+            ;; Now find " TO " in the remaining part
+            (let* ((rest-after-quote (if (> (length after-content) 0)
+                                        after-content
+                                        rest))
+                   (to-pos (search " TO " (string-upcase rest-after-quote))))
+              (when to-pos
+                (let* ((target (trim (subseq rest-after-quote (+ to-pos 4))))
+                       (expanded (substitute-vars content env))
+                       (stream (gethash "client_stream" env)))
              (if stream
                  (handler-case
                      (progn
@@ -635,8 +716,8 @@
                    (error (e)
                      (when verbose
                        (format t "  Effect: Failed to send: ~A~%" e))))
-                 (when verbose
-                   (format t "  Effect: Send (no stream available)~%")))))))
+                  (when verbose
+                    (format t "  Effect: Send (no stream available)~%")))))))))
       
       ;; Socket: Close socket (REAL implementation)
       ((starts-with (string-upcase trimmed) "CLOSE SOCKET")
@@ -696,15 +777,24 @@
          (when verbose
            (format t "~%=== Executing Story: ~A ===~%" (cadr node))))
         
-        (given 
-         (when verbose (format t "~%Given:~%"))
-         (dolist (var (cdr node))
-           (let ((name (cadr var))
-                 (type (caddr var))
-                 (val (cadddr var)))
-             (setf (gethash name env) (if val (eval-expr val env) nil))
-             (when verbose
-               (format t "  ~A: ~A = ~A~%" name type (gethash name env))))))
+         (given 
+          (when verbose (format t "~%Given:~%"))
+          (dolist (var (cdr node))
+            (let ((name (cadr var))
+                  (type (caddr var))
+                  (val (cadddr var)))
+               ;; Parse value intelligently:
+              ;; - If it contains newlines, it's from extract-quoted-string -> keep as string
+              ;; - If it's a simple number, parse it
+              ;; - Otherwise evaluate it
+              (setf (gethash name env) 
+                    (if val 
+                        (if (and (stringp val) (position #\Newline val))
+                            val  ; Multiline string from extract-quoted-string
+                            (eval-expr val env))  ; Number or expression
+                        nil))
+              (when verbose
+                (format t "  ~A: ~A = ~A~%" name type (gethash name env))))))
         
         (step (push node steps))
         
@@ -772,29 +862,29 @@
                          ;; Execute all Then clauses for conditional
                          (dolist (then-clause then-clauses)
                            ;; Check if it's a control flow or assignment
-                           (cond
-                            ((search "repeat from Step" then-clause)
-                             ;; Handle later in control flow
-                             nil)
-                            ((search "go to Step" then-clause)
-                             ;; Handle later in control flow
-                             nil)
+                            (cond
+                             ((search "repeat from Step" then-clause :test #'char-equal)
+                              ;; Handle later in control flow
+                              nil)
+                             ((search "go to Step" then-clause :test #'char-equal)
+                              ;; Handle later in control flow
+                              nil)
                             (t
                              ;; Regular assignment or expression
                              (eval-expr then-clause env (format nil "Step ~A Then clause" step-num))
                              (when verbose
                                (format t "  Then: ~A~%" then-clause)))))
                          
-                         ;; Check last Then clause for control flow
-                         (let ((last-then (car (last then-clauses))))
-                           (if (and last-then (search "repeat from Step" last-then))
+                          ;; Check last Then clause for control flow
+                          (let ((last-then (car (last then-clauses))))
+                            (if (and last-then (search "repeat from Step" last-then :test #'char-equal))
                                (let* ((step-pos (search "Step " last-then))
                                       (num-start (+ step-pos 5))
                                       (target-step (parse-integer last-then :start num-start :junk-allowed t)))
                                  (when verbose
                                    (format t "  -> Jumping to Step ~A~%" target-step))
                                  (setf pc (1- target-step)))
-                               (if (and last-then (search "go to Step" last-then))
+                                (if (and last-then (search "go to Step" last-then :test #'char-equal))
                                    (let* ((step-pos (search "Step " last-then))
                                           (num-start (+ step-pos 5))
                                           (target-step (parse-integer last-then :start num-start :junk-allowed t)))
@@ -804,11 +894,11 @@
                                    (incf pc)))))
                      ;; Condition false - handle otherwise
                      (cond
-                      ((and otherwise-clause (search "go to End" otherwise-clause))
+                       ((and otherwise-clause (search "go to End" otherwise-clause :test #'char-equal))
                        (when verbose
                          (format t "  -> Going to End~%"))
                        (return))
-                      ((and otherwise-clause (search "go to Step" otherwise-clause))
+                       ((and otherwise-clause (search "go to Step" otherwise-clause :test #'char-equal))
                        (let* ((step-pos (search "Step " otherwise-clause))
                               (num-start (+ step-pos 5))
                               (target-step (parse-integer otherwise-clause :start num-start :junk-allowed t)))
