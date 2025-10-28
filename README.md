@@ -128,6 +128,13 @@ Available CNS examples:
     is-even.cns          Modulo operator for even/odd checking
     list-demo.cns        List operations (create, length, index)
     print-demo.cns       Print with variable interpolation
+  
+  Real-World Applications:
+    filter-numbers.cns   Filter list by threshold (data processing)
+    sales-report.cns     Generate quarterly sales report (file I/O)
+    simple-webserver.cns Basic HTTP server with socket operations
+    webserver-routing.cns Webserver with multiple routes and 404 handling
+    word-stats.cns       Analyze test scores with statistics
 ```
 
 ### Advanced Usage
@@ -219,11 +226,16 @@ cns/
 - ✅ File writing (`Effect: Write "data" to file.txt`)
 - ✅ File appending (`Effect: Append "data" to file.txt`)
 - ✅ Variable substitution in effects (`{varname}`)
+- ✅ Socket operations (`Create socket`, `Accept connection`, `Send`, `Close socket`)
+- ✅ Network effects (`Network read`, `Network write`)
+- ✅ Logging (`Effect: Log "message"`)
 
 **Control Flow:**
 - ✅ Conditional jumps to specific steps (`Otherwise: go to Step 5`)
 - ✅ Loop controls (`repeat from Step N`)
 - ✅ Direct step navigation
+- ✅ Error handling blocks (`Error:` section)
+- ✅ Automatic error recovery with error effects
 
 ### Planned Features
 
@@ -335,6 +347,22 @@ Effect: Append "Log entry: {message}" to log.txt
 **List Operations:**
 - `length of <list>` Get list size
 - `<list> at <index>` Get element at index (0-based)
+
+### Error Handling
+```cns
+Error:
+  Return <error-value>
+  Effect: <error-side-effect>
+  Because: <error-reasoning>
+
+Example:
+Error:
+  Return "Server error"
+  Effect: Log "Error in webserver"
+  Because: Handle unexpected failures gracefully
+```
+
+The Error: block is optional and executes if any step throws an error during execution.
 
 ### End Section
 ```cns

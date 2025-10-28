@@ -1,0 +1,62 @@
+Story: Run webserver with route simulation and connection tracking
+
+Given:
+  port: Integer = 8080 [network port]
+  server_socket: Socket [network listener]
+  request_url: String = "/" [requested URL]
+  response: String [response to send]
+  connection_count: Integer = 0 [track connections]
+  route_choice: Integer = 1 [simulated route selection]
+  
+Step 1 → Create server_socket on port
+  Effect: Create socket server_socket on 8080
+  Because: We need to listen for incoming HTTP connections
+  
+Step 2 → Accept connection on server_socket
+  Effect: Accept connection
+  Because: Wait for client request
+  Then: connection_count becomes connection_count + 1
+  Then: route_choice becomes connection_count % 4
+  
+Step 3 → Parse HTTP request
+  Effect: Network read
+  Because: Receive and understand client's HTTP request
+  
+Step 4 → If route_choice = 1
+  Then: response becomes "Welcome to CNS Webserver!"
+  Otherwise: go to Step 5
+  Because: Simulate root path request
+  
+Step 5 → If route_choice = 2
+  Then: response becomes "CNS - Causal Narrative Script"
+  Otherwise: go to Step 6
+  Because: Simulate about page request
+  
+Step 6 → If route_choice = 3
+  Then: response becomes "Server status: {connection_count} connections"
+  Otherwise: go to Step 7
+  Because: Simulate status page request
+  
+Step 7 → If route_choice = 0
+  Then: response becomes "404 Not Found"
+  Otherwise: go to Step 8
+  Because: Simulate 404 error
+  
+Step 8 → Send response to client
+  Effect: Send "HTTP/1.1 200 OK\n\n{response}" to client
+  Because: Return the response to the client
+  
+Step 9 → If connection_count < 5
+  Then: repeat from Step 2
+  Otherwise: go to End
+  Because: Handle up to 5 connections for this demo
+  
+Error:
+  Return "Server error"
+  Effect: Log "Error in webserver"
+  Because: Handle unexpected failures gracefully
+  
+End: Close server_socket
+  Effect: Close socket server_socket
+  Effect: Print "Webserver stopped after {connection_count} connections"
+  Because: Clean up network resources properly
