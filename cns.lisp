@@ -3,6 +3,9 @@
 ;;; CNS is a programming language optimized for LLM comprehension
 ;;; with explicit causality, narrative flow, and self-documenting structures.
 
+;;; Load socket support
+(require 'sb-bsd-sockets)
+
 ;;; ============================================================================
 ;;; Helper Functions
 ;;; ============================================================================
@@ -56,6 +59,60 @@
                (string-equal (cadr route) request-url))
       (return-from match-route (caddr route))))
   nil)
+
+;;; ============================================================================
+;;; Real Socket Support (using sb-bsd-sockets)
+;;; ============================================================================
+
+(defun create-server-socket (port &key (reuse-address t))
+  "Create and bind a TCP server socket to the given port.
+   Returns the socket object."
+  (let ((socket (make-instance 'sb-bsd-sockets:inet-socket
+                               :type :stream
+                               :protocol :tcp)))
+    (when reuse-address
+      (setf (sb-bsd-sockets:sockopt-reuse-address socket) t))
+    (sb-bsd-sockets:socket-bind socket #(0 0 0 0) port)
+    (sb-bsd-sockets:socket-listen socket 5)
+    socket))
+
+(defun accept-connection (server-socket)
+  "Accept a connection on the server socket.
+   Returns (values client-socket client-stream)."
+  (let ((client-socket (sb-bsd-sockets:socket-accept server-socket)))
+    (values client-socket
+            (sb-bsd-sockets:socket-make-stream client-socket
+                                               :input t
+                                               :output t
+                                               :element-type 'character))))
+
+(defun socket-send (stream data)
+  "Send data through the socket stream."
+  (write-string data stream)
+  (force-output stream))
+
+(defun socket-receive (stream &key (timeout 5))
+  "Receive data from socket stream with optional timeout.
+   Returns the received string or nil on timeout."
+  (handler-case
+      (let ((line (read-line stream nil nil)))
+        (when line
+          ;; Read full HTTP request (until blank line)
+          (with-output-to-string (result)
+            (write-line line result)
+            (loop for next-line = (read-line stream nil nil)
+                  while (and next-line (not (string= (trim next-line) "")))
+                  do (write-line next-line result)))))
+    (end-of-file () nil)
+    (error (e) 
+      (format *error-output* "Socket receive error: ~A~%" e)
+      nil)))
+
+(defun close-socket (socket)
+  "Close a socket."
+  (when socket
+    (ignore-errors
+      (sb-bsd-sockets:socket-close socket))))
 
 ;;; ============================================================================
 ;;; Parser: Convert CNS string to S-expression AST
@@ -481,7 +538,7 @@
             (when verbose
               (format t "  Effect: Append to ~A~%" filepath))))))
      
-      ;; Socket: Create socket
+      ;; Socket: Create socket (REAL implementation)
       ((starts-with (string-upcase trimmed) "CREATE SOCKET ")
        (let* ((rest (trim (subseq trimmed 14)))
               (on-pos (search " ON " (string-upcase rest))))
@@ -489,49 +546,125 @@
            (let* ((socket-name (trim (subseq rest 0 on-pos)))
                   (port-expr (trim (subseq rest (+ on-pos 4))))
                   (port (eval-expr port-expr env)))
-             ;; For now, store socket metadata (will need usocket later)
-             (setf (gethash socket-name env)
-                   (list :socket :port port :listening t))
-             (when verbose
-               (format t "  Effect: Created socket ~A on port ~A~%" socket-name port))))))
+             (handler-case
+                 (let ((socket (create-server-socket port)))
+                   ;; Store the actual socket object
+                   (setf (gethash socket-name env) socket)
+                   (when verbose
+                     (format t "  Effect: Created REAL socket ~A on port ~A~%" socket-name port)))
+               (error (e)
+                 (when verbose
+                   (format t "  Effect: Failed to create socket: ~A~%" e))))))))
       
       ;; Socket: Bind socket (part of socket creation)
       ((starts-with (string-upcase trimmed) "BIND SOCKET")
        (when verbose
          (format t "  Effect: Bind socket~%")))
       
-      ;; Socket: Accept connection
+      ;; Socket: Accept connection (REAL implementation)
       ((starts-with (string-upcase trimmed) "ACCEPT CONNECTION")
-       (when verbose
-         (format t "  Effect: Accept connection (simulated)~%")))
+       (let* ((rest (if (> (length trimmed) 17)
+                       (trim (subseq trimmed 17))
+                       ""))
+              (rest-upper (string-upcase rest))
+              (on-pos (when (> (length rest-upper) 0)
+                       (search "ON" rest-upper))))
+         (if on-pos
+             (let* ((socket-name (trim (subseq rest (+ on-pos 2))))  ; Skip "on"
+                    (server-socket (gethash socket-name env)))
+               (if server-socket
+                   (handler-case
+                       (multiple-value-bind (client-socket client-stream)
+                           (accept-connection server-socket)
+                         ;; Store both socket and stream
+                         (setf (gethash "client_socket" env) client-socket)
+                         (setf (gethash "client_stream" env) client-stream)
+                         (when verbose
+                           (format t "  Effect: Accepted REAL connection from client~%")))
+                     (error (e)
+                       (when verbose
+                         (format t "  Effect: Failed to accept connection: ~A~%" e))))
+                   (when verbose
+                     (format t "  Effect: Accept connection (socket '~A' not found)~%" socket-name))))
+             (when verbose
+               (format t "  Effect: Accept connection (no socket specified)~%")))))
       
-      ;; Socket: Network read
+      ;; Socket: Network read (REAL implementation)
       ((starts-with (string-upcase trimmed) "NETWORK READ")
-       (when verbose
-         (format t "  Effect: Network read (simulated)~%")))
+       (let ((stream (gethash "client_stream" env)))
+         (if stream
+             (handler-case
+                 (let ((data (socket-receive stream)))
+                   (setf (gethash "request_data" env) data)
+                   (when verbose
+                     (format t "  Effect: Read REAL network data (~A bytes)~%" 
+                             (if data (length data) 0))))
+               (error (e)
+                 (when verbose
+                   (format t "  Effect: Failed to read from network: ~A~%" e))))
+             (when verbose
+               (format t "  Effect: Network read (no stream available)~%")))))
       
       ;; Socket: Network write
       ((starts-with (string-upcase trimmed) "NETWORK WRITE")
        (when verbose
          (format t "  Effect: Network write (simulated)~%")))
       
-      ;; Socket: Send response
+      ;; Socket: Send response (REAL implementation)
       ((starts-with (string-upcase trimmed) "SEND ")
        (let* ((rest (trim (subseq trimmed 5)))
               (to-pos (search " TO " (string-upcase rest))))
          (when to-pos
            (let* ((content (trim (subseq rest 0 to-pos)))
+                  ;; Remove quotes if present
+                  (unquoted (if (and (> (length content) 1)
+                                    (char= (char content 0) #\")
+                                    (char= (char content (1- (length content))) #\"))
+                               (subseq content 1 (1- (length content)))
+                               content))
                   (target (trim (subseq rest (+ to-pos 4))))
-                  (expanded (substitute-vars content env)))
-             (when verbose
-               (format t "  Effect: Send ~A to ~A~%" expanded target))))))
+                  (expanded (substitute-vars unquoted env))
+                  (stream (gethash "client_stream" env)))
+             (if stream
+                 (handler-case
+                     (progn
+                       (socket-send stream expanded)
+                       (when verbose
+                         (format t "  Effect: Sent REAL data (~A bytes) to ~A~%" 
+                                 (length expanded) target)))
+                   (error (e)
+                     (when verbose
+                       (format t "  Effect: Failed to send: ~A~%" e))))
+                 (when verbose
+                   (format t "  Effect: Send (no stream available)~%")))))))
       
-      ;; Socket: Close socket
+      ;; Socket: Close socket (REAL implementation)
       ((starts-with (string-upcase trimmed) "CLOSE SOCKET")
-       (let ((socket-name (trim (subseq trimmed 13))))
-         (setf (gethash socket-name env) nil)
+       (let* ((socket-name (trim (subseq trimmed 13)))
+              (socket (gethash socket-name env)))
+         (when socket
+           (handler-case
+               (progn
+                 (close-socket socket)
+                 (setf (gethash socket-name env) nil)
+                 (when verbose
+                   (format t "  Effect: Closed REAL socket ~A~%" socket-name)))
+             (error (e)
+               (when verbose
+                 (format t "  Effect: Failed to close socket: ~A~%" e)))))))
+      
+      ;; Socket: Close connection
+      ((starts-with (string-upcase trimmed) "CLOSE CONNECTION")
+       (let ((client-socket (gethash "client_socket" env))
+             (client-stream (gethash "client_stream" env)))
+         (when client-stream
+           (ignore-errors (close client-stream)))
+         (when client-socket
+           (ignore-errors (close-socket client-socket)))
+         (setf (gethash "client_socket" env) nil)
+         (setf (gethash "client_stream" env) nil)
          (when verbose
-           (format t "  Effect: Close socket ~A~%" socket-name))))
+           (format t "  Effect: Closed client connection~%"))))
       
       ;; Log (for error handling)
       ((starts-with (string-upcase trimmed) "LOG ")

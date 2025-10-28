@@ -1,0 +1,41 @@
+Story: Run REAL HTTP server with proper response format
+
+Given:
+  port: Integer = 8080
+  server_socket: Socket
+  connection_count: Integer = 0
+  max_conn: Integer = 3
+
+Step 1 → Create server socket
+  Effect: Create socket server_socket on 8080
+  Because: Bind to port for HTTP
+  
+Step 2 → Accept client connection
+  Effect: Accept connection on server_socket
+  Because: Wait for HTTP request
+  Then: connection_count becomes connection_count + 1
+  Effect: Print "Accepted connection #{connection_count}"
+  
+Step 3 → Read HTTP request  
+  Effect: Network read
+  Because: Receive client request
+  
+Step 4 → Send HTTP response
+  Effect: Send "Hello from CNS!" to client
+  Because: Return response to client
+  Effect: Print "Sent response"
+  
+Step 5 → Close this connection
+  Effect: Close connection
+  Because: Cleanup client
+  
+Step 6 → Check for more connections
+  If connection_count < max_conn
+  Then: repeat from Step 2
+  Otherwise: go to End
+  Because: Handle multiple requests
+  
+End: Return connection_count
+  Effect: Close socket server_socket
+  Effect: Print "Server stopped after {connection_count} connections"
+  Because: Cleanup server

@@ -103,6 +103,9 @@ End: Return <result>
 - **Loop Control**: `repeat from Step N` for iteration
 - **Conditionals**: `If`, `Then`, `Otherwise` for branching
 - **Narrative Flow**: Code reads like a story with clear intent
+- **Real Networking**: TCP sockets with actual network I/O (webserver examples)
+- **File I/O**: Write and append operations for data persistence
+- **List Processing**: Operations on collections with explicit reasoning
 
 ## Creating Your Own Examples
 

@@ -226,8 +226,13 @@ cns/
 - ✅ File writing (`Effect: Write "data" to file.txt`)
 - ✅ File appending (`Effect: Append "data" to file.txt`)
 - ✅ Variable substitution in effects (`{varname}`)
-- ✅ Socket operations (`Create socket`, `Accept connection`, `Send`, `Close socket`)
-- ✅ Network effects (`Network read`, `Network write`)
+- ✅ **REAL Socket operations** (using sb-bsd-sockets)
+  - `Create socket <name> on <port>` - Bind TCP server socket
+  - `Accept connection on <socket>` - Accept client connections
+  - `Network read` - Receive data from client
+  - `Send "<data>" to client` - Send responses
+  - `Close socket <name>` - Cleanup server socket
+  - `Close connection` - Cleanup client connection
 - ✅ Logging (`Effect: Log "message"`)
 
 **Control Flow:**
@@ -368,6 +373,65 @@ The Error: block is optional and executes if any step throws an error during exe
 ```cns
 End: Return <value>
 ```
+
+## Real Networking with CNS
+
+CNS supports **real TCP socket operations** using SBCL's `sb-bsd-sockets`. You can build actual webservers that accept connections from curl, browsers, or any HTTP client!
+
+### Socket Effects
+
+```cns
+Story: Run a real webserver
+
+Given:
+  port: Integer = 8080
+  server_socket: Socket
+  
+Step 1 → Create server socket
+  Effect: Create socket server_socket on 8080
+  Because: Bind to port for incoming connections
+  
+Step 2 → Accept client connection
+  Effect: Accept connection on server_socket
+  Because: Wait for HTTP request
+  
+Step 3 → Read HTTP request
+  Effect: Network read
+  Because: Receive client data
+  
+Step 4 → Send response
+  Effect: Send "Hello from CNS!" to client
+  Because: Return response to client
+  
+Step 5 → Close client connection
+  Effect: Close connection
+  Because: Cleanup after handling request
+  
+End: Return
+  Effect: Close socket server_socket
+  Because: Cleanup server resources
+```
+
+### Testing Your Webserver
+
+```bash
+# Run the webserver
+./cns-run examples/real-http-server.cns
+
+# In another terminal, test with curl:
+curl --http0.9 http://localhost:8080/
+# Output: Hello from CNS!
+```
+
+**Note**: Currently CNS sends plain text responses. For proper HTTP headers, you'll need to work around multiline string limitations (see examples).
+
+### How It Works
+
+- **Real Sockets**: Uses `sb-bsd-sockets` for actual TCP/IP networking
+- **Blocking I/O**: Server blocks waiting for connections (accept-connection)
+- **Stream-based**: Data sent/received through character streams
+- **Connection Lifecycle**: Accept → Read → Send → Close
+- **Resource Management**: Proper cleanup with `Close socket` and `Close connection`
 
 ## Contributing
 
