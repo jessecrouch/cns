@@ -1,0 +1,46 @@
+Story: Create a webserver on port 9000 with 3 routes
+
+Given:
+  port: Integer = 9000
+  server_socket: Socket
+
+Step 1 → Create server_socket on port
+  Effect: Create socket server_socket on port
+  Because: Start server on port 9000
+
+Step 2 → Accept connection on server_socket
+  Effect: Accept connection on server_socket
+  Because: Handle client request
+
+Step 3 → Read request
+  Effect: Network read
+  Because: Get HTTP request data
+  Then: request becomes parse HTTP request from request_data
+
+Step 4 → If request.url = "/", go to Step 5
+  Because: Route to home handler
+  Otherwise: go to Step 6
+
+Step 5 → Send home response
+  Effect: Send "HTTP/1.1 200 OK\r\n\r\nHome" to client
+  Because: Return home page
+  Then: go to Step 9
+
+Step 6 → If request.url = "/about", go to Step 7
+  Because: Route to about handler
+  Otherwise: go to Step 8
+
+Step 7 → Send about response
+  Effect: Send "HTTP/1.1 200 OK\r\n\r\nAbout" to client
+  Because: Return about page
+  Then: go to Step 9
+
+Step 8 → Send contact response
+  Effect: Send "HTTP/1.1 200 OK\r\n\r\nContact" to client
+  Because: Default to contact page
+
+Step 9 → If TRUE, repeat from Step 2
+  Because: Continue serving
+  Otherwise: go to End
+
+End: Return "Server stopped"

@@ -1,0 +1,28 @@
+Story: Check if a number is prime
+
+Given:
+  n: Integer = 17
+  divisor: Integer = 2
+  is_prime: Boolean = TRUE
+
+Step 1 → If divisor * divisor > n
+  Because: Only need to check up to square root of n
+  Then: go to End
+  Otherwise: go to Step 2
+
+Step 2 → If n % divisor = 0
+  Because: Check if divisor evenly divides n
+  Then: is_prime becomes FALSE
+  Otherwise: go to Step 3
+
+Step 3 → If is_prime = FALSE
+  Because: Already found it's not prime
+  Then: go to End
+  Otherwise: go to Step 4
+
+Step 4 → Increment divisor
+  Because: Check next potential divisor
+  Then: divisor becomes divisor + 1
+  Then: repeat from Step 1
+
+End: Return is_prime

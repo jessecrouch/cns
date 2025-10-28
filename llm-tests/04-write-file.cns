@@ -1,0 +1,15 @@
+Story: Write 'Hello World' to output.txt
+
+Given:
+  filename: String = "output.txt"
+  message: String = "Hello World"
+
+Step 1 → Write message to file
+  Effect: Write "{message}" to filename
+  Because: Save greeting to output file
+
+Step 2 → Confirm write
+  Effect: Print "Written to {filename}"
+  Because: Notify user of successful write
+
+End: Return "done"

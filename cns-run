@@ -4,6 +4,10 @@
 #        ./cns-run --all        (run all examples)
 #        ./cns-run --list       (list available examples)
 
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CNS_LISP="$SCRIPT_DIR/cns.lisp"
+
 if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     echo "CNS Runner - Execute Causal Narrative Script programs"
     echo ""
@@ -38,7 +42,7 @@ if [ "$1" = "--all" ] || [ "$1" = "-a" ]; then
         if [ -f "$file" ]; then
             echo ""
             echo ">>> $(basename "$file")"
-            sbcl --noinform --load cns.lisp --eval "(progn (format t \"~%\") (load-cns-file \"$file\"))" --quit 2>&1 | grep -v "^;"
+            sbcl --noinform --load "$CNS_LISP" --eval "(progn (format t \"~%\") (load-cns-file \"$file\"))" --quit 2>&1 | grep -v "^;"
             echo ""
         fi
     done
@@ -47,13 +51,13 @@ fi
 
 if [ "$1" = "--repl" ] || [ "$1" = "-r" ]; then
     echo "Starting CNS REPL..."
-    sbcl --load cns.lisp --eval "(cns-repl)"
+    sbcl --load "$CNS_LISP" --eval "(cns-repl)"
     exit 0
 fi
 
 if [ "$1" = "--test" ] || [ "$1" = "-t" ]; then
     echo "Running CNS test suite..."
-    sbcl --noinform --load test-runner.lisp --eval "(run-all-tests)" --quit
+    sbcl --noinform --load "$SCRIPT_DIR/test-runner.lisp" --eval "(run-all-tests)" --quit
     exit 0
 fi
 
@@ -70,4 +74,4 @@ if [ ! -f "$1" ]; then
 fi
 
 # Run the specified CNS file
-sbcl --noinform --load cns.lisp --eval "(load-cns-file \"$1\")" --quit
+sbcl --noinform --load "$CNS_LISP" --eval "(load-cns-file \"$1\")" --quit

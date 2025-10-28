@@ -1,0 +1,28 @@
+Story: Create a webserver that returns JSON
+
+Given:
+  port: Integer = 8080
+  server_socket: Socket
+  json_response: String = "{\"status\": \"ok\", \"message\": \"Hello from CNS\"}"
+
+Step 1 → Create server_socket on port
+  Effect: Create socket server_socket on port
+  Because: Start JSON API server
+
+Step 2 → Accept connection on server_socket
+  Effect: Accept connection on server_socket
+  Because: Handle API request
+
+Step 3 → Read request
+  Effect: Network read
+  Because: Get client request data
+
+Step 4 → Send JSON response
+  Effect: Send "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{json_response}" to client
+  Because: Return JSON data to client
+
+Step 5 → If TRUE, repeat from Step 2
+  Because: Keep API server running
+  Otherwise: go to End
+
+End: Return "Server stopped"

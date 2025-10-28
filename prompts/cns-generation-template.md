@@ -25,7 +25,7 @@ Step [N] → [Action description]
   Effect: [Side effect declaration, if any]
   Then: [State transformation, if any]
   
-Step [N+1] → If [condition], [action]
+Step [N+1] → If [condition]
   Because: [Explanation]
   Then: [consequence if true]
   Otherwise: [consequence if false]
@@ -35,10 +35,13 @@ Error:
   Effect: [error handling effect]
   Because: [explanation]
 
-End:
-  Return [result]
-  Because: [final explanation]
+End: Return [result]
 ```
+
+**IMPORTANT Syntax Rules:**
+1. **End must be single-line:** `End: Return result` (NOT multi-line)
+2. **Conditionals must be split:** Step line has condition, Then/Otherwise are separate lines
+3. **No inline actions:** Don't write `If condition, action` - use `If condition` then `Then: action`
 
 ### Key Rules
 
@@ -52,8 +55,9 @@ End:
 
 #### Loops
 ```
-Step N → If [condition], repeat from Step M
+Step N → If [condition]
   Because: [why we loop]
+  Then: repeat from Step M
   Otherwise: go to End
 ```
 
@@ -104,13 +108,12 @@ Step 1 → Multiply result by n
   Because: n contributes to the factorial product
   Then: n becomes n - 1
 
-Step 2 → If n > 1, repeat from Step 1
+Step 2 → If n > 1
   Because: We need to multiply all integers down to 1
+  Then: repeat from Step 1
   Otherwise: go to End
 
-End:
-  Return result
-  Because: All factors have been multiplied
+End: Return result
 ```
 
 #### Task: "Create a simple webserver on port 8080"

@@ -1,0 +1,27 @@
+Story: Create a webserver on port 8080
+
+Given:
+  port: Integer = 8080
+  server_socket: Socket
+
+Step 1 → Create server_socket on port
+  Effect: Create socket server_socket on port
+  Because: Listen for incoming HTTP connections
+
+Step 2 → Accept connection on server_socket
+  Effect: Accept connection on server_socket
+  Because: Handle client HTTP request
+
+Step 3 → Read request from client
+  Effect: Network read
+  Because: Get HTTP request data
+
+Step 4 → Send HTTP response
+  Effect: Send "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nHello, World!" to client
+  Because: Respond to client request
+
+Step 5 → If TRUE, repeat from Step 2
+  Because: Continue serving multiple clients
+  Otherwise: go to End
+
+End: Return "Server stopped"

@@ -1,0 +1,29 @@
+Story: Create a webserver that counts requests
+
+Given:
+  port: Integer = 8080
+  server_socket: Socket
+  request_count: Integer = 0
+
+Step 1 → Create server_socket on port
+  Effect: Create socket server_socket on port
+  Because: Start HTTP server with counter
+
+Step 2 → Accept connection on server_socket
+  Effect: Accept connection on server_socket
+  Because: Handle incoming request
+  Then: request_count becomes request_count + 1
+
+Step 3 → Read request
+  Effect: Network read
+  Because: Get client HTTP data
+
+Step 4 → Send response with count
+  Effect: Send "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<h1>Request #{request_count}</h1>" to client
+  Because: Show current request number to client
+
+Step 5 → If request_count < 100, repeat from Step 2
+  Because: Continue serving up to 100 requests
+  Otherwise: go to End
+
+End: Return "Server stopped after {request_count} requests"

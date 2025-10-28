@@ -1,0 +1,37 @@
+Story: Create a webserver with / and /about routes
+
+Given:
+  port: Integer = 8080
+  server_socket: Socket
+
+Step 1 → Create server_socket on port
+  Effect: Create socket server_socket on port
+  Because: Start HTTP server
+
+Step 2 → Accept connection on server_socket
+  Effect: Accept connection on server_socket
+  Because: Handle incoming request
+
+Step 3 → Read HTTP request
+  Effect: Network read
+  Because: Get request data from client
+  Then: request becomes parse HTTP request from request_data
+
+Step 4 → If request.url = "/", go to Step 5
+  Because: Route to home page handler
+  Otherwise: go to Step 6
+
+Step 5 → Send home page response
+  Effect: Send "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<h1>Home Page</h1>" to client
+  Because: Return home page content
+  Then: go to Step 7
+
+Step 6 → Send about page response
+  Effect: Send "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<h1>About Page</h1>" to client
+  Because: Return about page content
+
+Step 7 → If TRUE, repeat from Step 2
+  Because: Continue serving requests
+  Otherwise: go to End
+
+End: Return "Server stopped"
