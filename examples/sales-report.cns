@@ -1,0 +1,69 @@
+Story: Generate a sales report from monthly data
+
+Given:
+  months: List = ["Jan", "Feb", "Mar", "Apr"]
+  sales: List = [12500, 15000, 13200, 18500]
+  index: Integer = 0
+  count: Integer = 0
+  total: Integer = 0
+  current_month: String = ""
+  current_sales: Integer = 0
+  best_month: String = ""
+  best_sales: Integer = 0
+  average: Integer = 0
+
+Step 1 → Initialize report
+  Because: we need to create the output file
+  Effect: Write "QUARTERLY SALES REPORT" to sales-report.txt
+  Effect: Append "======================" to sales-report.txt
+  Effect: Append "" to sales-report.txt
+
+Step 2 → Count number of months
+  Because: we need to know how many data points to process
+  Then: count becomes length of sales
+  Effect: Print "Processing {count} months of data..."
+
+Step 3 → Check if all months processed
+  Because: we need to stop when done
+  If index = count
+  Then: go to Step 7
+  Otherwise: go to Step 4
+
+Step 4 → Get current month data
+  Because: we need to process each month
+  Then: current_month becomes months at index
+  Then: current_sales becomes sales at index
+  Effect: Print "Month: {current_month} - Sales: {current_sales}"
+
+Step 5 → Update running total
+  Because: we need cumulative stats
+  Then: total becomes total + current_sales
+  If current_sales > best_sales
+  Then: best_sales becomes current_sales
+  Then: best_month becomes current_month
+
+Step 6 → Write month to report and advance
+  Because: each month should be documented
+  Effect: Append "Month: {current_month}" to sales-report.txt
+  Effect: Append "Sales: ${current_sales}" to sales-report.txt
+  Effect: Append "" to sales-report.txt
+  Then: index becomes index + 1
+  If index < count
+  Then: repeat from Step 4
+  Otherwise: go to Step 7
+
+Step 7 → Calculate average
+  Because: we need the mean monthly sales
+  Then: average becomes total / count
+
+Step 8 → Write summary section
+  Because: the report needs totals and analysis
+  Effect: Append "SUMMARY" to sales-report.txt
+  Effect: Append "-------" to sales-report.txt
+  Effect: Append "Total Sales: ${total}" to sales-report.txt
+  Effect: Append "Average/Month: ${average}" to sales-report.txt
+  Effect: Append "Best Month: {best_month} (${best_sales})" to sales-report.txt
+  Effect: Print "Report generated successfully!"
+  Effect: Print "Total: ${total}, Average: ${average}"
+
+End: Return total

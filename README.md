@@ -108,16 +108,26 @@ $ ./cns-run --list
 
 Available CNS examples:
 
-  collatz.cns          Count steps in the Collatz conjecture sequence
-  digit-sum.cns        Calculate the sum of digits in a number
-  factorial.cns        Compute factorial of a positive integer
-  fibonacci.cns        Calculate the nth Fibonacci number
-  gcd.cns              Find the greatest common divisor
-  is-prime.cns         Check if a number is prime
-  power.cns            Calculate base raised to exponent
-  simple-counter.cns   Count from 1 to 5
-  sum-numbers.cns      Calculate sum of numbers
-  sum-range.cns        Sum all integers from start to end
+  Basic Algorithms:
+    collatz.cns          Count steps in the Collatz conjecture sequence
+    digit-sum.cns        Calculate the sum of digits in a number
+    factorial.cns        Compute factorial of a positive integer
+    fibonacci.cns        Calculate the nth Fibonacci number
+    gcd.cns              Find the greatest common divisor
+    is-prime.cns         Check if a number is prime
+    power.cns            Calculate base raised to exponent
+    simple-counter.cns   Count from 1 to 5
+    sum-numbers.cns      Calculate sum of numbers
+    sum-range.cns        Sum all integers from start to end
+
+  Feature Demonstrations:
+    boolean-demo.cns     Boolean logic operators (AND, OR, NOT)
+    combined-features.cns All features in one example
+    file-demo.cns        File I/O operations
+    halve.cns            Division operator demonstration
+    is-even.cns          Modulo operator for even/odd checking
+    list-demo.cns        List operations (create, length, index)
+    print-demo.cns       Print with variable interpolation
 ```
 
 ### Advanced Usage
@@ -182,23 +192,48 @@ cns/
 
 ### Current Features
 
+**Core Structure:**
 - ✅ Narrative structure (`Story:`, `Given:`, `Step:`, `End:`)
 - ✅ Variable declarations with types and semantic tags
-- ✅ Explicit causality (`Because:` clauses)
-- ✅ State transformations (`Then:` clauses)
+- ✅ Explicit causality (mandatory `Because:` clauses)
+- ✅ State transformations (`Then:` clauses, including multiple per step)
 - ✅ Conditional logic (`If`, `Otherwise`)
 - ✅ Loops via step jumps (`repeat from Step N`)
-- ✅ Basic arithmetic and comparisons
 - ✅ Execution tracing with causality explanations
+- ✅ Enhanced error messages with context
+
+**Data Types:**
+- ✅ Integers with full arithmetic (`+`, `-`, `*`, `/`, `%`)
+- ✅ Strings with literal support (`"text"`)
+- ✅ Lists/arrays (`[1, 2, 3]`)
+- ✅ Booleans (implicit in conditions)
+
+**Operators:**
+- ✅ Arithmetic: `+`, `-`, `*`, `/` (floor division), `%` (modulo)
+- ✅ Comparisons: `<`, `>`, `=`, `≤`, `≥`, `≠`
+- ✅ Boolean logic: `AND`, `OR`, `NOT`
+- ✅ List operations: `length of`, `at index`
+
+**I/O and Effects:**
+- ✅ Print with variable interpolation (`Effect: Print "Value: {x}"`)
+- ✅ File writing (`Effect: Write "data" to file.txt`)
+- ✅ File appending (`Effect: Append "data" to file.txt`)
+- ✅ Variable substitution in effects (`{varname}`)
+
+**Control Flow:**
+- ✅ Conditional jumps to specific steps (`Otherwise: go to Step 5`)
+- ✅ Loop controls (`repeat from Step N`)
+- ✅ Direct step navigation
 
 ### Planned Features
 
-- 🔜 Enhanced error reporting with line numbers
-- 🔜 Causal arrow operators in actions (`A → B`)
+- 🔜 Functions/reusable stories
+- 🔜 Read from files (not just write)
+- 🔜 More list operations (append, filter, map)
 - 🔜 Full type validation for semantic tags
-- 🔜 Effect tracking for side effects
 - 🔜 Module/story composition
 - 🔜 Pattern matching for conditionals
+- 🔜 Parentheses for expression grouping
 - 🔜 LLM-based causality validation
 - 🔜 Compilation to native Lisp
 
@@ -215,6 +250,12 @@ Story: <narrative description of what this code does>
 ```cns
 Given:
   <name>: <Type> [<semantic-tag>] = <initial-value>
+
+Examples:
+  count: Integer = 0
+  name: String = "Alice"
+  items: List = [1, 2, 3]
+  threshold: Integer [≥ 0] = 10
 ```
 
 ### Steps
@@ -222,7 +263,14 @@ Given:
 Step N → <action description>
   Because: <causal explanation>
   Then: <state transformation>
+  Then: <another transformation>  # Multiple Then clauses supported
   Effect: <side effect description>
+
+Examples:
+  Step 1 → Calculate total
+    Because: we need the sum of all values
+    Then: total becomes x + y + z
+    Effect: Print "Total is {total}"
 ```
 
 ### Conditionals
@@ -231,12 +279,62 @@ Step N → If <condition>
   Because: <reason for this check>
   Then: <action if true>
   Otherwise: <action if false>
+
+Conditions support:
+  - Comparisons: <, >, =, ≤, ≥, ≠
+  - Boolean logic: AND, OR, NOT
+  - Examples: "x > 5", "x = 0 OR y < 10", "NOT done"
 ```
 
-### Loops
+### Control Flow
 ```cns
+# Loop back to earlier step
 Then: repeat from Step N
+
+# Jump to specific step
+Otherwise: go to Step N
+
+# Exit to end
+Otherwise: go to End
 ```
+
+### Effects (I/O and Side Effects)
+```cns
+# Print to console with variable interpolation
+Effect: Print "The value of x is {x}"
+
+# Write to file
+Effect: Write "Some data: {result}" to output.txt
+
+# Append to file
+Effect: Append "Log entry: {message}" to log.txt
+```
+
+### Operators
+
+**Arithmetic:**
+- `+` Addition
+- `-` Subtraction
+- `*` Multiplication
+- `/` Floor division
+- `%` Modulo (remainder)
+
+**Comparisons:**
+- `<` Less than
+- `>` Greater than
+- `=` Equal to
+- `≤` Less than or equal
+- `≥` Greater than or equal
+- `≠` Not equal
+
+**Boolean Logic:**
+- `AND` Logical AND
+- `OR` Logical OR
+- `NOT` Logical NOT
+
+**List Operations:**
+- `length of <list>` Get list size
+- `<list> at <index>` Get element at index (0-based)
 
 ### End Section
 ```cns

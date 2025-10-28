@@ -36,6 +36,7 @@ Run them all:
 
 ## 4. Write Your Own Program
 
+### Example 1: Simple Math
 Create a file `my-program.cns`:
 
 ```cns
@@ -53,6 +54,52 @@ End: Return x
 Run it:
 ```bash
 ./cns-run my-program.cns
+```
+
+### Example 2: Using Print and Strings
+```cns
+Story: Greet a user
+
+Given:
+  name: String = "Alice"
+  age: Integer = 25
+
+Step 1 → Show greeting
+  Because: we want to welcome the user
+  Effect: Print "Hello, {name}! You are {age} years old."
+
+End: Return name
+```
+
+### Example 3: Working with Lists
+```cns
+Story: Count items in a shopping list
+
+Given:
+  items: List = ["milk", "bread", "eggs"]
+  count: Integer = 0
+
+Step 1 → count becomes length of items
+  Because: we need to know how many items there are
+  Effect: Print "You have {count} items in your cart"
+
+End: Return count
+```
+
+### Example 4: File Output
+```cns
+Story: Generate a simple report
+
+Given:
+  total: Integer = 150
+  status: String = "complete"
+
+Step 1 → Write report header
+  Because: we need to document the results
+  Effect: Write "Report Status: {status}" to report.txt
+  Effect: Append "Total Amount: {total}" to report.txt
+
+End: Return total
 ```
 
 ## 5. Use the Interactive REPL
@@ -82,26 +129,51 @@ Story: Brief description of what this program does
 
 Given:
   variable_name: Type = initial_value
+  text_var: String = "hello"
+  list_var: List = [1, 2, 3]
 
 Step 1 → Action description
   Because: Why this step is necessary
   Then: variable becomes new_value
+  Then: another_var becomes variable + 10
+  Effect: Print "Current value: {variable}"
 
-Step 2 → If condition
+Step 2 → If condition AND other_condition
   Because: Why we check this condition
   Then: repeat from Step 1
-  Otherwise: go to End
+  Otherwise: go to Step 3
+
+Step 3 → Final processing
+  Because: we need to complete the task
+  Effect: Write "Result: {variable}" to output.txt
 
 End: Return variable_name
 ```
 
 ## Key Features
 
+**Core Elements:**
 - **Because:** - Every step explains WHY (mandatory!)
-- **Then:** - Shows what changes
-- **If/Otherwise:** - Branching logic
+- **Then:** - Shows what changes (can have multiple)
+- **If/Otherwise:** - Branching logic with boolean operators
 - **repeat from Step N** - Loops
 - **Arrow (→)** - Separates step number from action
+
+**Data Types:**
+- **Integer** - Whole numbers
+- **String** - Text in quotes: `"hello"`
+- **List** - Arrays: `[1, 2, 3]`
+
+**Operators:**
+- Math: `+`, `-`, `*`, `/`, `%`
+- Compare: `<`, `>`, `=`, `≤`, `≥`, `≠`
+- Logic: `AND`, `OR`, `NOT`
+- Lists: `length of list`, `list at 0`
+
+**Effects (I/O):**
+- `Effect: Print "text with {variable}"`
+- `Effect: Write "data" to file.txt`
+- `Effect: Append "more" to file.txt`
 
 ## Tips
 
