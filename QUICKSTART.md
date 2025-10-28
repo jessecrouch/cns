@@ -183,6 +183,41 @@ End: Return variable_name
 4. **Watch It Run** - The verbose output helps you understand execution
 5. **Think Narratively** - Write code like you're telling a story
 
+## Common Mistakes
+
+### ❌ Wrong: Multi-line End block
+```cns
+End:
+  Return result
+  Because: Done
+```
+
+### ✅ Correct: Single-line End
+```cns
+End: Return result
+```
+
+### ❌ Wrong: Inline conditional action
+```cns
+Step 2 → If n > 1, repeat from Step 1
+```
+
+### ✅ Correct: Separate Then clause
+```cns
+Step 2 → If n > 1
+  Then: repeat from Step 1
+```
+
+## Success Metrics
+
+CNS has been validated with LLM testing:
+- ✅ 100% parse success rate (10/10 tests)
+- ✅ 100% execution success (5/5 tested programs)
+- ✅ Average 1.2 iterations to working code
+- ✅ Clear, traceable causality in all generated code
+
+See `llm-tests/TEST-RESULTS.md` for detailed analysis.
+
 ## Next Steps
 
 1. Read `examples/README.md` for detailed explanations
