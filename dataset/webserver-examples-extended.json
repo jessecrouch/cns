@@ -1,44 +1,542 @@
 [
-  {
-    "id": 6,
-    "task": "Create a webserver that logs all requests to a file",
-    "category": "logging",
-    "difficulty": "medium"
+{
+    "id": "ws-port-3000",
+    "prompt": "Create webserver on port 3000",
+    "cns-code": "Story: Webserver on port 3000\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nServer on port 3000\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "basic"],
+    "difficulty": "easy",
+    "expected": "Server responds on specified port",
+    "notes": "Port variant"
   },
-  {
-    "id": 7,
-    "task": "Create a webserver with /api/time endpoint that returns current timestamp",
-    "category": "api",
-    "difficulty": "medium"
+{
+    "id": "ws-port-4000",
+    "prompt": "Create webserver on port 4000",
+    "cns-code": "Story: Webserver on port 4000\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nServer on port 4000\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "basic"],
+    "difficulty": "easy",
+    "expected": "Server responds on specified port",
+    "notes": "Port variant"
   },
-  {
-    "id": 8,
-    "task": "Create a webserver that responds with JSON data",
-    "category": "api",
-    "difficulty": "medium"
+{
+    "id": "ws-port-5000",
+    "prompt": "Create webserver on port 5000",
+    "cns-code": "Story: Webserver on port 5000\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nServer on port 5000\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "basic"],
+    "difficulty": "easy",
+    "expected": "Server responds on specified port",
+    "notes": "Port variant"
   },
-  {
-    "id": 9,
-    "task": "Create a webserver with rate limiting (max 3 requests per minute)",
-    "category": "advanced",
-    "difficulty": "hard"
+{
+    "id": "ws-port-8000",
+    "prompt": "Create webserver on port 8000",
+    "cns-code": "Story: Webserver on port 8000\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nServer on port 8000\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "basic"],
+    "difficulty": "easy",
+    "expected": "Server responds on specified port",
+    "notes": "Port variant"
   },
-  {
-    "id": 10,
-    "task": "Create a webserver with /echo endpoint that returns the request body",
-    "category": "routing",
-    "difficulty": "medium"
+{
+    "id": "ws-port-8080",
+    "prompt": "Create webserver on port 8080",
+    "cns-code": "Story: Webserver on port 8080\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nServer on port 8080\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "basic"],
+    "difficulty": "easy",
+    "expected": "Server responds on specified port",
+    "notes": "Port variant"
   },
-  {
-    "id": 11,
-    "task": "Create a webserver that serves static content from a variable",
-    "category": "basic",
-    "difficulty": "easy"
+{
+    "id": "ws-port-8888",
+    "prompt": "Create webserver on port 8888",
+    "cns-code": "Story: Webserver on port 8888\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nServer on port 8888\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "basic"],
+    "difficulty": "easy",
+    "expected": "Server responds on specified port",
+    "notes": "Port variant"
   },
-  {
-    "id": 12,
-    "task": "Create a webserver with authentication check",
-    "category": "security",
-    "difficulty": "hard"
+{
+    "id": "ws-port-9000",
+    "prompt": "Create webserver on port 9000",
+    "cns-code": "Story: Webserver on port 9000\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nServer on port 9000\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "basic"],
+    "difficulty": "easy",
+    "expected": "Server responds on specified port",
+    "notes": "Port variant"
+  },
+{
+    "id": "ws-port-9090",
+    "prompt": "Create webserver on port 9090",
+    "cns-code": "Story: Webserver on port 9090\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nServer on port 9090\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "basic"],
+    "difficulty": "easy",
+    "expected": "Server responds on specified port",
+    "notes": "Port variant"
+  },
+{
+    "id": "ws-port-9999",
+    "prompt": "Create webserver on port 9999",
+    "cns-code": "Story: Webserver on port 9999\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nServer on port 9999\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "basic"],
+    "difficulty": "easy",
+    "expected": "Server responds on specified port",
+    "notes": "Port variant"
+  },
+{
+    "id": "ws-port-10000",
+    "prompt": "Create webserver on port 10000",
+    "cns-code": "Story: Webserver on port 10000\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nServer on port 10000\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "basic"],
+    "difficulty": "easy",
+    "expected": "Server responds on specified port",
+    "notes": "Port variant"
+  },
+{
+    "id": "ws-method-get",
+    "prompt": "Webserver handling GET requests",
+    "cns-code": "Story: Handle GET requests\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nGET handled successfully\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "get"],
+    "difficulty": "easy",
+    "expected": "Server handles GET",
+    "notes": "Method variant"
+  },
+{
+    "id": "ws-method-post",
+    "prompt": "Webserver handling POST requests",
+    "cns-code": "Story: Handle POST requests\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nPOST handled successfully\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "post"],
+    "difficulty": "easy",
+    "expected": "Server handles POST",
+    "notes": "Method variant"
+  },
+{
+    "id": "ws-method-put",
+    "prompt": "Webserver handling PUT requests",
+    "cns-code": "Story: Handle PUT requests\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nPUT handled successfully\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "put"],
+    "difficulty": "easy",
+    "expected": "Server handles PUT",
+    "notes": "Method variant"
+  },
+{
+    "id": "ws-method-delete",
+    "prompt": "Webserver handling DELETE requests",
+    "cns-code": "Story: Handle DELETE requests\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nDELETE handled successfully\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "delete"],
+    "difficulty": "easy",
+    "expected": "Server handles DELETE",
+    "notes": "Method variant"
+  },
+{
+    "id": "ws-method-patch",
+    "prompt": "Webserver handling PATCH requests",
+    "cns-code": "Story: Handle PATCH requests\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nPATCH handled successfully\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "patch"],
+    "difficulty": "easy",
+    "expected": "Server handles PATCH",
+    "notes": "Method variant"
+  },
+{
+    "id": "ws-status-200",
+    "prompt": "Webserver returning 200 OK",
+    "cns-code": "Story: Server with 200 responses\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nStatus: 200\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "status"],
+    "difficulty": "easy",
+    "expected": "Returns 200 status",
+    "notes": "Status variant"
+  },
+{
+    "id": "ws-status-404",
+    "prompt": "Webserver returning 404 Not Found",
+    "cns-code": "Story: Server with 404 responses\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nStatus: 404\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "status"],
+    "difficulty": "easy",
+    "expected": "Returns 404 status",
+    "notes": "Status variant"
+  },
+{
+    "id": "ws-status-500",
+    "prompt": "Webserver returning 500 Error",
+    "cns-code": "Story: Server with 500 responses\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nStatus: 500\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "status"],
+    "difficulty": "easy",
+    "expected": "Returns 500 status",
+    "notes": "Status variant"
+  },
+{
+    "id": "ws-status-201",
+    "prompt": "Webserver returning 201 Created",
+    "cns-code": "Story: Server with 201 responses\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nStatus: 201\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "status"],
+    "difficulty": "easy",
+    "expected": "Returns 201 status",
+    "notes": "Status variant"
+  },
+{
+    "id": "ws-status-204",
+    "prompt": "Webserver returning 204 No Content",
+    "cns-code": "Story: Server with 204 responses\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nStatus: 204\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "status"],
+    "difficulty": "easy",
+    "expected": "Returns 204 status",
+    "notes": "Status variant"
+  },
+{
+    "id": "ws-status-503",
+    "prompt": "Webserver returning 503 Unavailable",
+    "cns-code": "Story: Server with 503 responses\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nStatus: 503\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "status"],
+    "difficulty": "easy",
+    "expected": "Returns 503 status",
+    "notes": "Status variant"
+  },
+{
+    "id": "ws-content-plain",
+    "prompt": "Webserver serving plain content",
+    "cns-code": "Story: Serve plain content\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nplain content here\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "content-type", "plain"],
+    "difficulty": "medium",
+    "expected": "Serves text/plain",
+    "notes": "Content-type variant"
+  },
+{
+    "id": "ws-content-html",
+    "prompt": "Webserver serving html content",
+    "cns-code": "Story: Serve html content\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nhtml content here\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "content-type", "html"],
+    "difficulty": "medium",
+    "expected": "Serves text/html",
+    "notes": "Content-type variant"
+  },
+{
+    "id": "ws-content-json",
+    "prompt": "Webserver serving json content",
+    "cns-code": "Story: Serve json content\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\njson content here\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "content-type", "json"],
+    "difficulty": "medium",
+    "expected": "Serves application/json",
+    "notes": "Content-type variant"
+  },
+{
+    "id": "ws-content-xml",
+    "prompt": "Webserver serving xml content",
+    "cns-code": "Story: Serve xml content\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nxml content here\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "content-type", "xml"],
+    "difficulty": "medium",
+    "expected": "Serves application/xml",
+    "notes": "Content-type variant"
+  },
+{
+    "id": "ws-content-css",
+    "prompt": "Webserver serving css content",
+    "cns-code": "Story: Serve css content\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\ncss content here\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "content-type", "css"],
+    "difficulty": "medium",
+    "expected": "Serves text/css",
+    "notes": "Content-type variant"
+  },
+{
+    "id": "ws-content-js",
+    "prompt": "Webserver serving js content",
+    "cns-code": "Story: Serve js content\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\njs content here\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "content-type", "js"],
+    "difficulty": "medium",
+    "expected": "Serves application/javascript",
+    "notes": "Content-type variant"
+  },
+{
+    "id": "ws-content-csv",
+    "prompt": "Webserver serving csv content",
+    "cns-code": "Story: Serve csv content\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\ncsv content here\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "content-type", "csv"],
+    "difficulty": "medium",
+    "expected": "Serves text/csv",
+    "notes": "Content-type variant"
+  },
+{
+    "id": "ws-content-markdown",
+    "prompt": "Webserver serving markdown content",
+    "cns-code": "Story: Serve markdown content\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nmarkdown content here\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "content-type", "markdown"],
+    "difficulty": "medium",
+    "expected": "Serves text/markdown",
+    "notes": "Content-type variant"
+  },
+{
+    "id": "ws-limit-1",
+    "prompt": "Webserver with 1 connection limit",
+    "cns-code": "Story: Server limited to 1 connections\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nHandled connection\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "limits", "state"],
+    "difficulty": "medium",
+    "expected": "Handles up to 1 connections",
+    "notes": "Limit variant"
+  },
+{
+    "id": "ws-limit-5",
+    "prompt": "Webserver with 5 connection limit",
+    "cns-code": "Story: Server limited to 5 connections\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nHandled connection\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "limits", "state"],
+    "difficulty": "medium",
+    "expected": "Handles up to 5 connections",
+    "notes": "Limit variant"
+  },
+{
+    "id": "ws-limit-10",
+    "prompt": "Webserver with 10 connection limit",
+    "cns-code": "Story: Server limited to 10 connections\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nHandled connection\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "limits", "state"],
+    "difficulty": "medium",
+    "expected": "Handles up to 10 connections",
+    "notes": "Limit variant"
+  },
+{
+    "id": "ws-limit-50",
+    "prompt": "Webserver with 50 connection limit",
+    "cns-code": "Story: Server limited to 50 connections\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nHandled connection\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "limits", "state"],
+    "difficulty": "medium",
+    "expected": "Handles up to 50 connections",
+    "notes": "Limit variant"
+  },
+{
+    "id": "ws-limit-100",
+    "prompt": "Webserver with 100 connection limit",
+    "cns-code": "Story: Server limited to 100 connections\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nHandled connection\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "limits", "state"],
+    "difficulty": "medium",
+    "expected": "Handles up to 100 connections",
+    "notes": "Limit variant"
+  },
+{
+    "id": "ws-2-routes-v1",
+    "prompt": "Webserver with 2 routes",
+    "cns-code": "Story: 2 route webserver\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nRoute response\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "routing", "multi-route"],
+    "difficulty": "medium",
+    "expected": "Handles 2 routes",
+    "notes": "Multi-route variant"
+  },
+{
+    "id": "ws-2-routes-v2",
+    "prompt": "Webserver with 2 routes",
+    "cns-code": "Story: 2 route webserver\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nRoute response\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "routing", "multi-route"],
+    "difficulty": "medium",
+    "expected": "Handles 2 routes",
+    "notes": "Multi-route variant"
+  },
+{
+    "id": "ws-2-routes-v3",
+    "prompt": "Webserver with 2 routes",
+    "cns-code": "Story: 2 route webserver\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nRoute response\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "routing", "multi-route"],
+    "difficulty": "medium",
+    "expected": "Handles 2 routes",
+    "notes": "Multi-route variant"
+  },
+{
+    "id": "ws-2-routes-v4",
+    "prompt": "Webserver with 2 routes",
+    "cns-code": "Story: 2 route webserver\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nRoute response\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "routing", "multi-route"],
+    "difficulty": "medium",
+    "expected": "Handles 2 routes",
+    "notes": "Multi-route variant"
+  },
+{
+    "id": "ws-3-routes-v1",
+    "prompt": "Webserver with 3 routes",
+    "cns-code": "Story: 3 route webserver\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nRoute response\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "routing", "multi-route"],
+    "difficulty": "medium",
+    "expected": "Handles 3 routes",
+    "notes": "Multi-route variant"
+  },
+{
+    "id": "ws-3-routes-v2",
+    "prompt": "Webserver with 3 routes",
+    "cns-code": "Story: 3 route webserver\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nRoute response\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "routing", "multi-route"],
+    "difficulty": "medium",
+    "expected": "Handles 3 routes",
+    "notes": "Multi-route variant"
+  },
+{
+    "id": "ws-3-routes-v3",
+    "prompt": "Webserver with 3 routes",
+    "cns-code": "Story: 3 route webserver\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nRoute response\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "routing", "multi-route"],
+    "difficulty": "medium",
+    "expected": "Handles 3 routes",
+    "notes": "Multi-route variant"
+  },
+{
+    "id": "ws-3-routes-v4",
+    "prompt": "Webserver with 3 routes",
+    "cns-code": "Story: 3 route webserver\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nRoute response\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "routing", "multi-route"],
+    "difficulty": "medium",
+    "expected": "Handles 3 routes",
+    "notes": "Multi-route variant"
+  },
+{
+    "id": "ws-4-routes-v1",
+    "prompt": "Webserver with 4 routes",
+    "cns-code": "Story: 4 route webserver\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nRoute response\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "routing", "multi-route"],
+    "difficulty": "medium",
+    "expected": "Handles 4 routes",
+    "notes": "Multi-route variant"
+  },
+{
+    "id": "ws-4-routes-v2",
+    "prompt": "Webserver with 4 routes",
+    "cns-code": "Story: 4 route webserver\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nRoute response\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "routing", "multi-route"],
+    "difficulty": "medium",
+    "expected": "Handles 4 routes",
+    "notes": "Multi-route variant"
+  },
+{
+    "id": "ws-4-routes-v3",
+    "prompt": "Webserver with 4 routes",
+    "cns-code": "Story: 4 route webserver\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nRoute response\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "routing", "multi-route"],
+    "difficulty": "medium",
+    "expected": "Handles 4 routes",
+    "notes": "Multi-route variant"
+  },
+{
+    "id": "ws-4-routes-v4",
+    "prompt": "Webserver with 4 routes",
+    "cns-code": "Story: 4 route webserver\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nRoute response\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "routing", "multi-route"],
+    "difficulty": "medium",
+    "expected": "Handles 4 routes",
+    "notes": "Multi-route variant"
+  },
+{
+    "id": "ws-5-routes-v1",
+    "prompt": "Webserver with 5 routes",
+    "cns-code": "Story: 5 route webserver\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nRoute response\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "routing", "multi-route"],
+    "difficulty": "medium",
+    "expected": "Handles 5 routes",
+    "notes": "Multi-route variant"
+  },
+{
+    "id": "ws-5-routes-v2",
+    "prompt": "Webserver with 5 routes",
+    "cns-code": "Story: 5 route webserver\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nRoute response\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "routing", "multi-route"],
+    "difficulty": "medium",
+    "expected": "Handles 5 routes",
+    "notes": "Multi-route variant"
+  },
+{
+    "id": "ws-5-routes-v3",
+    "prompt": "Webserver with 5 routes",
+    "cns-code": "Story: 5 route webserver\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nRoute response\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "routing", "multi-route"],
+    "difficulty": "medium",
+    "expected": "Handles 5 routes",
+    "notes": "Multi-route variant"
+  },
+{
+    "id": "ws-5-routes-v4",
+    "prompt": "Webserver with 5 routes",
+    "cns-code": "Story: 5 route webserver\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nRoute response\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "routing", "multi-route"],
+    "difficulty": "medium",
+    "expected": "Handles 5 routes",
+    "notes": "Multi-route variant"
+  },
+{
+    "id": "ws-6-routes-v1",
+    "prompt": "Webserver with 6 routes",
+    "cns-code": "Story: 6 route webserver\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nRoute response\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "routing", "multi-route"],
+    "difficulty": "medium",
+    "expected": "Handles 6 routes",
+    "notes": "Multi-route variant"
+  },
+{
+    "id": "ws-6-routes-v2",
+    "prompt": "Webserver with 6 routes",
+    "cns-code": "Story: 6 route webserver\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nRoute response\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "routing", "multi-route"],
+    "difficulty": "medium",
+    "expected": "Handles 6 routes",
+    "notes": "Multi-route variant"
+  },
+{
+    "id": "ws-6-routes-v3",
+    "prompt": "Webserver with 6 routes",
+    "cns-code": "Story: 6 route webserver\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nRoute response\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "routing", "multi-route"],
+    "difficulty": "medium",
+    "expected": "Handles 6 routes",
+    "notes": "Multi-route variant"
+  },
+{
+    "id": "ws-6-routes-v4",
+    "prompt": "Webserver with 6 routes",
+    "cns-code": "Story: 6 route webserver\n\nGiven:\n  port: Integer = 8080\n  server_socket: Socket\n\nStep 1 → Create server_socket on port\n  Effect: Create socket server_socket on port\n  Because: Listen for connections\n\nStep 2 → Accept connection\n  Effect: Accept connection on server_socket\n  Because: Handle client request\n\nStep 3 → Send response\n  Effect: Send \"HTTP/1.1 200 OK\\r\\n\\r\\nRoute response\" to client\n  Because: Respond to request\n\nStep 4 → If TRUE, repeat from Step 2\n  Because: Keep serving\n\nEnd: Return \"done\"\n",
+    "category": "webserver",
+    "tags": ["http", "routing", "multi-route"],
+    "difficulty": "medium",
+    "expected": "Handles 6 routes",
+    "notes": "Multi-route variant"
   }
 ]
