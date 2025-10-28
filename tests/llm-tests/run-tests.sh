@@ -66,7 +66,7 @@ test_cns() {
     
     # Try to parse with SBCL
     if ! timeout 5 sbcl --noinform --non-interactive \
-        --eval "(load \"../cns.lisp\")" \
+        --eval "(load \"../../src/cns.lisp\")" \
         --eval "(handler-case (progn (with-open-file (s \"$file\") (let ((code (make-string (file-length s)))) (read-sequence code s) (parse-cns code))) (sb-ext:exit :code 0)) (error (e) (format t \"Parse error: ~A~%\" e) (sb-ext:exit :code 1)))" \
         2>&1 | grep -q "Parse error"; then
         echo -e "  ${GREEN}✓ PASS${NC}: Valid CNS structure"

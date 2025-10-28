@@ -1,0 +1,29 @@
+Story: Determine if a given integer greater than or equal to 2 is a prime number
+
+Given:
+  num: Integer [≥ 2] = 17
+  is_prime: Boolean = True
+  i: Integer = 2
+
+Step 1 → If i * i > num
+  Because: All potential factors up to sqrt(num) have been checked
+  Then: go to End
+  Otherwise: go to Step 2
+
+Step 2 → If num % i == 0
+  Because: i is a divisor, so num is not prime
+  Then: is_prime becomes False
+       go to End
+  Otherwise: go to Step 3
+
+Step 3 → Increment i by 1
+  Because: Move to the next potential factor
+  Then: i becomes i + 1
+       repeat from Step 1
+
+Error:
+  Return False
+  Effect: none
+  Because: Handle case where num < 2 although assumed valid
+
+End: Return is_prime

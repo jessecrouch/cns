@@ -166,7 +166,7 @@ End: Return variable_name
 
 **Operators:**
 - Math: `+`, `-`, `*`, `/`, `%`
-- Compare: `<`, `>`, `=`, `≤`, `≥`, `≠`
+- Compare: `<`, `>`, `=`, `≤` (or `<=`), `≥` (or `>=`), `≠`
 - Logic: `AND`, `OR`, `NOT`
 - Lists: `length of list`, `list at 0`
 
@@ -216,7 +216,7 @@ CNS has been validated with LLM testing:
 - ✅ Average 1.2 iterations to working code
 - ✅ Clear, traceable causality in all generated code
 
-See `llm-tests/TEST-RESULTS.md` for detailed analysis.
+See `tests/llm-tests/TEST-RESULTS.md` for detailed analysis.
 
 ## Next Steps
 

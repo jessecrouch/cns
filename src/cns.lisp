@@ -332,38 +332,57 @@ World' and ' rest'"
                   (parse-integer trimmed)
                 (error () nil)))
            
-           ;; Comparison: n > 1
-           ((position #\> trimmed)
-            (let ((parts (split-string trimmed #\>)))
-              (> (eval-expr (trim (car parts)) env)
-                 (eval-expr (trim (cadr parts)) env))))
+           ;; Comparison: n ≤ 1 (less than or equal, Unicode) - BEFORE < check
+             ((search "≤" trimmed)
+              (let ((parts (split-string trimmed #\≤)))
+                (<= (eval-expr (trim (car parts)) env)
+                    (eval-expr (trim (cadr parts)) env))))
+             
+             ;; Comparison: n <= 1 (less than or equal, ASCII) - BEFORE < check
+             ((search "<=" trimmed)
+              (let* ((pos (search "<=" trimmed))
+                     (left (subseq trimmed 0 pos))
+                     (right (subseq trimmed (+ pos 2))))
+                (<= (eval-expr (trim left) env)
+                    (eval-expr (trim right) env))))
+             
+             ;; Comparison: n ≥ 1 (greater than or equal, Unicode) - BEFORE > check
+             ((search "≥" trimmed)
+              (let ((parts (split-string trimmed #\≥)))
+                (>= (eval-expr (trim (car parts)) env)
+                    (eval-expr (trim (cadr parts)) env))))
+             
+             ;; Comparison: n >= 1 (greater than or equal, ASCII) - BEFORE > check
+             ((search ">=" trimmed)
+              (let* ((pos (search ">=" trimmed))
+                     (left (subseq trimmed 0 pos))
+                     (right (subseq trimmed (+ pos 2))))
+                (>= (eval-expr (trim left) env)
+                    (eval-expr (trim right) env))))
            
-           ;; Comparison: n < 1
-           ((position #\< trimmed)
-            (let ((parts (split-string trimmed #\<)))
-              (< (eval-expr (trim (car parts)) env)
-                 (eval-expr (trim (cadr parts)) env))))
-           
-            ;; Comparison: n ≠ 1 (not equal)
-            ((search "≠" trimmed)
-             (let ((parts (split-string trimmed #\≠)))
-               (/= (eval-expr (trim (car parts)) env)
-                   (eval-expr (trim (cadr parts)) env))))
+           ;; Comparison: n > 1 (must come AFTER >= check)
+            ((position #\> trimmed)
+             (let ((parts (split-string trimmed #\>)))
+               (> (eval-expr (trim (car parts)) env)
+                  (eval-expr (trim (cadr parts)) env))))
             
-            ;; Comparison: n ≤ 1 (less than or equal)
-            ((search "≤" trimmed)
-             (let ((parts (split-string trimmed #\≤)))
-               (<= (eval-expr (trim (car parts)) env)
-                   (eval-expr (trim (cadr parts)) env))))
+            ;; Comparison: n < 1 (must come AFTER <= check)
+            ((position #\< trimmed)
+             (let ((parts (split-string trimmed #\<)))
+               (< (eval-expr (trim (car parts)) env)
+                  (eval-expr (trim (cadr parts)) env))))
             
-            ;; Comparison: n ≥ 1 (greater than or equal)
-            ((search "≥" trimmed)
-             (let ((parts (split-string trimmed #\≥)))
-               (>= (eval-expr (trim (car parts)) env)
-                   (eval-expr (trim (cadr parts)) env))))
+             ;; Comparison: n ≠ 1 (not equal)
+             ((search "≠" trimmed)
+              (let ((parts (split-string trimmed #\≠)))
+                (/= (eval-expr (trim (car parts)) env)
+                    (eval-expr (trim (cadr parts)) env))))
             
-            ;; Comparison: n = 1 (must come after ≠, ≤, ≥)
-            ((position #\= trimmed)
+            ;; Comparison: n = 1 (must come after ≠, ≤, ≥, <=, >=)
+            ;; Make sure = is not part of <=, >=
+            ((and (position #\= trimmed)
+                  (not (search "<=" trimmed))
+                  (not (search ">=" trimmed)))
              (let ((parts (split-string trimmed #\=)))
                (= (eval-expr (trim (car parts)) env)
                   (eval-expr (trim (cadr parts)) env))))

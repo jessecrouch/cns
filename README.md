@@ -68,11 +68,14 @@ CNS is designed around LLM strengths, making it ideal for:
 git clone <repository-url>
 cd cns
 
-# Load the interpreter in your Lisp REPL
-sbcl --load cns.lisp
+# Make the runner executable
+chmod +x cns-run
 
-# Or run tests
-sbcl --load test-runner.lisp --eval "(run-all-tests)" --quit
+# Run an example
+./cns-run examples/factorial.cns
+
+# Or load the interpreter in your Lisp REPL
+sbcl --load src/cns.lisp
 ```
 
 ## Usage
@@ -142,7 +145,7 @@ Available CNS examples:
 #### Option 1: From Lisp REPL
 
 ```lisp
-(load "cns.lisp")
+(load "src/cns.lisp")
 
 ;; Parse and run CNS code directly
 (let* ((code "Story: Hello CNS
@@ -164,7 +167,7 @@ End: Return x")
 
 Or manually:
 ```lisp
-(load "cns.lisp")
+(load "src/cns.lisp")
 (cns-repl)
 ```
 
@@ -173,27 +176,32 @@ Then enter CNS code, ending multi-line input with a single `.` on its own line.
 ### Running Tests
 
 ```bash
-./cns-run --test
-```
+# Structure validation tests
+cd tests/llm-tests
+./run-tests.sh
 
-Or manually:
-```bash
-sbcl --load test-runner.lisp --eval "(run-all-tests)" --quit
+# Execution tests
+./run-execution-tests.sh
 ```
 
 ## Project Structure
 
 ```
 cns/
-├── AGENTS.md           # Detailed guide for AI agents developing CNS
-├── README.md           # This file
-├── cns.lisp            # Core interpreter and parser
-├── test-runner.lisp    # Testing framework
-└── examples/           # Example CNS programs
-    ├── factorial.cns
-    ├── simple-counter.cns
-    └── sum-numbers.cns
+├── README.md              # This file
+├── QUICKSTART.md          # 5-minute quick start guide
+├── STRUCTURE.md           # Detailed repository structure
+├── cns-run                # Command-line runner
+├── src/                   # Core interpreter implementation
+├── examples/              # 27 example CNS programs
+├── tests/                 # LLM-generated tests & validation
+├── dataset/               # Training data (88 JSON examples)
+├── prompts/               # LLM code generation templates
+├── scripts/               # Build & generation utilities
+└── docs/                  # Documentation & guides
 ```
+
+For detailed structure, see [STRUCTURE.md](STRUCTURE.md).
 
 ## Language Features
 
@@ -217,7 +225,7 @@ cns/
 
 **Operators:**
 - ✅ Arithmetic: `+`, `-`, `*`, `/` (floor division), `%` (modulo)
-- ✅ Comparisons: `<`, `>`, `=`, `≤`, `≥`, `≠`
+- ✅ Comparisons: `<`, `>`, `=`, `≤` (or `<=`), `≥` (or `>=`), `≠`
 - ✅ Boolean logic: `AND`, `OR`, `NOT`
 - ✅ List operations: `length of`, `at index`
 
@@ -298,7 +306,7 @@ Step N → If <condition>
   Otherwise: <action if false>
 
 Conditions support:
-  - Comparisons: <, >, =, ≤, ≥, ≠
+  - Comparisons: <, >, =, ≤ (or <=), ≥ (or >=), ≠
   - Boolean logic: AND, OR, NOT
   - Examples: "x > 5", "x = 0 OR y < 10", "NOT done"
 ```
@@ -340,8 +348,8 @@ Effect: Append "Log entry: {message}" to log.txt
 - `<` Less than
 - `>` Greater than
 - `=` Equal to
-- `≤` Less than or equal
-- `≥` Greater than or equal
+- `≤` or `<=` Less than or equal
+- `≥` or `>=` Greater than or equal
 - `≠` Not equal
 
 **Boolean Logic:**

@@ -1,0 +1,21 @@
+Story: Compute the sum of all integers from 1 to a given number n
+
+Given:
+  n: Integer = 10
+  total_sum: Integer = 0
+  current: Integer = 1
+
+Step 1 → Add current to total_sum
+  Because: Each integer from 1 to n must be accumulated in the sum
+  Then: total_sum becomes total_sum + current
+
+Step 2 → Increment current by 1
+  Because: Prepare to add the next integer in the sequence
+  Then: current becomes current + 1
+
+Step 3 → If current <= n
+  Because: Continue the summation until all integers are included
+  Then: repeat from Step 1
+  Otherwise: go to End
+
+End: Return total_sum

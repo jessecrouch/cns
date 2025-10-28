@@ -1,0 +1,78 @@
+#!/bin/bash
+# CNS Runner - Execute CNS files from the command line
+# Usage: ./cns-run <file.cns>
+#        ./cns-run --all        (run all examples)
+#        ./cns-run --list       (list available examples)
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CNS_LISP="$SCRIPT_DIR/cns.lisp"
+
+if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+    echo "CNS Runner - Execute Causal Narrative Script programs"
+    echo ""
+    echo "Usage:"
+    echo "  ./cns-run <file.cns>        Run a specific CNS file"
+    echo "  ./cns-run --all             Run all example files"
+    echo "  ./cns-run --list            List available examples"
+    echo "  ./cns-run --repl            Start interactive REPL"
+    echo "  ./cns-run --test            Run test suite"
+    echo ""
+    exit 0
+fi
+
+if [ "$1" = "--list" ] || [ "$1" = "-l" ]; then
+    echo "Available CNS examples:"
+    echo ""
+    for file in examples/*.cns; do
+        if [ -f "$file" ]; then
+            filename=$(basename "$file")
+            story=$(grep "^Story:" "$file" | sed 's/Story: //')
+            printf "  %-20s %s\n" "$filename" "$story"
+        fi
+    done
+    echo ""
+    exit 0
+fi
+
+if [ "$1" = "--all" ] || [ "$1" = "-a" ]; then
+    echo "Running all CNS examples..."
+    echo "=========================================="
+    for file in examples/*.cns; do
+        if [ -f "$file" ]; then
+            echo ""
+            echo ">>> $(basename "$file")"
+            sbcl --noinform --load "$CNS_LISP" --eval "(progn (format t \"~%\") (load-cns-file \"$file\"))" --quit 2>&1 | grep -v "^;"
+            echo ""
+        fi
+    done
+    exit 0
+fi
+
+if [ "$1" = "--repl" ] || [ "$1" = "-r" ]; then
+    echo "Starting CNS REPL..."
+    sbcl --load "$CNS_LISP" --eval "(cns-repl)"
+    exit 0
+fi
+
+if [ "$1" = "--test" ] || [ "$1" = "-t" ]; then
+    echo "Running CNS test suite..."
+    cd "$SCRIPT_DIR/../tests/llm-tests"
+    ./run-tests.sh
+    exit $?
+fi
+
+if [ -z "$1" ]; then
+    echo "Error: No file specified"
+    echo "Usage: ./cns-run <file.cns>"
+    echo "       ./cns-run --help for more options"
+    exit 1
+fi
+
+if [ ! -f "$1" ]; then
+    echo "Error: File '$1' not found"
+    exit 1
+fi
+
+# Run the specified CNS file
+sbcl --noinform --load "$CNS_LISP" --eval "(load-cns-file \"$1\")" --quit

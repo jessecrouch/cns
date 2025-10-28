@@ -25,7 +25,7 @@ test_exec() {
     echo "[$TOTAL] Executing: $name"
     
     # Run and capture output
-    output=$(timeout 3 ../cns-run "$file" 2>&1)
+    output=$(timeout 3 ../../cns-run "$file" 2>&1)
     exit_code=$?
     
     if [ $exit_code -eq 124 ]; then

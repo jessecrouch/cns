@@ -1,0 +1,28 @@
+Story: Determine if a given integer is a prime number
+
+Given:
+  num: Integer = 17
+  is_prime: Boolean = TRUE
+  i: Integer = 2
+
+Step 1 → If i * i > num
+  Because: All potential factors up to sqrt(num) have been checked
+  Then: go to End
+  Otherwise: go to Step 2
+
+Step 2 → If num % i = 0
+  Because: i is a divisor, so num is not prime
+  Then: is_prime becomes FALSE
+  Otherwise: go to Step 3
+
+Step 3 → If is_prime = FALSE
+  Because: Already determined num is not prime
+  Then: go to End
+  Otherwise: go to Step 4
+
+Step 4 → Increment i by 1
+  Because: Move to the next potential factor
+  Then: i becomes i + 1
+  Then: repeat from Step 1
+
+End: Return is_prime
