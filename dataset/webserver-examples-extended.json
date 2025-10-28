@@ -1,0 +1,44 @@
+[
+  {
+    "id": 6,
+    "task": "Create a webserver that logs all requests to a file",
+    "category": "logging",
+    "difficulty": "medium"
+  },
+  {
+    "id": 7,
+    "task": "Create a webserver with /api/time endpoint that returns current timestamp",
+    "category": "api",
+    "difficulty": "medium"
+  },
+  {
+    "id": 8,
+    "task": "Create a webserver that responds with JSON data",
+    "category": "api",
+    "difficulty": "medium"
+  },
+  {
+    "id": 9,
+    "task": "Create a webserver with rate limiting (max 3 requests per minute)",
+    "category": "advanced",
+    "difficulty": "hard"
+  },
+  {
+    "id": 10,
+    "task": "Create a webserver with /echo endpoint that returns the request body",
+    "category": "routing",
+    "difficulty": "medium"
+  },
+  {
+    "id": 11,
+    "task": "Create a webserver that serves static content from a variable",
+    "category": "basic",
+    "difficulty": "easy"
+  },
+  {
+    "id": 12,
+    "task": "Create a webserver with authentication check",
+    "category": "security",
+    "difficulty": "hard"
+  }
+]

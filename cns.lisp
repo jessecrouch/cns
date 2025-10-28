@@ -721,6 +721,174 @@
     result))
 
 ;;; ============================================================================
+;;; Validation Functions
+;;; ============================================================================
+
+(defun validate-cns (ast)
+  "Validate CNS AST for completeness and correctness.
+   Returns (values valid-p error-messages)"
+  (let ((errors '())
+        (has-story nil)
+        (has-given nil)
+        (has-end nil)
+        (declared-vars '())
+        (steps '()))
+    
+    ;; Check structure
+    (dolist (node ast)
+      (case (car node)
+        (story (setf has-story t))
+        (given (setf has-given t)
+               (dolist (var (cdr node))
+                 (push (cadr var) declared-vars)))
+        (step (push node steps))
+        (end (setf has-end t))))
+    
+    ;; Check required sections
+    (unless has-story
+      (push "Missing Story: section" errors))
+    (unless has-given
+      (push "Missing Given: section (declare variables)" errors))
+    (unless has-end
+      (push "Missing End: section" errors))
+    
+    ;; Check steps have Because clauses
+    (dolist (step steps)
+      (let* ((step-num (cadr step))
+             (step-body (cddr step))
+             (because (assoc 'because step-body)))
+        (unless because
+          (push (format nil "Step ~A missing Because: clause" step-num) errors))))
+    
+    ;; Check for sequential step numbering (allow duplicates for alternate branches)
+    (when steps
+      (let* ((step-nums (mapcar #'cadr steps))
+             (unique-nums (remove-duplicates step-nums))
+             (sorted-unique (sort unique-nums #'<))
+             (max-step (car (last sorted-unique))))
+        (when max-step
+          (loop for i from 1 to max-step
+                unless (member i sorted-unique)
+                do (push (format nil "Steps not sequential: missing Step ~A" i) errors)))))
+    
+    ;; Return validation result
+    (values (null errors) (nreverse errors))))
+
+(defun validate-cns-file (filepath)
+  "Load and validate a CNS file, returning validation report."
+  (handler-case
+      (with-open-file (stream filepath)
+        (let* ((code (make-string (file-length stream))))
+          (read-sequence code stream)
+          (let ((ast (parse-cns code)))
+            (multiple-value-bind (valid-p errors)
+                (validate-cns ast)
+              (if valid-p
+                  (format t "✓ ~A is valid CNS code~%" filepath)
+                  (progn
+                    (format t "✗ ~A has validation errors:~%" filepath)
+                    (dolist (err errors)
+                      (format t "  - ~A~%" err))))
+              valid-p))))
+    (error (e)
+      (format t "✗ Failed to parse ~A: ~A~%" filepath e)
+      nil)))
+
+(defun validate-all-examples ()
+  "Validate all example CNS files."
+  (let ((example-dir "examples/")
+        (valid-count 0)
+        (invalid-count 0))
+    (dolist (file (directory (concatenate 'string example-dir "*.cns")))
+      (if (validate-cns-file (namestring file))
+          (incf valid-count)
+          (incf invalid-count)))
+    (format t "~%Summary: ~A valid, ~A invalid~%" valid-count invalid-count)))
+
+;;; ============================================================================
+;;; Feedback Loop for LLM Error Correction
+;;; ============================================================================
+
+(defun extract-error-message (condition)
+  "Extract human-readable error message from condition."
+  (format nil "~A" condition))
+
+(defun generate-correction-prompt (cns-code error-message)
+  "Generate a prompt for LLM to fix CNS code based on error."
+  (format nil "The following CNS code has an error:
+
+```cns
+~A
+```
+
+Error: ~A
+
+Please fix the code to resolve this error. Output only the corrected CNS code.
+" cns-code error-message))
+
+(defun validate-and-correct (cns-code &key (max-retries 3) (verbose t))
+  "Attempt to parse and validate CNS code, generating correction prompts if needed.
+   Returns (values success-p final-code attempts error-prompts)"
+  (let ((attempts 0)
+        (current-code cns-code)
+        (error-prompts '()))
+    
+    (loop while (< attempts max-retries) do
+          (incf attempts)
+          (when verbose
+            (format t "~%Attempt ~A/~A...~%" attempts max-retries))
+          
+          (handler-case
+              (let ((ast (parse-cns current-code)))
+                ;; Try to validate
+                (multiple-value-bind (valid-p errors)
+                    (validate-cns ast)
+                  (if valid-p
+                      (progn
+                        (when verbose
+                          (format t "✓ Code is valid!~%"))
+                        (return (values t current-code attempts error-prompts)))
+                      (progn
+                        (when verbose
+                          (format t "✗ Validation errors:~%")
+                          (dolist (err errors)
+                            (format t "  - ~A~%" err)))
+                        (let ((prompt (generate-correction-prompt 
+                                      current-code 
+                                      (format nil "~{~A~^; ~}" errors))))
+                          (push prompt error-prompts)
+                          (when verbose
+                            (format t "~%Generated correction prompt.~%"))
+                          ;; In real use, this would call an LLM API
+                          ;; For now, just return failure
+                          (return (values nil current-code attempts (nreverse error-prompts))))))))
+            (error (e)
+              (when verbose
+                (format t "✗ Parse error: ~A~%" e))
+              (let ((prompt (generate-correction-prompt 
+                            current-code 
+                            (extract-error-message e))))
+                (push prompt error-prompts)
+                (when verbose
+                  (format t "~%Generated correction prompt.~%"))
+                ;; In real use, would call LLM here
+                (return (values nil current-code attempts (nreverse error-prompts)))))))
+    
+    ;; Max retries exceeded
+    (when verbose
+      (format t "~%Max retries (~A) exceeded.~%" max-retries))
+    (values nil current-code attempts (nreverse error-prompts))))
+
+(defun save-correction-prompts (prompts filepath)
+  "Save correction prompts to a file for LLM processing."
+  (with-open-file (stream filepath :direction :output 
+                         :if-exists :supersede
+                         :if-does-not-exist :create)
+    (loop for i from 1
+          for prompt in prompts
+          do (format stream "=== Correction Attempt ~A ===~%~%~A~%~%" i prompt))))
+
+;;; ============================================================================
 ;;; Convenience Functions
 ;;; ============================================================================
 
