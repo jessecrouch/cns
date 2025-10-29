@@ -357,26 +357,27 @@ World' and ' rest'"
                   (rest (cdr parts)))
              (when rest
                (let* ((type-and-value (trim (car rest)))
-                      ;; Check if there's a semantic tag [...]
-                      (bracket-start (position #\[ type-and-value))
-                      (actual-type-val (if bracket-start
-                                          (trim (subseq type-and-value 0 bracket-start))
-                                          type-and-value))
+                      ;; First, split by = to separate type/value
+                      (type-val-parts (split-string type-and-value #\=))
+                      (type-part (trim (car type-val-parts)))
+                      (val-part (if (cdr type-val-parts) (trim (cadr type-val-parts)) nil))
+                      ;; Now check type-part for semantic tag [...] (NOT in val-part!)
+                      (bracket-start (position #\[ type-part))
+                      (type (if bracket-start
+                               (trim (subseq type-part 0 bracket-start))
+                               type-part))
                       (tag (if bracket-start
-                              (let ((bracket-end (position #\] type-and-value :start bracket-start)))
+                              (let ((bracket-end (position #\] type-part :start bracket-start)))
                                 (when bracket-end
-                                  (subseq type-and-value (1+ bracket-start) bracket-end)))
+                                  (subseq type-part (1+ bracket-start) bracket-end)))
                               nil))
-                        (type-val-parts (split-string actual-type-val #\=))
-                        (type (trim (car type-val-parts)))
-                        (val (if (cdr type-val-parts)
-                                 (let ((val-str (trim (cadr type-val-parts))))
-                                   ;; Check if value is a quoted string
-                                   (if (and (> (length val-str) 0) (char= (char val-str 0) #\"))
-                                       ;; Extract and re-wrap with quotes to preserve string literal
-                                       (format nil "\"~A\"" (extract-quoted-string val-str))
-                                       val-str))
-                                 nil)))
+                      (val (if val-part
+                              ;; Check if value is a quoted string
+                              (if (and (> (length val-part) 0) (char= (char val-part 0) #\"))
+                                  ;; Extract and re-wrap with quotes to preserve string literal
+                                  (format nil "\"~A\"" (extract-quoted-string val-part))
+                                  val-part)
+                              nil)))
                   ;; Append to the given node (which is at (car ast))
                   (setf (cdar ast) (append (cdar ast) (list `(var ,name ,type ,val ,tag))))))))
          
@@ -389,10 +390,18 @@ World' and ' rest'"
           (let* ((step-parts (split-string trimmed #\→))
                  (step-content (trim (cadr step-parts))))
             (setf step-id (parse-integer (trim (subseq (car step-parts) 4))))
-            ;; Check if step content starts with "If" - make it a conditional
-            (if (starts-with (string-upcase step-content) "IF")
-                (setf current-step (list (list 'if (trim (subseq step-content 2))) step-id 'step))
-                (setf current-step (list (list 'action step-content) step-id 'step)))))
+            ;; Check step type: If, For each, or regular action
+            (cond
+             ;; Conditional step
+             ((starts-with (string-upcase step-content) "IF")
+              (setf current-step (list (list 'if (trim (subseq step-content 2))) step-id 'step)))
+             ;; For each loop
+             ((starts-with (string-upcase step-content) "FOR EACH")
+              (let ((for-each-content (trim (subseq step-content 8))))
+                (setf current-step (list (list 'for-each for-each-content) step-id 'step))))
+             ;; Regular action
+             (t
+              (setf current-step (list (list 'action step-content) step-id 'step))))))
          
          ;; Because clause (causality explanation)
          ((and current-step indented (starts-with trimmed "Because:"))
@@ -945,6 +954,71 @@ World' and ' rest'"
            (format t "  Effect: ~A~%" effect-str))))))
 
 ;;; ============================================================================
+;;; For Each Loop Execution
+;;; ============================================================================
+
+(defun execute-for-each (for-each-spec then-clauses effects env verbose)
+  "Execute a For each loop.
+   Syntax: 'For each item in list' or 'For each item, index in list'
+   Examples:
+   - For each month in months
+   - For each value, index in numbers
+   - For each name, score in names, scores"
+  (let* ((spec-upper (string-upcase for-each-spec))
+         (in-pos (search " IN " spec-upper)))
+    (unless in-pos
+      (error "For each syntax error: missing 'in'. Use 'For each item in list'"))
+    
+    ;; Parse variable names and list names
+    (let* ((vars-part (trim (subseq for-each-spec 0 in-pos)))
+           (lists-part (trim (subseq for-each-spec (+ in-pos 4))))
+           (var-names (mapcar #'trim (split-string vars-part #\,)))
+           (list-names (mapcar #'trim (split-string lists-part #\,))))
+      
+      (when verbose
+        (format t "  Iterating: ~{~A~^, ~} over ~{~A~^, ~}~%" var-names list-names))
+      
+      ;; Get the lists from environment
+      (let ((lists (mapcar (lambda (name)
+                            (let ((val (gethash name env)))
+                              (if (listp val)
+                                  val
+                                  (error (format nil "~A is not a list" name)))))
+                          list-names)))
+        
+        ;; Verify all lists have the same length (or single list)
+        (let ((lengths (mapcar #'length lists)))
+          (unless (apply #'= lengths)
+            (error (format nil "Lists have different lengths: ~A" lengths))))
+        
+        ;; Get the length
+        (let ((list-length (length (car lists))))
+          (when verbose
+            (format t "  Loop iterations: ~A~%" list-length))
+          
+          ;; Loop over indices
+          (loop for index from 0 below list-length do
+                (when verbose
+                  (format t "  [Iteration ~A]~%" (1+ index)))
+                
+                ;; Bind iteration variables
+                (loop for var-name in var-names
+                      for list in lists
+                      do (setf (gethash var-name env) (nth index list))
+                      do (when verbose
+                           (format t "    ~A = ~A~%" var-name (nth index list))))
+                
+                ;; Execute Then clauses
+                (dolist (then-clause then-clauses)
+                  (eval-expr then-clause env "For each Then clause")
+                  (when verbose
+                    (format t "    Then: ~A~%" then-clause)))
+                
+                ;; Execute Effects
+                (dolist (eff effects)
+                  (apply-effect eff env verbose))))))))
+
+;;; ============================================================================
 ;;; Interpreter: Execute the AST
 ;;; ============================================================================
 
@@ -995,38 +1069,49 @@ World' and ' rest'"
     (when verbose (format t "~%Execution Trace:~%"))
     (handler-case
         (loop while (< pc (length steps)) do
-           (let* ((step (nth pc steps))
-                  (step-num (cadr step))
-                  (step-body (cddr step))
-                  (action (cadr (assoc 'action step-body)))
-                  (because (cadr (assoc 'because step-body)))
-                  (then-clauses (mapcar #'cadr (remove-if-not (lambda (x) (eq (car x) 'then)) step-body)))
-                  (effects (mapcar #'cadr (remove-if-not (lambda (x) (eq (car x) 'effect)) step-body)))
-                  (if-node (assoc 'if step-body))
-                  (otherwise-clause (cadr (assoc 'otherwise step-body))))
-             
-             (when verbose
-               ;; Display step - handle both actions and conditionals
-               (if if-node
-                   (format t "~%Step ~A: If ~A~%" step-num (cadr if-node))
-                   (format t "~%Step ~A: ~A~%" step-num action))
-               (when because
-                 (format t "  Because: ~A~%" because)))
-            
-              ;; Execute action (if not a conditional)
-              (when action
-                (eval-expr action env (format nil "Step ~A action" step-num)))
+            (let* ((step (nth pc steps))
+                   (step-num (cadr step))
+                   (step-body (cddr step))
+                   (action (cadr (assoc 'action step-body)))
+                   (for-each-node (assoc 'for-each step-body))
+                   (because (cadr (assoc 'because step-body)))
+                   (then-clauses (mapcar #'cadr (remove-if-not (lambda (x) (eq (car x) 'then)) step-body)))
+                   (effects (mapcar #'cadr (remove-if-not (lambda (x) (eq (car x) 'effect)) step-body)))
+                   (if-node (assoc 'if step-body))
+                   (otherwise-clause (cadr (assoc 'otherwise step-body))))
               
-              ;; Execute Then clauses if present (only for non-conditional steps)
-              (when (not if-node)
+              (when verbose
+                ;; Display step - handle actions, conditionals, and for-each
+                (cond
+                 (for-each-node
+                  (format t "~%Step ~A: For each ~A~%" step-num (cadr for-each-node)))
+                 (if-node
+                  (format t "~%Step ~A: If ~A~%" step-num (cadr if-node)))
+                 (t
+                  (format t "~%Step ~A: ~A~%" step-num action)))
+                (when because
+                  (format t "  Because: ~A~%" because)))
+             
+               ;; Execute action (if not a conditional or for-each)
+               (when (and action (not for-each-node))
+                 (eval-expr action env (format nil "Step ~A action" step-num)))
+               
+               ;; Handle For each loop
+               (when for-each-node
+                 (let ((for-each-spec (cadr for-each-node)))
+                   (execute-for-each for-each-spec then-clauses effects env verbose)))
+              
+              ;; Execute Then clauses if present (only for non-conditional, non-for-each steps)
+              (when (and (not if-node) (not for-each-node))
                 (dolist (then-clause then-clauses)
                   (eval-expr then-clause env (format nil "Step ~A Then clause" step-num))
                   (when verbose
                     (format t "  Then: ~A~%" then-clause))))
               
-               ;; Apply effects (real implementation)
-               (dolist (eff effects)
-                 (apply-effect eff env verbose))
+               ;; Apply effects (real implementation) - not for for-each (handled in loop)
+               (when (not for-each-node)
+                 (dolist (eff effects)
+                   (apply-effect eff env verbose)))
               
               ;; Display current variable state
               (when verbose
@@ -1041,60 +1126,67 @@ World' and ' rest'"
                     (format t "~%"))))
              
               ;; Handle conditional
-              (if if-node
-                  (let ((cond-expr (cadr if-node)))
-                    (if (eval-expr cond-expr env (format nil "Step ~A condition" step-num))
-                       ;; Condition true - execute Then clauses
-                       (progn
-                         ;; Execute all Then clauses for conditional
-                         (dolist (then-clause then-clauses)
-                           ;; Check if it's a control flow or assignment
-                            (cond
-                             ((search "repeat from Step" then-clause :test #'char-equal)
-                              ;; Handle later in control flow
-                              nil)
-                             ((search "go to Step" then-clause :test #'char-equal)
-                              ;; Handle later in control flow
-                              nil)
-                            (t
-                             ;; Regular assignment or expression
-                             (eval-expr then-clause env (format nil "Step ~A Then clause" step-num))
-                             (when verbose
-                               (format t "  Then: ~A~%" then-clause)))))
-                         
-                          ;; Check last Then clause for control flow
-                          (let ((last-then (car (last then-clauses))))
-                            (if (and last-then (search "repeat from Step" last-then :test #'char-equal))
-                               (let* ((step-pos (search "Step " last-then))
-                                      (num-start (+ step-pos 5))
-                                      (target-step (parse-integer last-then :start num-start :junk-allowed t)))
-                                 (when verbose
-                                   (format t "  -> Jumping to Step ~A~%" target-step))
-                                 (setf pc (1- target-step)))
-                                (if (and last-then (search "go to Step" last-then :test #'char-equal))
-                                   (let* ((step-pos (search "Step " last-then))
-                                          (num-start (+ step-pos 5))
-                                          (target-step (parse-integer last-then :start num-start :junk-allowed t)))
-                                     (when verbose
-                                       (format t "  -> Going to Step ~A~%" target-step))
-                                     (setf pc (1- target-step)))
-                                   (incf pc)))))
-                     ;; Condition false - handle otherwise
-                     (cond
-                       ((and otherwise-clause (search "go to End" otherwise-clause :test #'char-equal))
+              (cond
+               ;; For-each loop - just increment PC after execution
+               (for-each-node
+                (incf pc))
+               
+               ;; Conditional step
+               (if-node
+                (let ((cond-expr (cadr if-node)))
+                  (if (eval-expr cond-expr env (format nil "Step ~A condition" step-num))
+                      ;; Condition true - execute Then clauses
+                      (progn
+                        ;; Execute all Then clauses for conditional
+                        (dolist (then-clause then-clauses)
+                          ;; Check if it's a control flow or assignment
+                           (cond
+                            ((search "repeat from Step" then-clause :test #'char-equal)
+                             ;; Handle later in control flow
+                             nil)
+                            ((search "go to Step" then-clause :test #'char-equal)
+                             ;; Handle later in control flow
+                             nil)
+                           (t
+                            ;; Regular assignment or expression
+                            (eval-expr then-clause env (format nil "Step ~A Then clause" step-num))
+                            (when verbose
+                              (format t "  Then: ~A~%" then-clause)))))
+                        
+                         ;; Check last Then clause for control flow
+                         (let ((last-then (car (last then-clauses))))
+                           (if (and last-then (search "repeat from Step" last-then :test #'char-equal))
+                              (let* ((step-pos (search "Step " last-then))
+                                     (num-start (+ step-pos 5))
+                                     (target-step (parse-integer last-then :start num-start :junk-allowed t)))
+                                (when verbose
+                                  (format t "  -> Jumping to Step ~A~%" target-step))
+                                (setf pc (1- target-step)))
+                               (if (and last-then (search "go to Step" last-then :test #'char-equal))
+                                  (let* ((step-pos (search "Step " last-then))
+                                         (num-start (+ step-pos 5))
+                                         (target-step (parse-integer last-then :start num-start :junk-allowed t)))
+                                    (when verbose
+                                      (format t "  -> Going to Step ~A~%" target-step))
+                                    (setf pc (1- target-step)))
+                                  (incf pc)))))
+                    ;; Condition false - handle otherwise
+                    (cond
+                      ((and otherwise-clause (search "go to End" otherwise-clause :test #'char-equal))
                        (when verbose
                          (format t "  -> Going to End~%"))
                        (return))
-                       ((and otherwise-clause (search "go to Step" otherwise-clause :test #'char-equal))
+                      ((and otherwise-clause (search "go to Step" otherwise-clause :test #'char-equal))
                        (let* ((step-pos (search "Step " otherwise-clause))
                               (num-start (+ step-pos 5))
                               (target-step (parse-integer otherwise-clause :start num-start :junk-allowed t)))
                          (when verbose
                            (format t "  -> Going to Step ~A~%"target-step))
                          (setf pc (1- target-step))))
-                       (t (incf pc)))))
-                  ;; No conditional, just advance
-                  (incf pc))))
+                      (t (incf pc))))))
+               
+               ;; Regular step - just advance
+               (t (incf pc)))))
       
       ;; Error handler - execute Error: block if present
       (error (e)

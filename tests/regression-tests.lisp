@@ -238,6 +238,56 @@
                  (search "Page not found" error-response)))
   
   ;; Summary
+  ;; For each loop tests
+  (format t "~%Testing For each loops...~%")
+  (let* ((code "Story: Test For each
+Given:
+  nums: List = [10, 20, 30]
+  sum: Integer = 0
+  num: Integer
+
+Step 1 → For each num in nums
+  Because: Sum all numbers
+  Then: sum becomes sum + num
+
+End: Return sum")
+         (ast (parse-cns code))
+         (result (interpret-cns ast :verbose nil)))
+    (test-equal "For each single list" result 60))
+  
+  (let* ((code "Story: Test For each with two lists
+Given:
+  names: List = [\"Alice\", \"Bob\"]
+  scores: List = [85, 92]
+  name: String
+  score: Integer
+  total: Integer = 0
+
+Step 1 → For each name, score in names, scores
+  Because: Process pairs
+  Then: total becomes total + score
+
+End: Return total")
+         (ast (parse-cns code))
+         (result (interpret-cns ast :verbose nil)))
+    (test-equal "For each multiple lists" result 177))
+  
+  (let* ((code "Story: Test For each with effects
+Given:
+  items: List = [\"a\", \"b\", \"c\"]
+  item: String
+  count: Integer = 0
+
+Step 1 → For each item in items
+  Because: Count items
+  Then: count becomes count + 1
+  Effect: Print \"{item}\"
+
+End: Return count")
+         (ast (parse-cns code))
+         (result (interpret-cns ast :verbose nil)))
+    (test-equal "For each with effects" result 3))
+  
   (format t "~%===========================================~%")
   (format t " Test Summary~%")
   (format t "===========================================~%")

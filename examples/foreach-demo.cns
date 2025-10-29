@@ -1,0 +1,22 @@
+Story: Demonstrate For each loop with simple list iteration
+
+Given:
+  names: List = ["Alice", "Bob", "Charlie"]
+  scores: List = [85, 92, 78]
+  name: String
+  score: Integer
+  total: Integer = 0
+  count: Integer = 0
+
+Step 1 → For each name, score in names, scores
+  Because: Process each student's data
+  Then: total becomes total + score
+  Then: count becomes count + 1
+  Effect: Print "{name}: {score} points"
+
+Step 2 → Calculate and display average
+  Because: Show overall class performance
+  Then: total becomes total / count
+  Effect: Print "Average score: {total}"
+
+End: Return total
