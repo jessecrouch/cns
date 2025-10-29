@@ -1,0 +1,21 @@
+Story: Demonstrate error handling with Error: block
+
+Given:
+  filename: String = "missing-file.txt"
+  content: String
+  success: Integer = 1
+
+Step 1 → Attempt to read file
+  Because: Try to load the data
+  Effect: Read content from filename
+
+Step 2 → Process content
+  Because: Work with the loaded data
+  Effect: Print "Content loaded: {content}"
+
+End: Return success
+
+Error:
+  Return 0
+  Effect: Print "Failed to read file: {filename}"
+  Because: File does not exist
