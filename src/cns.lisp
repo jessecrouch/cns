@@ -77,30 +77,134 @@ World' and ' rest'"
         ;; If we get here, string was not closed
         (values result "")))))
 
+(defun parse-query-string (query-string)
+  "Parse URL query string into alist.
+   Example: 'key1=val1&key2=val2' -> (('key1' . 'val1') ('key2' . 'val2'))"
+  (when (and query-string (> (length query-string) 0))
+    (let ((params '()))
+      (dolist (pair (split-string query-string #\&))
+        (let* ((kv (split-string pair #\=))
+               (key (trim (car kv)))
+               (value (if (cdr kv) (trim (cadr kv)) "")))
+          (push (cons key value) params)))
+      (nreverse params))))
+
+(defun parse-http-headers (header-lines)
+  "Parse HTTP headers from list of header lines.
+   Returns alist of (header-name . header-value) pairs."
+  (let ((headers '()))
+    (dolist (line header-lines)
+      (let ((colon-pos (position #\: line)))
+        (when colon-pos
+          (let ((name (string-downcase (trim (subseq line 0 colon-pos))))
+                (value (trim (subseq line (1+ colon-pos)))))
+            (push (cons name value) headers)))))
+    (nreverse headers)))
+
 (defun parse-http-request (request-string)
-  "Parse HTTP request string into structured data.
-   Example: 'GET /path HTTP/1.1' -> (:method 'GET' :url '/path' :version 'HTTP/1.1')"
+  "Parse HTTP request string into structured data with headers, query params, and body.
+   Returns plist with:
+   :method - HTTP method (GET, POST, etc.)
+   :path - URL path without query string
+   :query-params - Alist of query parameters
+   :version - HTTP version
+   :headers - Alist of headers
+   :body - Request body (if present)"
   (let* ((lines (split-string request-string #\Newline))
-         (request-line (car lines)))
+         (request-line (car lines))
+         (blank-line-pos (position-if (lambda (line) (string= (trim line) "")) 
+                                       (cdr lines))))
     (when request-line
       (let* ((parts (split-string request-line #\Space))
              (method (if (>= (length parts) 1) (trim (car parts)) "GET"))
-             (url (if (>= (length parts) 2) (trim (cadr parts)) "/"))
-             (version (if (>= (length parts) 3) (trim (caddr parts)) "HTTP/1.1")))
-        (list :request 
+             (full-url (if (>= (length parts) 2) (trim (cadr parts)) "/"))
+             (version (if (>= (length parts) 3) (trim (caddr parts)) "HTTP/1.1"))
+             ;; Parse path and query string
+             (query-pos (position #\? full-url))
+             (path (if query-pos (subseq full-url 0 query-pos) full-url))
+             (query-string (when query-pos (subseq full-url (1+ query-pos))))
+             (query-params (parse-query-string query-string))
+             ;; Parse headers (lines between request line and blank line)
+             (header-lines (if blank-line-pos
+                              (subseq (cdr lines) 0 blank-line-pos)
+                              (cdr lines)))
+             (headers (parse-http-headers header-lines))
+             ;; Parse body (lines after blank line)
+             (body (when blank-line-pos
+                     (let ((body-lines (nthcdr (+ blank-line-pos 2) lines)))
+                       (when body-lines
+                         (format nil "~{~A~^~%~}" body-lines))))))
+        (list :request
               :method method 
-              :url url 
-              :version version)))))
+              :path path
+              :query-params query-params
+              :version version
+              :headers headers
+              :body body)))))
 
-(defun match-route (routes request-method request-url)
-  "Find matching route in routes list.
-   Routes format: ((method url response) ...)
-   Returns response string or nil if not found."
+(defun match-route-pattern (pattern path)
+  "Match a route pattern against a path.
+   Pattern can contain:
+   - Exact match: '/users'
+   - Wildcard: '/users/*' matches '/users/123'
+   - Named params: '/users/:id' matches '/users/123' and captures id=123
+   Returns (values matched params-alist)"
+  (cond
+    ;; Exact match
+    ((string= pattern path)
+     (values t nil))
+    
+    ;; Wildcard match: /path/*
+    ((and (> (length pattern) 2)
+          (string= (subseq pattern (- (length pattern) 2)) "/*"))
+     (let ((prefix (subseq pattern 0 (- (length pattern) 1))))
+       (if (and (>= (length path) (length prefix))
+                (string= (subseq path 0 (length prefix)) prefix))
+           (values t nil)
+           (values nil nil))))
+    
+    ;; Named parameter match: /path/:param
+    ((position #\: pattern)
+     (let ((pattern-parts (split-string pattern #\/))
+           (path-parts (split-string path #\/))
+           (params '())
+           (matched t))
+       (when (= (length pattern-parts) (length path-parts))
+         (loop for pp in pattern-parts
+               for pathp in path-parts
+               do (cond
+                    ;; Empty parts (leading /)
+                    ((and (= (length pp) 0) (= (length pathp) 0))
+                     nil)
+                    ;; Named parameter
+                    ((and (> (length pp) 0) (char= (char pp 0) #\:))
+                     (push (cons (subseq pp 1) pathp) params))
+                    ;; Exact match
+                    ((string= pp pathp)
+                     nil)
+                    ;; No match
+                    (t
+                     (setf matched nil)
+                     (return))))
+         (if matched
+             (values t (nreverse params))
+             (values nil nil)))))
+    
+    ;; No match
+    (t (values nil nil))))
+
+(defun match-route (routes request-method request-path)
+  "Find matching route in routes list with pattern support.
+   Routes format: ((method pattern response) ...)
+   Pattern can be exact path, wildcard, or contain named parameters.
+   Returns (values response params-alist) or (nil nil) if not found."
   (dolist (route routes)
-    (when (and (string-equal (car route) request-method)
-               (string-equal (cadr route) request-url))
-      (return-from match-route (caddr route))))
-  nil)
+    (when (string-equal (car route) request-method)
+      (multiple-value-bind (matched params)
+          (match-route-pattern (cadr route) request-path)
+        (when matched
+          (return-from match-route (values (caddr route) params))))))
+  (values nil nil))
 
 ;;; ============================================================================
 ;;; Real Socket Support (using sb-bsd-sockets)
@@ -155,6 +259,70 @@ World' and ' rest'"
   (when socket
     (ignore-errors
       (sb-bsd-sockets:socket-close socket))))
+
+;;; ============================================================================
+;;; HTTP Response Building
+;;; ============================================================================
+
+(defun build-http-response (status-code body &key (content-type "text/html") (headers nil))
+  "Build a complete HTTP response.
+   status-code: HTTP status code (200, 404, etc.)
+   body: Response body content
+   content-type: Content-Type header value
+   headers: Additional headers as alist ((name . value) ...)
+   Returns complete HTTP response string."
+  (let ((status-text (case status-code
+                      (200 "OK")
+                      (201 "Created")
+                      (204 "No Content")
+                      (301 "Moved Permanently")
+                      (302 "Found")
+                      (400 "Bad Request")
+                      (401 "Unauthorized")
+                      (403 "Forbidden")
+                      (404 "Not Found")
+                      (500 "Internal Server Error")
+                      (t "Unknown"))))
+    (with-output-to-string (response)
+      ;; Status line
+      (format response "HTTP/1.1 ~D ~A~C~C" status-code status-text #\Return #\Newline)
+      
+      ;; Content-Type header
+      (format response "Content-Type: ~A~C~C" content-type #\Return #\Newline)
+      
+      ;; Content-Length header
+      (format response "Content-Length: ~D~C~C" (length body) #\Return #\Newline)
+      
+      ;; Additional headers
+      (dolist (header headers)
+        (format response "~A: ~A~C~C" (car header) (cdr header) #\Return #\Newline))
+      
+      ;; Blank line before body
+      (format response "~C~C" #\Return #\Newline)
+      
+      ;; Body
+      (write-string body response))))
+
+(defun build-json-response (status-code json-data &key (headers nil))
+  "Build HTTP response with JSON content.
+   json-data: String containing JSON data
+   Returns complete HTTP response with application/json content-type."
+  (build-http-response status-code json-data 
+                       :content-type "application/json"
+                       :headers headers))
+
+(defun build-error-response (status-code message)
+  "Build HTML error response.
+   Returns complete HTTP response with error HTML."
+  (let ((html (format nil "<html><head><title>Error ~D</title></head><body><h1>~D ~A</h1><p>~A</p></body></html>"
+                      status-code status-code
+                      (case status-code
+                        (400 "Bad Request")
+                        (404 "Not Found")
+                        (500 "Internal Server Error")
+                        (t "Error"))
+                      message)))
+    (build-http-response status-code html)))
 
 ;;; ============================================================================
 ;;; Parser: Convert CNS string to S-expression AST

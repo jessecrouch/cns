@@ -1,0 +1,77 @@
+Story: Advanced webserver with query params, path params, and JSON API
+
+Given:
+  port: Integer = 8080 [network port]
+  server_socket: Socket
+  routes: List = [
+    ("GET", "/", "Home Page"),
+    ("GET", "/users/:id", "User Profile"),
+    ("GET", "/api/data", "API Data"),
+    ("GET", "/files/*", "File Handler"),
+    ("POST", "/api/submit", "Submit Data")
+  ]
+  request: String
+  method: String
+  path: String
+  query_params: List
+  path_params: List
+  headers: List
+  response: String
+
+Step 1 → Create server_socket on port
+  Effect: Create socket server_socket on port
+  Because: Need to listen for incoming HTTP connections
+
+Step 2 → Accept connection on server_socket
+  Effect: Accept connection on server_socket
+  Because: Handle incoming HTTP request
+
+Step 3 → Read request from client
+  Effect: Network read
+  Because: Receive HTTP request data
+  Then: request becomes received data
+
+Step 4 → Parse request to extract method, path, query_params, headers
+  Because: Need structured data to route request
+  Then: method becomes request method
+  Then: path becomes request path
+  Then: query_params becomes parsed query parameters
+  Then: headers becomes parsed headers
+
+Step 5 → Match path against routes to find handler
+  Because: Determine which response to send
+  Then: response becomes matched route response
+  Then: path_params becomes captured path parameters
+
+Step 6 → If path = "/"
+  Because: Home page request
+  Then: response becomes "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<h1>Welcome</h1>"
+  Otherwise: go to Step 7
+
+Step 7 → If path starts with "/users/"
+  Because: User profile request with ID parameter
+  Then: response becomes "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<h1>User Profile</h1><p>ID: {user_id}</p>"
+  Otherwise: go to Step 8
+
+Step 8 → If path = "/api/data"
+  Because: JSON API request
+  Then: response becomes "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{\"status\":\"ok\",\"data\":[1,2,3]}"
+  Otherwise: go to Step 9
+
+Step 9 → If method = "POST"
+  Because: Handle POST submission
+  Then: response becomes "HTTP/1.1 201 Created\r\nContent-Type: application/json\r\n\r\n{\"status\":\"created\"}"
+  Otherwise: go to Step 10
+
+Step 10 → If response is empty
+  Because: No route matched - return 404
+  Then: response becomes "HTTP/1.1 404 Not Found\r\nContent-Type: text/html\r\n\r\n<h1>404 Not Found</h1>"
+
+Step 11 → Send response to client
+  Effect: Send response to client
+  Because: Return HTTP response to browser
+
+Step 12 → If TRUE, repeat from Step 2
+  Because: Continue serving requests
+
+End: Return "Server stopped"

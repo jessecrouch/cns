@@ -98,13 +98,36 @@
                   (getf (cdr parsed) :method)  ; Skip :request keyword
                   "GET")
       
-      (test-equal "parse URL"
-                  (getf (cdr parsed) :url)
+      (test-equal "parse path"
+                  (getf (cdr parsed) :path)
                   "/test")
       
       (test-equal "parse HTTP version"
                   (getf (cdr parsed) :version)
                   "HTTP/1.1")))
+  
+  ;; Enhanced HTTP parsing tests
+  (format t "~%Testing enhanced HTTP features...~%")
+  
+  (let ((request (format nil "GET /users/123?name=John&age=30 HTTP/1.1~%Host: localhost~%Content-Type: application/json~%~%{\"test\":\"data\"}")))
+    (let ((parsed (parse-http-request request)))
+      (test-equal "parse path with params"
+                  (getf (cdr parsed) :path)
+                  "/users/123")
+      
+      (test-assert "parse query params"
+                   (let ((params (getf (cdr parsed) :query-params)))
+                     (and (assoc "name" params :test #'string=)
+                          (string= (cdr (assoc "name" params :test #'string=)) "John"))))
+      
+      (test-assert "parse headers"
+                   (let ((headers (getf (cdr parsed) :headers)))
+                     (and (assoc "host" headers :test #'string=)
+                          (string= (cdr (assoc "host" headers :test #'string=)) "localhost"))))
+      
+      (test-assert "parse body"
+                   (let ((body (getf (cdr parsed) :body)))
+                     (and body (search "test" body))))))
   
   ;; Route matching tests
   (format t "~%Testing route matching...~%")
@@ -128,6 +151,30 @@
     (test-equal "match-route wrong method"
                 (match-route routes "POST" "/")
                 nil))
+  
+  ;; Advanced route matching tests
+  (format t "~%Testing advanced route matching...~%")
+  
+  (let ((routes '(("GET" "/users/:id" "User page")
+                  ("GET" "/files/*" "File handler")
+                  ("GET" "/api/v1/resource" "Exact match"))))
+    
+    (test-equal "match wildcard route"
+                (match-route routes "GET" "/files/docs/readme.txt")
+                "File handler")
+    
+    (multiple-value-bind (response params)
+        (match-route routes "GET" "/users/123")
+      (test-equal "match named param route"
+                  response
+                  "User page")
+      (test-assert "capture named param"
+                   (and params
+                        (string= (cdr (assoc "id" params :test #'string=)) "123"))))
+    
+    (test-equal "match exact over pattern"
+                (match-route routes "GET" "/api/v1/resource")
+                "Exact match"))
   
   ;; Expression evaluation tests
   (format t "~%Testing expression evaluation...~%")
@@ -166,6 +213,29 @@
   (test-equal "extract-quoted-string with escape"
               (extract-quoted-string "\"hello\\nworld\" rest")
               (format nil "hello~Aworld" #\Newline))
+  
+  ;; HTTP response building tests
+  (format t "~%Testing HTTP response building...~%")
+  
+  (let ((response (build-http-response 200 "Hello World")))
+    (test-assert "response has status line"
+                 (search "HTTP/1.1 200 OK" response))
+    (test-assert "response has content-type"
+                 (search "Content-Type: text/html" response))
+    (test-assert "response has body"
+                 (search "Hello World" response)))
+  
+  (let ((json-response (build-json-response 200 "{\"status\":\"ok\"}")))
+    (test-assert "json response has correct content-type"
+                 (search "Content-Type: application/json" json-response))
+    (test-assert "json response has body"
+                 (search "{\"status\":\"ok\"}" json-response)))
+  
+  (let ((error-response (build-error-response 404 "Page not found")))
+    (test-assert "error response has 404 status"
+                 (search "HTTP/1.1 404 Not Found" error-response))
+    (test-assert "error response has message"
+                 (search "Page not found" error-response)))
   
   ;; Summary
   (format t "~%===========================================~%")
