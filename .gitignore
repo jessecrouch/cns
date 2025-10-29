@@ -38,3 +38,6 @@ desktop.ini
 # Test artifacts
 test-output/
 *.log
+
+# OpenCode temp files
+opencodetmp/
