@@ -1,0 +1,20 @@
+QUARTERLY SALES REPORT
+======================
+
+Month: Jan
+Sales: $12500
+
+Month: Feb
+Sales: $15000
+
+Month: Mar
+Sales: $13200
+
+Month: Apr
+Sales: $18500
+
+SUMMARY
+-------
+Total Sales: $59200
+Average/Month: $14800
+Best Month:  ($0)

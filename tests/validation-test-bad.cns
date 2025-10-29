@@ -1,0 +1,15 @@
+Story: Test file with intentional errors
+
+Given:
+  x: Integer = 5
+
+Step 1 → Calculate something
+  Then: x becomes x + 1
+
+Step 2 If x > 10
+  Then: go to Step 5
+  Otherwise: go to End
+
+Step 4 → Jump in numbering
+  Because: testing step sequence
+  Then: repeat from Step 1
