@@ -111,12 +111,19 @@ See `src/cns.lisp` for full implementation details and `examples/` for working C
 - **Collaboration**: Use OpenCode for rapid iteration
 - **Reference**: Point to `examples/` for CNS code samples rather than duplicating them
 - **Testing**: Run examples through interpreter to verify changes don't break existing functionality
+- **Context Management**: Keep the project lean for AI context windows:
+  - Remove obsolete documentation and planning artifacts after completion
+  - Avoid code duplication in docs—reference `src/` and `examples/` instead
+  - Delete redundant examples that don't add unique coverage
+  - Compress verbose documentation while preserving essential information
+  - Regularly audit for historical artifacts that can be archived or removed
 
 ### Quick Reference
 - **Implementation**: `src/cns.lisp` - full interpreter code
 - **Examples**: `examples/` - working CNS programs (factorial, fibonacci, webserver, etc.)
 - **Prompts**: `prompts/` - templates for LLM code generation
-- **Tests**: `tests/llm-tests/` - validation suite
+- **Tests**: `tests/` - comprehensive testing infrastructure
+- **Testing Guide**: `docs/development/TESTING.md` - validation and regression testing
 - **Roadmap**: `docs/development/UPDATES.md` - strategic direction and milestones
 
 For extending beyond Lisp (e.g., Python port), mirror the structure: Parser to AST (dicts/classes), interpreter as a class with state.

@@ -1,0 +1,23 @@
+#!/usr/bin/sbcl --script
+;;; CNS Validator - Command-line tool
+;;; Usage: ./cns-validate <file.cns>
+
+(load (merge-pathnames "cns-validator.lisp" 
+                       (make-pathname :directory 
+                                     (pathname-directory *load-truename*))))
+
+(defun main ()
+  (let ((args sb-ext:*posix-argv*))
+    (if (< (length args) 2)
+        (progn
+          (format t "Usage: ~A <file.cns>~%" (car args))
+          (format t "Validates CNS code for syntax, semantics, and structure.~%")
+          (sb-ext:exit :code 1))
+        (let ((filepath (cadr args)))
+          (if (probe-file filepath)
+              (sb-ext:exit :code (validate-file filepath))
+              (progn
+                (format *error-output* "Error: File not found: ~A~%" filepath)
+                (sb-ext:exit :code 1)))))))
+
+(main)
