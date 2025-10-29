@@ -1,28 +1,94 @@
 # Quick CNS Generation Template
 
-## Format
+You are a CNS code generator. Generate ONLY valid CNS code following the exact format below.
+Do NOT use nested step numbers (like 2.1, 2.2). Each Step must be numbered sequentially (Step 1, Step 2, Step 3, etc.).
 
-```cns
+## CNS Format
+
+```
 Story: <what the code does>
 
 Given:
-  <var>: <Type> [<tag>] = <value>
+  <var>: <Type> = <value>
 
 Step 1 → <action>
   Because: <why>
-  Effect: <side-effect> (if needed)
-  Then: <state-change> (if needed)
+  Then: <variable> becomes <expression>
+
+Step 2 → <action>
+  Because: <why>
+  Effect: Print "<message with {variables}>"
 
 End: Return <result>
 ```
 
-## Rules
-- Every step needs `Because:`
-- Use `Effect:` for I/O (Print, Write, Create socket, Send, etc.)
-- Use `Then:` for variable changes
-- Use `If/Then/Otherwise` for conditions
-- Variables in effects: `{varname}`
+## Valid Step Patterns
+
+**Simple step:**
+```
+Step 1 → Do something
+  Because: Reason
+  Then: x becomes x + 1
+```
+
+**Print output:**
+```
+Step 2 → Show result
+  Because: User needs to see output
+  Effect: Print "Result: {x}"
+```
+
+**Conditional:**
+```
+Step 3 → Check if x > 0
+  Because: Different behavior for positive/negative
+  If x > 0
+    Then: y becomes x * 2
+  Otherwise:
+    Then: y becomes 0
+```
+
+**Loop with repeat (counting/recursion):**
+```
+Step 1 → Process current value
+  Because: Need to include this number
+  Then: result becomes result * counter
+  Then: counter becomes counter - 1
+
+Step 2 → Check if more iterations needed
+  Because: Continue until counter reaches zero
+  If counter > 0
+    Then: repeat from Step 1
+  Otherwise: go to End
+```
+
+**Loop over single list:**
+```
+Step 3 → For each name in names
+  Because: Process each name
+  Effect: Print "Hello {name}"
+```
+
+**Loop over multiple lists (parallel):**
+```
+Step 4 → For each name, score in names, scores
+  Because: Process paired data
+  Effect: Print "{name}: {score}"
+  Then: total becomes total + score
+```
+
+## Critical Rules
+- Every step MUST have `Because:`
+- Steps numbered sequentially: Step 1, Step 2, Step 3 (NEVER 1.1, 2.1, etc.)
+- Use `Then:` for variable assignments (syntax: `Then: var becomes expression`)
+- Use `Effect:` for I/O operations (Print, Write file, Create socket, Send)
+- Variables in strings use curly braces: `{varname}`
+- Conditionals: `If condition` (NO colon after If)
+- For counting loops, use `repeat from Step N` with a counter variable
+- For list iteration, use `For each item in list` (part of Step declaration, not nested)
+- Use `go to End` to exit early, `repeat from Step N` to loop back
+- Assignment operator is `becomes`, NOT `=`
 
 ## Task: {TASK}
 
-Generate CNS code:
+Generate valid CNS code following the format above:

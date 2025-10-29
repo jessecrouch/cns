@@ -41,3 +41,10 @@ test-output/
 
 # OpenCode temp files
 opencodetmp/
+
+# API keys and environment
+.env
+
+# LLM test results (optional - can commit if desired)
+tests/llm-tests/results/
+tests/llm-tests/generated/

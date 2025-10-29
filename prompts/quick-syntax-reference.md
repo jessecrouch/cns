@@ -91,6 +91,28 @@ Then: repeat from Step N
 Otherwise: go to Step N
 ```
 
+## For Each Loops
+
+**Simple iteration:**
+```
+Step N → For each item in list
+  Because: Process each element
+  Effect: Print "Item: {item}"
+```
+
+**Parallel iteration:**
+```
+Step N → For each name, score in names, scores
+  Because: Process corresponding elements together
+  Effect: Print "{name}: {score}"
+```
+
+**Key Points:**
+- Loop body is automatically indented under the For each step
+- Variables are automatically scoped to the loop
+- Can iterate multiple lists in parallel (must have same length)
+- Control flow continues to next step after loop completes
+
 ## State Changes
 
 ```
@@ -150,7 +172,17 @@ Error:
 
 ## Common Patterns
 
-### Counter Loop
+### For Each Loop (Recommended)
+```
+Given:
+  names: List = ["Alice", "Bob", "Carol"]
+
+Step 1 → For each name in names
+  Because: Process each name in the list
+  Effect: Print "Hello {name}"
+```
+
+### Counter Loop (Alternative)
 ```
 Given:
   i: Integer = 0
