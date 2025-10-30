@@ -1,0 +1,11 @@
+Story: Calculate the nth Fibonacci number
+
+G: n:I=10, a:I=0, b:I=1, count:I=0, temp:I=0
+
+S1→ count<n? temp=a+b : ->E
+S2→ a=b
+S3→ b=temp
+S4→ count=count+1
+S5→ count<n? ->S1 : ->E
+
+E: b

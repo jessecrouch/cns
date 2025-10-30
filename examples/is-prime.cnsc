@@ -1,0 +1,9 @@
+Story: Check if a number is prime by trial division
+
+G: n:I=17, divisor:I=2, is-prime:I=1
+
+S1→ divisor*divisor>n? ->E : ->E
+S2→ divisor=divisor+1
+S3→ divisor*divisor<n? ->S1 : ->E
+
+E: is-prime

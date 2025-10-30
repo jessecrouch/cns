@@ -935,20 +935,32 @@ World' and ' rest'"
                (< (eval-expr (trim (car parts)) env)
                   (eval-expr (trim (cadr parts)) env))))
             
-             ;; Comparison: n ≠ 1 (not equal)
-             ((search "≠" trimmed)
-              (let ((parts (split-string trimmed #\≠)))
-                (/= (eval-expr (trim (car parts)) env)
-                    (eval-expr (trim (cadr parts)) env))))
+              ;; Comparison: n ≠ 1 (not equal)
+              ;; Handles both numeric and boolean comparisons
+              ((search "≠" trimmed)
+               (let* ((parts (split-string trimmed #\≠))
+                      (left-val (eval-expr (trim (car parts)) env))
+                      (right-val (eval-expr (trim (cadr parts)) env)))
+                 ;; If both values are numbers, use numeric inequality
+                 ;; Otherwise use general inequality (for booleans, strings, etc.)
+                 (if (and (numberp left-val) (numberp right-val))
+                     (/= left-val right-val)
+                     (not (equal left-val right-val)))))
             
-            ;; Comparison: n = 1 (must come after ≠, ≤, ≥, <=, >=)
-            ;; Make sure = is not part of <=, >=
-            ((and (position #\= trimmed)
-                  (not (search "<=" trimmed))
-                  (not (search ">=" trimmed)))
-             (let ((parts (split-string trimmed #\=)))
-               (= (eval-expr (trim (car parts)) env)
-                  (eval-expr (trim (cadr parts)) env))))
+             ;; Comparison: n = 1 (must come after ≠, ≤, ≥, <=, >=)
+             ;; Make sure = is not part of <=, >=
+             ;; Handles both numeric and boolean comparisons
+             ((and (position #\= trimmed)
+                   (not (search "<=" trimmed))
+                   (not (search ">=" trimmed)))
+              (let* ((parts (split-string trimmed #\=))
+                     (left-val (eval-expr (trim (car parts)) env))
+                     (right-val (eval-expr (trim (cadr parts)) env)))
+                ;; If both values are numbers, use numeric comparison
+                ;; Otherwise use general equality (for booleans, strings, etc.)
+                (if (and (numberp left-val) (numberp right-val))
+                    (= left-val right-val)
+                    (equal left-val right-val))))
            
             ;; Boolean: NOT expression
             ((starts-with (string-upcase trimmed) "NOT ")
@@ -1086,9 +1098,11 @@ World' and ' rest'"
             ((string-equal trimmed "T") t)
             ((string-equal trimmed "NIL") nil)
             
-            ;; Default: try variable lookup one more time, else error
-            (t (or (gethash trimmed env)
-                   (error "Unknown variable or expression: ~A" trimmed)))))
+             ;; Default: try variable lookup one more time, else error
+             (t (multiple-value-bind (value exists) (gethash trimmed env)
+                  (if exists
+                      value
+                      (error "Unknown variable or expression: ~A" trimmed))))))
        (error (e)
          ;; Silently return nil for errors - don't spam user
          ;; Only show errors in non-context calls
@@ -1419,10 +1433,11 @@ World' and ' rest'"
    ((stringp ast-or-code)
     (clear-functions)
     (let* ((parsed (parse-cns ast-or-code))
-           (ast-list (if (listp (car parsed))
-                         ;; Multiple stories
+           (ast-list (if (and (listp (car parsed))
+                              (listp (caar parsed)))
+                         ;; Multiple stories: (((STORY ...) ...) ((STORY ...) ...))
                          parsed
-                         ;; Single story wrapped in list
+                         ;; Single story: ((STORY ...) (GIVEN ...) ...)
                          (list parsed)))
            (entry-point-ast nil)
            (entry-point-name nil))

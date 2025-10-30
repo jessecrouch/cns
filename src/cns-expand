@@ -1,0 +1,53 @@
+#!/bin/bash
+# CNS Expand - Convert CNSC (compact) to verbose CNS format
+# Usage: ./cns-expand <file.cnsc>
+#        cat file.cnsc | ./cns-expand
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CNS_LISP="$SCRIPT_DIR/cns.lisp"
+
+if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+    echo "CNS Expand - Convert CNSC (compact) to verbose CNS format"
+    echo ""
+    echo "Usage:"
+    echo "  ./cns-expand <file.cnsc>    Expand a CNSC file to verbose CNS"
+    echo "  cat file.cnsc | ./cns-expand    Read from stdin"
+    echo ""
+    echo "Examples:"
+    echo "  ./cns-expand factorial.cnsc > factorial.cns"
+    echo "  ./cns-expand factorial.cnsc | less"
+    echo ""
+    exit 0
+fi
+
+# Read from file or stdin
+if [ -n "$1" ]; then
+    INPUT_FILE="$1"
+    if [ ! -f "$INPUT_FILE" ]; then
+        echo "Error: File '$INPUT_FILE' not found" >&2
+        exit 1
+    fi
+    INPUT_CODE=$(cat "$INPUT_FILE")
+else
+    # Read from stdin
+    INPUT_CODE=$(cat)
+fi
+
+# Use SBCL to expand the code
+sbcl --noinform --no-userinit --no-sysinit --load "$CNS_LISP" --eval "
+(handler-case
+    (let ((code (read-line)))
+      (loop for line = (read-line *standard-input* nil)
+            while line
+            do (setf code (concatenate 'string code (string #\Newline) line)))
+      (let ((expanded (expand-cnsc-to-cns code)))
+        (write-string expanded)
+        (terpri)
+        (sb-ext:exit :code 0)))
+  (error (e)
+    (format *error-output* \"Error expanding CNSC: ~A~%\" e)
+    (sb-ext:exit :code 1)))
+" --quit <<EOF
+$INPUT_CODE
+EOF

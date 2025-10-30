@@ -82,17 +82,22 @@ class CNSTester:
         
     def extract_cns_code(self, llm_output: str) -> str:
         """Extract CNS code from LLM output, removing markdown/explanations"""
-        # Try to find code between ```cns and ```
-        if "```cns" in llm_output:
-            start = llm_output.find("```cns") + 6
-            end = llm_output.find("```", start)
-            if end != -1:
-                return llm_output[start:end].strip()
+        # Try to find code between ```cns or ```cnsc and ```
+        for marker in ["```cnsc", "```cns"]:
+            if marker in llm_output:
+                start = llm_output.find(marker) + len(marker)
+                # Skip to next line (after language identifier)
+                newline = llm_output.find("\n", start)
+                if newline != -1:
+                    start = newline + 1
+                end = llm_output.find("```", start)
+                if end != -1:
+                    return llm_output[start:end].strip()
         
         # Try generic code blocks
         if "```" in llm_output:
             start = llm_output.find("```") + 3
-            # Skip language identifier if present
+            # Skip language identifier if present (up to newline)
             newline = llm_output.find("\n", start)
             if newline != -1:
                 start = newline + 1

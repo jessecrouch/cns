@@ -1,0 +1,10 @@
+Story: Simple Boolean Test
+
+Given:
+  flag: Boolean = TRUE
+
+Step 1 → If flag = TRUE
+  Then: Display "Flag is true"
+  Otherwise: Display "Flag is false"
+
+End: Return 0

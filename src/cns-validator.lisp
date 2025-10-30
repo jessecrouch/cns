@@ -270,6 +270,7 @@
 
 (defun validate-cns (code)
   "Perform comprehensive validation of CNS code.
+   Automatically detects and expands CNSC (compact) format.
    Returns (values is-valid error-list warning-list).
    is-valid is T if no errors (warnings are OK).
    error-list contains all errors.
@@ -278,23 +279,28 @@
         (errors '())
         (warnings '()))
     
-    ;; Structure validation (on raw code)
-    (setf all-errors (append all-errors
-                             (validate-has-story code)
-                             (validate-has-given code)
-                             (validate-has-steps code)
-                             (validate-has-end code)
-                             (validate-has-because-clauses code)))
+    ;; Auto-expand CNSC to CNS if detected
+    (let ((expanded-code (if (is-cnsc-code code)
+                             (expand-cnsc-to-cns code)
+                             code)))
     
-    ;; Syntax validation (on raw code)
+    ;; Structure validation (on expanded code)
     (setf all-errors (append all-errors
-                             (validate-step-arrows code)
-                             (validate-end-format code)
-                             (validate-indentation code)))
+                             (validate-has-story expanded-code)
+                             (validate-has-given expanded-code)
+                             (validate-has-steps expanded-code)
+                             (validate-has-end expanded-code)
+                             (validate-has-because-clauses expanded-code)))
+    
+    ;; Syntax validation (on expanded code)
+    (setf all-errors (append all-errors
+                             (validate-step-arrows expanded-code)
+                             (validate-end-format expanded-code)
+                             (validate-indentation expanded-code)))
     
     ;; Try to parse - if it fails, return early
     (handler-case
-        (let ((ast (parse-cns code)))
+        (let ((ast (parse-cns expanded-code)))
           ;; Semantic validation (on AST)
           (setf all-errors (append all-errors
                                    (validate-variable-declarations ast)
@@ -314,7 +320,7 @@
     
     (values (null errors)  ; is-valid
             (nreverse errors)
-            (nreverse warnings))))
+            (nreverse warnings)))))
 
 ;;; ============================================================================
 ;;; Pretty Printing
