@@ -81,6 +81,35 @@ Effect: Send "response" to client
 Effect: Network read
 ```
 
+#### Functions
+```
+Story: FunctionName (function)
+  
+  Given:
+    param1: Type = value
+    param2: Type = value
+    result: Type = initial_value
+    
+  Step 1 → [Compute result]
+    Because: [reason]
+    Then: result becomes [expression]
+    
+  End: Return result
+
+---
+
+Story: MainProgram
+  [Uses functions from above]
+```
+
+**Function Rules:**
+1. Functions are stories with `(function)` tag
+2. Parameters are first N variables in `Given:` section
+3. Return value using `End: Return value`
+4. Separate multiple stories with `---`
+5. Functions can call other functions
+6. Recursion is supported
+
 ## Generation Instructions
 
 When given a task description, generate CNS code that:
@@ -259,6 +288,87 @@ End: Return is_prime
 ```
 
 **Note:** This example demonstrates the "flag check for early exit" pattern. After setting `is_prime` to FALSE, we check it in the next step to exit early rather than continuing unnecessary iterations.
+
+#### Task: "Create reusable math functions"
+
+```cns
+Story: Add (function)
+  Add two numbers together
+  
+  Given:
+    a: Integer = 0
+    b: Integer = 0
+    result: Integer = 0
+    
+  Step 1 → Calculate sum
+    Because: Need to add the two parameters
+    Then: result becomes a + b
+    
+  End: Return result
+
+---
+
+Story: Multiply (function)
+  Multiply two numbers
+  
+  Given:
+    x: Integer = 0
+    y: Integer = 0
+    product: Integer = 0
+    
+  Step 1 → Calculate product
+    Because: Need to multiply the parameters
+    Then: product becomes x * y
+    
+  End: Return product
+
+---
+
+Story: Power (function)
+  Calculate base raised to exponent
+  
+  Given:
+    base: Integer = 0
+    exponent: Integer = 0
+    result: Integer = 1
+    
+  Step 1 → Check if exponent is zero
+    Because: Anything raised to 0 is 1
+    If exponent = 0:
+      Then: go to End
+    Otherwise: go to Step 2
+    
+  Step 2 → Recursive calculation
+    Because: Power is base * base^(exponent-1)
+    Then: result becomes base * Power(base, exponent - 1)
+    
+  End: Return result
+
+---
+
+Story: CalculateExpression
+  Demonstrate function composition
+  
+  Given:
+    x: Integer = 5
+    y: Integer = 10
+    final: Integer = 0
+    
+  Step 1 → Calculate (5+10) * 5 + 2^3
+    Because: Demonstrate nested function calls
+    Then: sum becomes Add(x, y)
+    Then: product becomes Multiply(sum, 5)
+    Then: power becomes Power(2, 3)
+    Then: final becomes Add(product, power)
+    
+  Step 2 → Display result
+    Effect: Print "Result: {final}"
+    Because: Show the calculated value
+    
+  End: Return final
+```
+
+**Note:** Functions enable code reuse and composition. The main story (without `(function)` tag) serves as the entry point.
 
 ## User Task Template
 

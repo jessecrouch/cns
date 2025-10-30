@@ -1,0 +1,123 @@
+Story: CountWords (function)
+  Count the number of words in text
+  
+  Given:
+    - Text is available
+    - Count becomes 0
+    - Words becomes empty list
+    
+  Step: Split text into words
+    - Words becomes Text split by " "
+    - Count becomes Words length
+    
+  End: Return Count
+
+---
+
+Story: CountVowels (function)
+  Count vowels in text
+  
+  Given:
+    - Text is available
+    - Vowels becomes "aeiouAEIOU"
+    - Count becomes 0
+    - Index becomes 0
+    - Length becomes Text length
+    
+  Step: Count each vowel
+    - For Index from 0 to Length:
+      - Char becomes Text[Index]
+      - If Vowels contains Char:
+        - Count becomes Count + 1
+        
+  End: Return Count
+
+---
+
+Story: Reverse (function)
+  Reverse a string
+  
+  Given:
+    - Text is available
+    - Result becomes ""
+    - Index becomes Text length - 1
+    
+  Step: Build reversed string
+    - For Index from (Text length - 1) to 0:
+      - Result becomes Result + Text[Index]
+      
+  End: Return Result
+
+---
+
+Story: IsPalindrome (function)
+  Check if text is a palindrome
+  
+  Given:
+    - Text is available
+    - Reversed becomes empty
+    - Clean becomes Text lowercase
+    - IsPalin becomes false
+    
+  Step: Compare with reverse
+    - Reversed becomes Reverse(Clean)
+    - IsPalin becomes Clean = Reversed
+    
+  End: Return IsPalin
+
+---
+
+Story: GetStats (function)
+  Get comprehensive text statistics
+  
+  Given:
+    - Text is available
+    - Stats becomes empty
+    - WordCount becomes 0
+    - VowelCount becomes 0
+    - CharCount becomes 0
+    
+  Step: Calculate all statistics
+    - CharCount becomes Text length
+    - WordCount becomes CountWords(Text)
+    - VowelCount becomes CountVowels(Text)
+    - Stats becomes "Chars: " + CharCount + ", Words: " + WordCount + ", Vowels: " + VowelCount
+    
+  End: Return Stats
+
+---
+
+Story: ProcessText
+  Text processor with reusable functions
+  
+  Given:
+    - InputText is "Hello World This is CNS"
+    
+  Step: Display original text
+    - Show "Input: " + InputText
+    - Show ""
+    
+  Step: Show word count
+    - Words becomes CountWords(InputText)
+    - Show "Word count: " + Words
+    
+  Step: Show vowel count
+    - Vowels becomes CountVowels(InputText)
+    - Show "Vowel count: " + Vowels
+    
+  Step: Show reversed text
+    - RevText becomes Reverse(InputText)
+    - Show "Reversed: " + RevText
+    
+  Step: Check if palindrome
+    - TestWord is "racecar"
+    - IsPalin becomes IsPalindrome(TestWord)
+    - Show ""
+    - Show "Is '" + TestWord + "' a palindrome? " + IsPalin
+    
+  Step: Show comprehensive stats
+    - AllStats becomes GetStats(InputText)
+    - Show ""
+    - Show "Statistics: " + AllStats
+    
+  End

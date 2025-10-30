@@ -325,12 +325,210 @@ World' and ' rest'"
     (build-http-response status-code html)))
 
 ;;; ============================================================================
+;;; CNSC (Compact) Preprocessor
+;;; ============================================================================
+
+(defun contains-char (str ch)
+  "Check if string contains character."
+  (position ch str))
+
+(defun expand-cnsc-to-cns (code)
+  "Expand CNSC (compact) syntax to full CNS syntax.
+   Transforms:
+   - G: -> Given:
+   - Sn→ -> Step n →
+   - E: -> End:
+   - var=expr -> Then: var becomes expr
+   - cond? then : else -> If/Otherwise
+   - ->Sn -> repeat from Step n
+   - ->E -> go to End"
+  (let ((lines (split-string code #\Newline))
+        (result '()))
+    (dolist (line lines)
+      (let ((trimmed (trim line)))
+        (cond
+         ;; Story: (unchanged)
+         ((starts-with trimmed "Story:")
+          (push line result))
+         
+         ;; G: -> Given:
+         ((starts-with trimmed "G:")
+          (push "Given:" result)
+          (let* ((vars-str (trim (subseq trimmed 2)))
+                 (var-decls (split-string vars-str #\,)))
+            (dolist (var-decl var-decls)
+              (let* ((var-trimmed (trim var-decl))
+                     (colon-pos (position #\: var-trimmed))
+                     (equals-pos (position #\= var-trimmed)))
+                (when (and colon-pos equals-pos)
+                  (let* ((name (subseq var-trimmed 0 colon-pos))
+                         (type-abbr (subseq var-trimmed (1+ colon-pos) equals-pos))
+                         (value (subseq var-trimmed (1+ equals-pos)))
+                         (type-full (cond
+                                     ((string= type-abbr "I") "Integer")
+                                     ((string= type-abbr "S") "String")
+                                     ((string= type-abbr "L") "List")
+                                     ((string= type-abbr "M") "Map")
+                                     (t type-abbr))))
+                    (push (format nil "  ~A: ~A = ~A" name type-full value) result)))))))
+         
+          ;; Sn→ -> Step n →
+          ((and (>= (length trimmed) 3)
+                (char= (char trimmed 0) #\S)
+                (digit-char-p (char trimmed 1))
+                (contains-char trimmed #\→))
+           (let* ((arrow-pos (position #\→ trimmed))
+                  (step-num (parse-integer (subseq trimmed 1 arrow-pos)))
+                  (step-content (trim (subseq trimmed (1+ arrow-pos)))))
+             ;; Parse step content for conditional or action
+             (let ((question-pos (position #\? step-content))
+                   (colon-pos (position #\: step-content)))
+               (cond
+                ;; Conditional: cond? then : else
+                ((and question-pos colon-pos (< question-pos colon-pos))
+                 (let* ((condition (trim (subseq step-content 0 question-pos)))
+                        (then-part (trim (subseq step-content (1+ question-pos) colon-pos)))
+                        (else-part (trim (subseq step-content (1+ colon-pos)))))
+                   ;; Step header with IF condition
+                   (push (format nil "Step ~D → If ~A" step-num condition) result)
+                   (push "  Because: execution step" result)
+                   ;; Expand then part
+                   (cond
+                    ((starts-with then-part "->S")
+                     (let ((target-step (parse-integer (subseq then-part 3))))
+                       (push (format nil "  Then: repeat from Step ~D" target-step) result)))
+                    ((starts-with then-part "->E")
+                     (push "  Then: go to End" result))
+                    ((contains-char then-part #\=)
+                     (let* ((eq-pos (position #\= then-part))
+                            (var (trim (subseq then-part 0 eq-pos)))
+                            (expr (trim (subseq then-part (1+ eq-pos)))))
+                       (push (format nil "  Then: ~A becomes ~A" var expr) result)))
+                    (t
+                     (push (format nil "  Then: ~A" then-part) result)))
+                   ;; Expand else part
+                   (cond
+                    ((starts-with else-part "->S")
+                     (let ((target-step (parse-integer (subseq else-part 3))))
+                       (push (format nil "  Otherwise: repeat from Step ~D" target-step) result)))
+                    ((starts-with else-part "->E")
+                     (push "  Otherwise: go to End" result))
+                    ((contains-char else-part #\=)
+                     (let* ((eq-pos (position #\= else-part))
+                            (var (trim (subseq else-part 0 eq-pos)))
+                            (expr (trim (subseq else-part (1+ eq-pos)))))
+                       (push (format nil "  Otherwise: ~A becomes ~A" var expr) result)))
+                    (t
+                     (push (format nil "  Otherwise: ~A" else-part) result)))))
+               
+               ;; Simple assignment(s): var=expr or var=expr; var2=expr2
+               ((contains-char step-content #\=)
+                (push (format nil "Step ~D → Execute assignments" step-num) result)
+                (push "  Because: execution step" result)
+                (let ((assignments (split-string step-content #\;)))
+                  (dolist (assignment assignments)
+                    (let* ((assign-trimmed (trim assignment))
+                           (eq-pos (position #\= assign-trimmed)))
+                      (when eq-pos
+                        (let ((var (trim (subseq assign-trimmed 0 eq-pos)))
+                              (expr (trim (subseq assign-trimmed (1+ eq-pos)))))
+                          (push (format nil "  Then: ~A becomes ~A" var expr) result)))))))
+               
+               ;; Jump: ->Sn or ->E
+               ((starts-with step-content "->")
+                (push (format nil "Step ~D → Jump" step-num) result)
+                (push "  Because: execution step" result)
+                (cond
+                 ((starts-with step-content "->S")
+                  (let ((target-step (parse-integer (subseq step-content 3))))
+                    (push (format nil "  Then: repeat from Step ~D" target-step) result)))
+                 ((starts-with step-content "->E")
+                  (push "  Then: go to End" result))))
+               
+               ;; Unknown - pass through
+               (t
+                (push (format nil "Step ~D → ~A" step-num step-content) result)
+                (push "  Because: execution step" result)
+                (push (format nil "  Then: ~A" step-content) result))))))
+         
+         ;; E: -> End:
+         ((starts-with trimmed "E:")
+          (let ((return-val (trim (subseq trimmed 2))))
+            (push (format nil "End: Return ~A" return-val) result)))
+         
+         ;; Empty line
+         ((emptyp trimmed)
+          (push "" result))
+         
+         ;; Unknown - pass through
+         (t
+          (push line result)))))
+     (format nil "~{~A~%~}" (nreverse result))))
+
+;;; ============================================================================
+;;; Function Registry - Support for reusable stories
+;;; ============================================================================
+
+(defvar *function-registry* (make-hash-table :test #'equal)
+  "Global registry of function definitions.
+   Maps function name -> AST of the function's story.")
+
+(defun register-function (name ast)
+  "Register a function definition in the global registry."
+  (setf (gethash name *function-registry*) ast))
+
+(defun get-function (name)
+  "Retrieve a function definition from the registry."
+  (gethash name *function-registry*))
+
+(defun clear-functions ()
+  "Clear all function definitions (useful for testing)."
+  (clrhash *function-registry*))
+
+(defun is-function-story (story-line)
+  "Check if a story line declares a function.
+   Returns (values is-function function-name)"
+  (let ((trimmed (trim story-line)))
+    (when (starts-with trimmed "Story:")
+      (let ((rest (trim (subseq trimmed 6))))
+        (if (search "(function)" rest :test #'char-equal)
+            (let ((paren-pos (search "(" rest)))
+              (values t (trim (subseq rest 0 paren-pos))))
+            (values nil rest))))))
+
+(defun split-multi-story-code (code)
+  "Split code by --- separator into multiple stories.
+   Returns list of code strings, one per story."
+  (let ((separator "---")
+        (result '())
+        (current '())
+        (lines (split-string code #\Newline)))
+    (dolist (line lines)
+      (if (string= (trim line) separator)
+          (progn
+            (when current
+              (push (format nil "~{~A~^~%~}" (nreverse current)) result))
+            (setf current '()))
+          (push line current)))
+    ;; Don't forget last story
+    (when current
+      (push (format nil "~{~A~^~%~}" (nreverse current)) result))
+    (nreverse result)))
+
+;;; ============================================================================
 ;;; Parser: Convert CNS string to S-expression AST
 ;;; ============================================================================
 
-(defun parse-cns (code)
-  "Parse CNS code string into S-exp AST.
-   Returns nested list structure representing the program."
+(defun is-cnsc-code (code)
+  "Detect if code is in CNSC (compact) format.
+   Checks for CNSC markers: G:, Sn→, E:"
+  (or (search "G:" code)
+      (and (search "S1→" code) (not (search "Step 1" code)))
+      (and (search "E:" code) (not (search "End:" code)))))
+
+(defun parse-single-cns (code)
+  "Parse a single CNS story into AST.
+   This is the core parser logic."
   (let ((lines (remove-if #'emptyp (split-string code #\Newline)))
         (ast '())
         (current-section nil)
@@ -348,7 +546,7 @@ World' and ' rest'"
          ;; Given section (variable declarations)
          ((starts-with trimmed "Given:")
           (setf current-section :given)
-          (push '(given) ast))
+          (push (list 'given) ast))
          
           ;; Variable declaration in Given section
           ((and (eql current-section :given) indented)
@@ -433,7 +631,7 @@ World' and ' rest'"
              (push (nreverse current-step) ast))
            (setf current-section :error)
            (setf current-step nil)
-           (push '(error) ast))
+           (push (list 'error) ast))
           
           ;; Error section content (Return, Effect, Because)
           ((and (eql current-section :error) indented)
@@ -461,10 +659,177 @@ World' and ' rest'"
                                     (trim (subseq end-content 6))
                                     end-content)))
              (push `(end (return ,return-value) (because "computation complete")) ast))))))
-    ;; Finish last step if any
-    (when current-step
-      (push (nreverse current-step) ast))
-    (nreverse ast)))
+     ;; Finish last step if any
+     (when current-step
+       (push (nreverse current-step) ast))
+     (nreverse ast)))
+
+(defun parse-cns (code)
+  "Parse CNS code with support for multiple stories.
+   Returns list of ASTs if multiple stories, single AST otherwise.
+   Automatically detects and expands CNSC (compact) format."
+  (let ((expanded-code (if (is-cnsc-code code)
+                           (expand-cnsc-to-cns code)
+                           code)))
+    ;; Check if multi-story code (contains ---)
+    (if (search "---" expanded-code)
+        ;; Multiple stories - split and parse each
+        (mapcar #'parse-single-cns (split-multi-story-code expanded-code))
+        ;; Single story - parse and return as-is
+        (parse-single-cns expanded-code))))
+
+;;; ============================================================================
+;;; Function Calling Mechanism
+;;; ============================================================================
+
+;; Forward declarations (these functions are defined later)
+(declaim (ftype (function (t t &optional t) t) eval-expr))
+(declaim (ftype (function (t t t) t) apply-effect))
+
+(defun detect-function-call (expr)
+  "Detect if expression is a function call: FuncName(arg1, arg2).
+   Returns (values is-call function-name args-string)
+   Example: 'Add(5, 10)' -> (t 'Add' '5, 10')"
+  (when (stringp expr)
+    (let ((trimmed (trim expr)))
+      (let ((paren-open (position #\( trimmed))
+            (paren-close (position #\) trimmed :from-end t)))
+        (when (and paren-open paren-close 
+                   (> paren-close paren-open)
+                   (> paren-open 0))
+          (let ((func-name (trim (subseq trimmed 0 paren-open)))
+                (args-str (trim (subseq trimmed (1+ paren-open) paren-close))))
+            ;; Verify function name looks valid (starts with letter)
+            (when (and (> (length func-name) 0)
+                       (alpha-char-p (char func-name 0)))
+              (values t func-name args-str))))))))
+
+(defun call-function (func-name args-list &key (verbose nil))
+  "Call a function with given arguments.
+   args-list: list of evaluated argument values
+   Returns the function's return value."
+  (let ((func-ast (get-function func-name)))
+    (unless func-ast
+      (error "Function ~A not defined" func-name))
+    
+    (when verbose
+      (format t "~%  [Calling function: ~A(~{~A~^, ~})]~%" func-name args-list))
+    
+    ;; Create new environment for function
+    (let ((func-env (make-hash-table :test #'equal))
+          (steps '())
+          (result nil)
+          (error-block nil)
+          (param-index 0))
+      
+      ;; Phase 1: Collect sections and bind parameters
+      (dolist (node func-ast)
+        (case (car node)
+          (story nil)  ; Skip story header
+          
+          (given 
+           ;; Process variables: first N are parameters, rest are locals
+           (dolist (var (cdr node))
+             (let ((name (cadr var))
+                   (type (caddr var))
+                   (val (cadddr var)))
+               ;; If we have args remaining, use them as param values
+               (if (< param-index (length args-list))
+                   (progn
+                     (setf (gethash name func-env) (nth param-index args-list))
+                     (incf param-index)
+                     (when verbose
+                       (format t "    Param ~A = ~A~%" name (gethash name func-env))))
+                   ;; Local variable - initialize normally
+                   (progn
+                     (setf (gethash name func-env) 
+                           (if val (eval-expr val func-env) nil))
+                     (when verbose
+                       (format t "    Local ~A = ~A~%" name (gethash name func-env))))))))
+          
+          (step (push node steps))
+          (error (setf error-block node))
+          (end (setf result node))))
+      
+      (setf steps (nreverse steps))
+      
+      ;; Phase 2: Execute steps (simplified interpreter loop)
+      (let ((pc 0))
+        (handler-case
+            (loop while (< pc (length steps)) do
+                  (let* ((step (nth pc steps))
+                         (step-num (cadr step))
+                         (step-body (cddr step))
+                         (then-clauses (mapcar #'cadr (remove-if-not (lambda (x) (eq (car x) 'then)) step-body)))
+                         (effects (mapcar #'cadr (remove-if-not (lambda (x) (eq (car x) 'effect)) step-body)))
+                         (if-node (assoc 'if step-body))
+                         (otherwise-clause (cadr (assoc 'otherwise step-body))))
+                    
+                    ;; Handle conditional
+                    (cond
+                     (if-node
+                      (let ((cond-expr (cadr if-node)))
+                        (if (eval-expr cond-expr func-env)
+                            ;; True branch
+                            (progn
+                              (dolist (then-clause then-clauses)
+                                (cond
+                                 ((search "repeat from Step" then-clause :test #'char-equal)
+                                  (let* ((step-pos (search "Step " then-clause))
+                                         (num-start (+ step-pos 5))
+                                         (target-step (parse-integer then-clause :start num-start :junk-allowed t)))
+                                    (setf pc (1- target-step))))
+                                 ((search "go to Step" then-clause :test #'char-equal)
+                                  (let* ((step-pos (search "Step " then-clause))
+                                         (num-start (+ step-pos 5))
+                                         (target-step (parse-integer then-clause :start num-start :junk-allowed t)))
+                                    (setf pc (1- target-step))))
+                                 ((search "go to End" then-clause :test #'char-equal)
+                                  (return))
+                                 (t
+                                  (eval-expr then-clause func-env))))
+                              (unless (or (search "repeat from" (car (last then-clauses)) :test #'char-equal)
+                                          (search "go to" (car (last then-clauses)) :test #'char-equal))
+                                (incf pc)))
+                            ;; False branch
+                            (cond
+                             ((and otherwise-clause (search "go to End" otherwise-clause :test #'char-equal))
+                              (return))
+                             ((and otherwise-clause (search "go to Step" otherwise-clause :test #'char-equal))
+                              (let* ((step-pos (search "Step " otherwise-clause))
+                                     (num-start (+ step-pos 5))
+                                     (target-step (parse-integer otherwise-clause :start num-start :junk-allowed t)))
+                                (setf pc (1- target-step))))
+                             ((and otherwise-clause (search "repeat from Step" otherwise-clause :test #'char-equal))
+                              (let* ((step-pos (search "Step " otherwise-clause))
+                                     (num-start (+ step-pos 5))
+                                     (target-step (parse-integer otherwise-clause :start num-start :junk-allowed t)))
+                                (setf pc (1- target-step))))
+                             (t (incf pc))))))
+                     
+                     ;; Regular step
+                     (t
+                      (dolist (then-clause then-clauses)
+                        (eval-expr then-clause func-env))
+                      (dolist (eff effects)
+                        (apply-effect eff func-env verbose))
+                      (incf pc)))))
+          
+          (error (e)
+            (when error-block
+              (let ((error-return (cadr (assoc 'return (cdr error-block)))))
+                (when error-return
+                  (setf result (eval-expr error-return func-env)))))
+            (unless error-block
+              (error "Error in function ~A: ~A" func-name e)))))
+      
+      ;; Phase 3: Return result
+      (when result
+        (let ((return-expr (cadr (assoc 'return (cdr result)))))
+          (setf result (eval-expr return-expr func-env))
+          (when verbose
+            (format t "    -> Returns: ~A~%" result))
+          result)))))
 
 ;;; ============================================================================
 ;;; Expression Evaluator
@@ -482,15 +847,26 @@ World' and ' rest'"
      (handler-case
          (let ((trimmed (trim expr)))
            (cond
-             ;; String literal: "hello" (check BEFORE variable lookup!)
-             ((and (> (length trimmed) 1)
-                   (char= (char trimmed 0) #\")
-                   (char= (char trimmed (1- (length trimmed))) #\"))
-              (subseq trimmed 1 (1- (length trimmed))))
-            
-            ;; Variable lookup (use multiple-value-bind to check existence)
-            ((multiple-value-bind (value exists) (gethash trimmed env)
-               (when exists value)))
+              ;; String literal: "hello" (check BEFORE variable lookup!)
+              ((and (> (length trimmed) 1)
+                    (char= (char trimmed 0) #\")
+                    (char= (char trimmed (1- (length trimmed))) #\"))
+               (subseq trimmed 1 (1- (length trimmed))))
+             
+             ;; Function call: FuncName(arg1, arg2, ...) (check BEFORE variable lookup BUT NOT if it contains "becomes")
+             ((and (not (search "becomes" trimmed))  ; Not a becomes statement
+                   (multiple-value-bind (is-call func-name args-str)
+                       (detect-function-call trimmed)
+                     (when is-call
+                       (let* ((arg-exprs (if (and args-str (> (length args-str) 0))
+                                            (split-string args-str #\,)
+                                            '()))
+                              (arg-values (mapcar (lambda (arg) (eval-expr (trim arg) env)) arg-exprs)))
+                         (return-from eval-expr (call-function func-name arg-values :verbose (and context t))))))))
+             
+             ;; Variable lookup (use multiple-value-bind to check existence)
+             ((multiple-value-bind (value exists) (gethash trimmed env)
+                (when exists value)))
             
             ;; List literal: [1, 2, 3]
             ((and (> (length trimmed) 1)
@@ -1022,9 +1398,63 @@ World' and ' rest'"
 ;;; Interpreter: Execute the AST
 ;;; ============================================================================
 
-(defun interpret-cns (ast &key (verbose t))
-  "Interpret CNS AST, return result.
-   If verbose is true, prints execution trace."
+(defun interpret-cns (ast-or-code &key (verbose t))
+  "Interpret CNS code or AST with function support.
+   Can accept either:
+   - A string of CNS code (parsed automatically, supports functions)
+   - A single AST (legacy mode, no function support)
+   - A list of ASTs (multiple stories, supports functions)"
+  (cond
+   ;; String code - parse and handle functions
+   ((stringp ast-or-code)
+    (clear-functions)
+    (let* ((parsed (parse-cns ast-or-code))
+           (ast-list (if (listp (car parsed))
+                         ;; Multiple stories
+                         parsed
+                         ;; Single story wrapped in list
+                         (list parsed)))
+           (entry-point-ast nil)
+           (entry-point-name nil))
+      
+      ;; Register all functions and find entry point
+      (dolist (ast ast-list)
+        (let ((story-node (find 'story ast :key #'car)))
+          (when story-node
+            (let ((story-line (cadr story-node)))
+              (multiple-value-bind (is-func func-name)
+                  (is-function-story (format nil "Story: ~A" story-line))
+                (if is-func
+                    (progn
+                      (register-function func-name ast)
+                      (when verbose
+                        (format t "Registered function: ~A~%" func-name)))
+                    (progn
+                      (setf entry-point-ast ast)
+                      (setf entry-point-name story-line))))))))
+      
+      ;; If no entry point, use first story
+      (unless entry-point-ast
+        (setf entry-point-ast (car ast-list)))
+      
+      (when verbose
+        (format t "~%=== Executing Entry Point ===~%"))
+      
+      (interpret-single-story entry-point-ast :verbose verbose)))
+   
+   ;; List of ASTs - handle as multi-story
+   ((and (listp ast-or-code) 
+         (listp (car ast-or-code))
+         (eq (caar ast-or-code) 'story))
+    (interpret-cns (format nil "~{~S~%~}" ast-or-code) :verbose verbose))
+   
+   ;; Single AST - legacy mode
+   (t
+    (interpret-single-story ast-or-code :verbose verbose))))
+
+(defun interpret-single-story (ast &key (verbose t))
+  "Interpret a single CNS story AST.
+   This is the core interpreter logic."
   (let ((env (make-hash-table :test #'equal))  ; State variables
         (steps '())                           ; List of steps
         (pc 0)                                ; Program counter (step index)
@@ -1399,8 +1829,8 @@ Please fix the code to resolve this error. Output only the corrected CNS code.
   (with-open-file (stream filepath)
     (let ((code (make-string (file-length stream))))
       (read-sequence code stream)
-      (let ((ast (parse-cns code)))
-        (interpret-cns ast)))))
+      ;; Pass code directly to interpret-cns for function support
+      (interpret-cns code))))
 
 (defun cns-repl ()
   "Simple REPL for CNS code."

@@ -250,9 +250,16 @@ For detailed structure, see [STRUCTURE.md](STRUCTURE.md).
 - ✅ Error handling blocks (`Error:` section)
 - ✅ Automatic error recovery with error effects
 
+**Functions:**
+- ✅ Reusable functions with parameters and return values
+- ✅ Multiple functions per file (separated by `---`)
+- ✅ Function composition and nested calls
+- ✅ Recursion support
+- ✅ Local variable scoping
+- ✅ Entry point detection (story without `(function)` tag)
+
 ### Planned Features
 
-- 🔜 Functions/reusable stories
 - 🔜 Read from files (not just write)
 - 🔜 More list operations (append, filter, map)
 - 🔜 Full type validation for semantic tags
@@ -381,6 +388,80 @@ The Error: block is optional and executes if any step throws an error during exe
 ```cns
 End: Return <value>
 ```
+
+### Functions
+
+CNS supports reusable functions for code organization and modularity:
+
+```cns
+Story: Add (function)
+  Add two numbers together
+  
+  Given:
+    a: Integer = 0
+    b: Integer = 0
+    result: Integer = 0
+    
+  Step 1 → Calculate sum
+    Because: Need to add the two parameters
+    Then: result becomes a + b
+    
+  End: Return result
+
+---
+
+Story: Power (function)
+  Calculate base raised to exponent
+  
+  Given:
+    base: Integer = 0
+    exponent: Integer = 0
+    result: Integer = 1
+    
+  Step 1 → Check if exponent is zero
+    Because: Anything raised to 0 is 1
+    If exponent = 0:
+      Then: go to End
+    Otherwise: go to Step 2
+    
+  Step 2 → Recursive calculation
+    Because: Power is base * base^(exponent-1)
+    Then: result becomes base * Power(base, exponent - 1)
+    
+  End: Return result
+
+---
+
+Story: CalculateExpression
+  Main program that uses functions
+  
+  Given:
+    x: Integer = 5
+    y: Integer = 10
+    final: Integer = 0
+    
+  Step 1 → Calculate result
+    Because: Demonstrate function composition
+    Then: sum becomes Add(x, y)
+    Then: power becomes Power(2, 3)
+    Then: final becomes Add(sum, power)
+    
+  Step 2 → Display result
+    Effect: Print "Result: {final}"
+    Because: Show the calculated value
+    
+  End: Return final
+```
+
+**Function Rules:**
+- Functions are stories tagged with `(function)` in the Story line
+- Parameters are the first N variables in the `Given:` section
+- Functions return values using `End: Return <value>`
+- Multiple stories are separated by `---` divider
+- Functions can call other functions and support recursion
+- The story without `(function)` tag is the entry point
+
+See `examples/math-library.cns` and `docs/guides/FUNCTIONS.md` for complete details.
 
 ## Real Networking with CNS
 
