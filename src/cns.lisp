@@ -656,9 +656,9 @@ World' and ' rest'"
               ;; Keep effect string as-is - let apply-effect handle quote extraction
               (push `(effect ,effect-str) current-step)))
          
-         ;; Then clause (state transformation)
-         ((and current-step indented (starts-with trimmed "Then:"))
-          (push `(then ,(trim (subseq trimmed 5))) current-step))
+          ;; Then clause (state transformation)
+          ((and current-step indented (starts-with trimmed "Then:"))
+           (push `(then ,(trim (subseq trimmed 5))) current-step))
          
          ;; Otherwise clause
          ((and current-step indented (starts-with trimmed "Otherwise:"))
@@ -896,9 +896,12 @@ World' and ' rest'"
          (let ((trimmed (trim expr)))
            (cond
               ;; String literal: "hello" (check BEFORE variable lookup!)
+              ;; But NOT if it contains operators - check for unescaped quote in middle
               ((and (> (length trimmed) 1)
                     (char= (char trimmed 0) #\")
-                    (char= (char trimmed (1- (length trimmed))) #\"))
+                    (char= (char trimmed (1- (length trimmed))) #\")
+                    ;; Make sure there's no unescaped quote in the middle (which would mean it's "str" = "str")
+                    (not (position #\" trimmed :start 1 :end (1- (length trimmed)))))
                (subseq trimmed 1 (1- (length trimmed))))
              
              ;; Function call: FuncName(arg1, arg2, ...) (check BEFORE variable lookup BUT NOT if it contains "becomes")
@@ -990,11 +993,14 @@ World' and ' rest'"
                      (not (equal left-val right-val)))))
             
              ;; Comparison: n = 1 (must come after ≠, ≤, ≥, <=, >=)
-             ;; Make sure = is not part of <=, >=
+             ;; Make sure = is not part of <=, >=, "becomes", " AND ", or " OR "
              ;; Handles both numeric and boolean comparisons
              ((and (position #\= trimmed)
                    (not (search "<=" trimmed))
-                   (not (search ">=" trimmed)))
+                   (not (search ">=" trimmed))
+                   (not (search "becomes" trimmed))
+                   (not (search " AND " (string-upcase trimmed)))
+                   (not (search " OR " (string-upcase trimmed))))
               (let* ((parts (split-string trimmed #\=))
                      (left-val (eval-expr (trim (car parts)) env))
                      (right-val (eval-expr (trim (cadr parts)) env)))
@@ -1008,13 +1014,13 @@ World' and ' rest'"
             ((starts-with (string-upcase trimmed) "NOT ")
              (not (eval-expr (trim (subseq trimmed 4)) env)))
             
-            ;; Boolean: a AND b
-            ((search " AND " (string-upcase trimmed))
-             (let* ((pos (search " AND " (string-upcase trimmed)))
-                    (left (subseq trimmed 0 pos))
-                    (right (subseq trimmed (+ pos 5))))
-               (and (eval-expr (trim left) env)
-                    (eval-expr (trim right) env))))
+             ;; Boolean: a AND b
+             ((search " AND " (string-upcase trimmed))
+              (let* ((pos (search " AND " (string-upcase trimmed)))
+                     (left (subseq trimmed 0 pos))
+                     (right (subseq trimmed (+ pos 5))))
+                (and (eval-expr (trim left) env)
+                     (eval-expr (trim right) env))))
             
              ;; Boolean: a OR b
              ((search " OR " (string-upcase trimmed))
