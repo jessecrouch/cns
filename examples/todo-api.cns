@@ -1,0 +1,79 @@
+Story: Todo List REST API Server
+
+Given:
+  port: Integer = 8081
+  todos: List = []
+  request_method: String = ""
+  request_path: String = ""
+  request_body_data: String = ""
+  response: String = ""
+  new_todo: String = ""
+  todo_count: Integer = 0
+  json_count: String = ""
+
+Step 1 → Print startup message
+  Because: Inform user server is starting
+  Effect: Print "✓ Starting Todo API on port {port}"
+  Effect: Print "✓ Press Ctrl+C to stop"
+
+Step 2 → Create server socket
+  Because: Need to listen for HTTP requests
+  Effect: Create socket server_socket on port
+
+Step 3 → Accept incoming connection
+  Because: Handle incoming HTTP request
+  Effect: Accept connection on server_socket
+
+Step 4 → Read HTTP request
+  Because: Receive request data from client
+  Effect: Network read
+
+Step 5 → Extract request details
+  Because: Get method, path, and body from parsed request
+  Then: request_method becomes REQUEST_METHOD
+  Then: request_path becomes REQUEST_PATH
+  Then: request_body_data becomes REQUEST_BODY
+  Effect: Print "→ {request_method} {request_path}"
+
+Step 6 → If request_path = "/" AND request_method = "GET"
+  Because: Root endpoint - show welcome message
+  Then: response becomes "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{\"message\":\"Todo API\"}"
+  Otherwise: go to Step 7
+
+Step 7 → If request_path = "/todos" AND request_method = "GET"
+  Because: List all todos
+  Then: todo_count becomes LENGTH OF todos
+  Then: json_count becomes "0"
+  Then: response becomes "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{\"count\":0,\"todos\":[]}"
+  Effect: Print "  Returning {json_count} todos"
+  Otherwise: go to Step 8
+
+Step 8 → If request_path = "/todos" AND request_method = "POST"
+  Because: Create new todo
+  Then: new_todo becomes PARSE JSON request_body_data GET "task"
+  Effect: ADD new_todo TO LIST todos
+  Then: todo_count becomes LENGTH OF todos
+  Then: response becomes "HTTP/1.1 201 Created\r\nContent-Type: application/json\r\n\r\n{\"status\":\"created\"}"
+  Effect: Print "  ✓ Added: {new_todo}"
+  Otherwise: go to Step 9
+
+Step 9 → If response = ""
+  Because: No route matched - return 404
+  Then: response becomes "HTTP/1.1 404 Not Found\r\nContent-Type: application/json\r\n\r\n{\"error\":\"Not Found\"}"
+
+Step 10 → Send response to client
+  Because: Return HTTP response
+  Effect: Send response to client
+
+Step 11 → Close client connection
+  Because: Request complete
+  Effect: Close connection client_socket
+
+Step 12 → Reset for next request
+  Because: Prepare for next connection
+  Then: response becomes ""
+
+Step 13 → If TRUE, repeat from Step 3
+  Because: Continue serving requests
+
+End: Return "Server stopped"

@@ -35,6 +35,45 @@
   "Check if string is empty after trim."
   (zerop (length (trim str))))
 
+(defun parse-json-value (json-str key)
+  "Simple JSON parser to extract a value by key.
+   Handles: strings, numbers, booleans, null
+   Example: {\"name\":\"John\",\"age\":30} with key 'name' -> 'John'"
+  (handler-case
+      (let* ((trimmed (trim json-str))
+             ;; Find the key in JSON: "key":
+             (key-pattern (format nil "\"~A\":" key))
+             (key-pos (search key-pattern trimmed)))
+        (if key-pos
+            (let* ((value-start (+ key-pos (length key-pattern)))
+                   (value-part (trim (subseq trimmed value-start)))
+                   (first-char (char value-part 0)))
+              (cond
+                ;; String value: "value"
+                ((char= first-char #\")
+                 (let ((end-quote (position #\" value-part :start 1)))
+                   (if end-quote
+                       (subseq value-part 1 end-quote)
+                       "")))
+                ;; Boolean true
+                ((starts-with value-part "true") t)
+                ;; Boolean false
+                ((starts-with value-part "false") nil)
+                ;; Null
+                ((starts-with value-part "null") nil)
+                ;; Number
+                (t (let ((end-pos (or (position #\, value-part)
+                                     (position #\} value-part)
+                                     (length value-part))))
+                     (let ((num-str (trim (subseq value-part 0 end-pos))))
+                       (handler-case
+                           (parse-integer num-str)
+                         (error () num-str)))))))
+            ""))
+    (error (e)
+      (format *error-output* "JSON parse error: ~A~%" e)
+      "")))
+
 (defun extract-quoted-string (str)
   "Extract a quoted string from str, handling escape sequences.
    Returns (values extracted-string rest-of-string).
@@ -130,17 +169,16 @@ World' and ' rest'"
                               (cdr lines)))
              (headers (parse-http-headers header-lines))
              ;; Parse body (lines after blank line)
-             (body (when blank-line-pos
-                     (let ((body-lines (nthcdr (+ blank-line-pos 2) lines)))
-                       (when body-lines
-                         (format nil "~{~A~^~%~}" body-lines))))))
-        (list :request
-              :method method 
-              :path path
-              :query-params query-params
-              :version version
-              :headers headers
-              :body body)))))
+              (body (when blank-line-pos
+                      (let ((body-lines (nthcdr (+ blank-line-pos 2) lines)))
+                        (when body-lines
+                          (format nil "~{~A~^~%~}" body-lines))))))
+         (list :method method 
+               :path path
+               :query-params query-params
+               :version version
+               :headers headers
+               :body body)))))
 
 (defun match-route-pattern (pattern path)
   "Match a route pattern against a path.
@@ -878,13 +916,17 @@ World' and ' rest'"
              ((multiple-value-bind (value exists) (gethash trimmed env)
                 (when exists value)))
             
-            ;; List literal: [1, 2, 3]
+            ;; List literal: [1, 2, 3] or []
             ((and (> (length trimmed) 1)
                   (char= (char trimmed 0) #\[)
                   (char= (char trimmed (1- (length trimmed))) #\]))
-             (let* ((content (subseq trimmed 1 (1- (length trimmed))))
-                    (items (split-string content #\,)))
-               (mapcar (lambda (item) (eval-expr (trim item) env)) items)))
+             (let* ((content (trim (subseq trimmed 1 (1- (length trimmed))))))
+               ;; Empty list: []
+               (if (zerop (length content))
+                   '()
+                   ;; Non-empty list
+                   (let ((items (split-string content #\,)))
+                     (mapcar (lambda (item) (eval-expr (trim item) env)) items)))))
             
              ;; Try to parse as number (handles negative numbers)
              ((and (> (length trimmed) 0)
@@ -974,13 +1016,51 @@ World' and ' rest'"
                (and (eval-expr (trim left) env)
                     (eval-expr (trim right) env))))
             
-            ;; Boolean: a OR b
-            ((search " OR " (string-upcase trimmed))
-             (let* ((pos (search " OR " (string-upcase trimmed)))
-                    (left (subseq trimmed 0 pos))
-                    (right (subseq trimmed (+ pos 4))))
-               (or (eval-expr (trim left) env)
-                   (eval-expr (trim right) env))))
+             ;; Boolean: a OR b
+             ((search " OR " (string-upcase trimmed))
+              (let* ((pos (search " OR " (string-upcase trimmed)))
+                     (left (subseq trimmed 0 pos))
+                     (right (subseq trimmed (+ pos 4))))
+                (or (eval-expr (trim left) env)
+                    (eval-expr (trim right) env))))
+            
+             ;; JSON parsing: PARSE JSON {json_string} GET "key"
+             ((starts-with (string-upcase trimmed) "PARSE JSON ")
+              (let* ((rest (trim (subseq trimmed 11)))
+                     (get-pos (search " GET " (string-upcase rest))))
+                (if get-pos
+                    (let* ((json-expr (trim (subseq rest 0 get-pos)))
+                           (key-expr (trim (subseq rest (+ get-pos 5))))
+                           (json-str (eval-expr json-expr env))
+                           ;; Remove quotes from key if present
+                           (key (if (and (> (length key-expr) 1)
+                                        (char= (char key-expr 0) #\")
+                                        (char= (char key-expr (1- (length key-expr))) #\"))
+                                   (subseq key-expr 1 (1- (length key-expr)))
+                                   key-expr)))
+                      (parse-json-value json-str key))
+                    ;; No GET clause - return the raw JSON string
+                    (eval-expr rest env))))
+            
+             ;; File reading: READ FROM FILE "filepath" (MUST come before - operator!)
+             ((starts-with (string-upcase trimmed) "READ FROM FILE ")
+              (let* ((filepath-expr (trim (subseq trimmed 15)))
+                     ;; Remove quotes if present
+                     (filepath (if (and (> (length filepath-expr) 1)
+                                       (char= (char filepath-expr 0) #\")
+                                       (char= (char filepath-expr (1- (length filepath-expr))) #\"))
+                                  (subseq filepath-expr 1 (1- (length filepath-expr)))
+                                  filepath-expr)))
+                (handler-case
+                    (with-open-file (stream filepath :direction :input :if-does-not-exist nil)
+                      (if stream
+                          (let ((contents (make-string (file-length stream))))
+                            (read-sequence contents stream)
+                            contents)
+                          ""))
+                  (error (e)
+                    (format *error-output* "File read error: ~A~%" e)
+                    ""))))
             
             ;; Assignment: n becomes n - 1
             ((search "becomes" trimmed)
@@ -991,18 +1071,18 @@ World' and ' rest'"
                    (expr (format nil "~{~A~^ ~}" expr-parts)))
               (setf (gethash var-name env)
                     (eval-expr expr env))))
-           
-           ;; Arithmetic: result * n
-           ((search "*" trimmed)
-            (let ((parts (split-string trimmed #\*)))
-              (* (eval-expr (trim (car parts)) env)
-                 (eval-expr (trim (cadr parts)) env))))
-           
-           ;; Arithmetic: n - 1
-           ((search "-" trimmed)
-            (let ((parts (split-string trimmed #\-)))
-              (- (eval-expr (trim (car parts)) env)
-                 (eval-expr (trim (cadr parts)) env))))
+            
+            ;; Arithmetic: result * n
+            ((search "*" trimmed)
+             (let ((parts (split-string trimmed #\*)))
+               (* (eval-expr (trim (car parts)) env)
+                  (eval-expr (trim (cadr parts)) env))))
+            
+            ;; Arithmetic: n - 1
+            ((search "-" trimmed)
+             (let ((parts (split-string trimmed #\-)))
+               (- (eval-expr (trim (car parts)) env)
+                  (eval-expr (trim (cadr parts)) env))))
            
              ;; Addition/Concatenation: n + 1 or "hello" + "world"
              ((search "+" trimmed)
@@ -1029,17 +1109,32 @@ World' and ' rest'"
                (floor (/ (eval-expr (trim (car parts)) env)
                          (eval-expr (trim (cadr parts)) env)))))
             
-            ;; Arithmetic: n % 2 (modulo)
-            ((search "%" trimmed)
-             (let ((parts (split-string trimmed #\%)))
-               (mod (eval-expr (trim (car parts)) env)
-                    (eval-expr (trim (cadr parts)) env))))
+             ;; Arithmetic: n % 2 (modulo)
+             ((search "%" trimmed)
+              (let ((parts (split-string trimmed #\%)))
+                (mod (eval-expr (trim (car parts)) env)
+                     (eval-expr (trim (cadr parts)) env))))
             
              ;; Length operation: length of list or string
              ((starts-with (string-upcase trimmed) "LENGTH OF ")
               (let* ((var-name (trim (subseq trimmed 10)))
                      (value (eval-expr var-name env)))
                 (length value)))
+            
+             ;; List operation: FIND IN LIST {list_var} WHERE {key} = {value}
+             ((starts-with (string-upcase trimmed) "FIND IN LIST ")
+              (let* ((rest (trim (subseq trimmed 13)))
+                     (where-pos (search " WHERE " (string-upcase rest))))
+                (if where-pos
+                    (let* ((list-var (trim (subseq rest 0 where-pos)))
+                           (condition (trim (subseq rest (+ where-pos 7))))
+                           (list-val (gethash list-var env)))
+                      ;; Simple WHERE clause: key = value
+                      ;; For now, just return first item (simplified for MVP)
+                      (if (and list-val (listp list-val) (> (length list-val) 0))
+                          (car list-val)
+                          nil))
+                    nil)))
             
              ;; List operations: get item at index (0-based)
              ((search " AT " (string-upcase trimmed))
@@ -1278,21 +1373,31 @@ World' and ' rest'"
              (when verbose
                (format t "  Effect: Accept connection (no socket specified)~%")))))
       
-      ;; Socket: Network read (REAL implementation)
-      ((starts-with (string-upcase trimmed) "NETWORK READ")
-       (let ((stream (gethash "client_stream" env)))
-         (if stream
-             (handler-case
-                 (let ((data (socket-receive stream)))
-                   (setf (gethash "request_data" env) data)
-                   (when verbose
-                     (format t "  Effect: Read REAL network data (~A bytes)~%" 
-                             (if data (length data) 0))))
-               (error (e)
-                 (when verbose
-                   (format t "  Effect: Failed to read from network: ~A~%" e))))
-             (when verbose
-               (format t "  Effect: Network read (no stream available)~%")))))
+       ;; Socket: Network read (REAL implementation)
+       ((starts-with (string-upcase trimmed) "NETWORK READ")
+        (let ((stream (gethash "client_stream" env)))
+          (if stream
+              (handler-case
+                  (let ((data (socket-receive stream)))
+                    (setf (gethash "request_data" env) data)
+                    ;; Auto-parse HTTP request and extract body
+                    (when data
+                      (let ((parsed (parse-http-request data)))
+                        (when parsed
+                          ;; Store method, path, and body as special variables
+                          (setf (gethash "REQUEST_METHOD" env) (getf parsed :method))
+                          (setf (gethash "REQUEST_PATH" env) (getf parsed :path))
+                          (setf (gethash "REQUEST_BODY" env) (or (getf parsed :body) ""))
+                          (setf (gethash "REQUEST_QUERY" env) (getf parsed :query-params))
+                          (setf (gethash "REQUEST_HEADERS" env) (getf parsed :headers)))))
+                    (when verbose
+                      (format t "  Effect: Read REAL network data (~A bytes)~%" 
+                              (if data (length data) 0))))
+                (error (e)
+                  (when verbose
+                    (format t "  Effect: Failed to read from network: ~A~%" e))))
+              (when verbose
+                (format t "  Effect: Network read (no stream available)~%")))))
       
       ;; Socket: Network write
       ((starts-with (string-upcase trimmed) "NETWORK WRITE")
@@ -1329,15 +1434,48 @@ World' and ' rest'"
                   (when verbose
                     (format t "  Effect: Send (no stream available)~%")))))))))
       
-      ;; Socket: Close socket (REAL implementation)
-      ((starts-with (string-upcase trimmed) "CLOSE SOCKET")
-       (let* ((socket-name (trim (subseq trimmed 13)))
-              (socket (gethash socket-name env)))
-         (when socket
-           (handler-case
-               (progn
-                 (close-socket socket)
-                 (setf (gethash socket-name env) nil)
+       ;; List operation: ADD {value} TO LIST {list_var}
+       ((search " TO LIST " (string-upcase trimmed))
+        (let* ((to-pos (search " TO LIST " (string-upcase trimmed)))
+               (value-expr (trim (subseq trimmed 0 to-pos)))
+               (list-var (trim (subseq trimmed (+ to-pos 9))))
+               ;; Handle "ADD" prefix if present
+               (clean-value-expr (if (starts-with (string-upcase value-expr) "ADD ")
+                                    (trim (subseq value-expr 4))
+                                    value-expr))
+               (value (eval-expr clean-value-expr env))
+               (current-list (gethash list-var env)))
+          (if current-list
+              (setf (gethash list-var env) (append current-list (list value)))
+              (setf (gethash list-var env) (list value)))
+          (when verbose
+            (format t "  Effect: Added ~A to list ~A~%" value list-var))))
+      
+       ;; List operation: REMOVE {value} FROM LIST {list_var}
+       ((search " FROM LIST " (string-upcase trimmed))
+        (let* ((from-pos (search " FROM LIST " (string-upcase trimmed)))
+               (value-expr (trim (subseq trimmed 0 from-pos)))
+               (list-var (trim (subseq trimmed (+ from-pos 11))))
+               ;; Handle "REMOVE" prefix if present
+               (clean-value-expr (if (starts-with (string-upcase value-expr) "REMOVE ")
+                                    (trim (subseq value-expr 7))
+                                    value-expr))
+               (value (eval-expr clean-value-expr env))
+               (current-list (gethash list-var env)))
+          (when current-list
+            (setf (gethash list-var env) (remove value current-list :test #'equal)))
+          (when verbose
+            (format t "  Effect: Removed ~A from list ~A~%" value list-var))))
+      
+       ;; Socket: Close socket (REAL implementation)
+       ((starts-with (string-upcase trimmed) "CLOSE SOCKET")
+        (let* ((socket-name (trim (subseq trimmed 13)))
+               (socket (gethash socket-name env)))
+          (when socket
+            (handler-case
+                (progn
+                  (close-socket socket)
+                  (setf (gethash socket-name env) nil)
                  (when verbose
                    (format t "  Effect: Closed REAL socket ~A~%" socket-name)))
              (error (e)

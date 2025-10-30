@@ -1,0 +1,31 @@
+Story: Test list operations
+
+Given:
+  todos: List = []
+  count: Integer = 0
+
+Step 1 → Add first todo
+  Because: Test adding to list
+  Effect: ADD "Buy milk" TO LIST todos
+  Effect: Print "Added first todo"
+
+Step 2 → Add second todo
+  Because: Test adding another item
+  Effect: ADD "Write code" TO LIST todos
+  Effect: Print "Added second todo"
+
+Step 3 → Check list length
+  Because: Verify items were added
+  Then: count becomes LENGTH OF todos
+  Effect: Print "Todo count: {count}"
+
+Step 4 → Remove an item
+  Because: Test removing from list
+  Effect: REMOVE "Buy milk" FROM LIST todos
+
+Step 5 → Check length again
+  Because: Verify item was removed
+  Then: count becomes LENGTH OF todos
+  Effect: Print "After removal: {count}"
+
+End: Return count

@@ -1,0 +1,19 @@
+Story: Test file reading functionality
+
+Given:
+  test_file: String = "/tmp/test-cns-read.txt"
+  file_content: String = ""
+
+Step 1 → Write test file
+  Because: Need a file to read
+  Effect: Write "Hello from CNS file system!" to /tmp/test-cns-read.txt
+
+Step 2 → Read file back
+  Because: Test READ FROM FILE operation
+  Then: file_content becomes READ FROM FILE "/tmp/test-cns-read.txt"
+
+Step 3 → Display result
+  Because: Verify file was read correctly
+  Effect: Print "File content: {file_content}"
+
+End: Return file_content
