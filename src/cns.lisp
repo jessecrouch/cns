@@ -352,25 +352,31 @@ World' and ' rest'"
           (push line result))
          
          ;; G: -> Given:
-         ((starts-with trimmed "G:")
-          (push "Given:" result)
-          (let* ((vars-str (trim (subseq trimmed 2)))
-                 (var-decls (split-string vars-str #\,)))
-            (dolist (var-decl var-decls)
-              (let* ((var-trimmed (trim var-decl))
-                     (colon-pos (position #\: var-trimmed))
-                     (equals-pos (position #\= var-trimmed)))
-                (when (and colon-pos equals-pos)
-                  (let* ((name (subseq var-trimmed 0 colon-pos))
-                         (type-abbr (subseq var-trimmed (1+ colon-pos) equals-pos))
-                         (value (subseq var-trimmed (1+ equals-pos)))
-                         (type-full (cond
-                                     ((string= type-abbr "I") "Integer")
-                                     ((string= type-abbr "S") "String")
-                                     ((string= type-abbr "L") "List")
-                                     ((string= type-abbr "M") "Map")
-                                     (t type-abbr))))
-                    (push (format nil "  ~A: ~A = ~A" name type-full value) result)))))))
+          ((starts-with trimmed "G:")
+           (push "Given:" result)
+           (let* ((vars-str (trim (subseq trimmed 2)))
+                  (var-decls (split-string vars-str #\,)))
+             (dolist (var-decl var-decls)
+               (let* ((var-trimmed (trim var-decl))
+                      (colon-pos (position #\: var-trimmed))
+                      (equals-pos (position #\= var-trimmed)))
+                 (when colon-pos
+                   (let* ((name (subseq var-trimmed 0 colon-pos))
+                          (type-abbr (if equals-pos
+                                        (subseq var-trimmed (1+ colon-pos) equals-pos)
+                                        (subseq var-trimmed (1+ colon-pos))))
+                          (value (if equals-pos
+                                    (subseq var-trimmed (1+ equals-pos))
+                                    nil))
+                          (type-full (cond
+                                      ((string= type-abbr "I") "Integer")
+                                      ((string= type-abbr "S") "String")
+                                      ((string= type-abbr "L") "List")
+                                      ((string= type-abbr "M") "Map")
+                                      (t type-abbr))))
+                     (if value
+                         (push (format nil "  ~A: ~A = ~A" name type-full value) result)
+                         (push (format nil "  ~A: ~A" name type-full) result))))))))
          
           ;; Sn→ -> Step n →
           ((and (>= (length trimmed) 3)
@@ -410,7 +416,8 @@ World' and ' rest'"
                    (cond
                     ((starts-with else-part "->S")
                      (let ((target-step (parse-integer (subseq else-part 3))))
-                       (push (format nil "  Otherwise: repeat from Step ~D" target-step) result)))
+                       ;; Use "go to Step" for forward jumps in Otherwise clause
+                       (push (format nil "  Otherwise: go to Step ~D" target-step) result)))
                     ((starts-with else-part "->E")
                      (push "  Otherwise: go to End" result))
                     ((contains-char else-part #\=)
@@ -699,9 +706,12 @@ World' and ' rest'"
                    (> paren-open 0))
           (let ((func-name (trim (subseq trimmed 0 paren-open)))
                 (args-str (trim (subseq trimmed (1+ paren-open) paren-close))))
-            ;; Verify function name looks valid (starts with letter)
+            ;; Verify function name looks valid (starts with letter, contains no operators)
             (when (and (> (length func-name) 0)
-                       (alpha-char-p (char func-name 0)))
+                       (alpha-char-p (char func-name 0))
+                       ;; Function name must not contain operators
+                       (not (find-if (lambda (ch) (member ch '(#\+ #\- #\* #\/ #\% #\= #\< #\> #\Space)))
+                                    func-name)))
               (values t func-name args-str))))))))
 
 (defun call-function (func-name args-list &key (verbose nil))

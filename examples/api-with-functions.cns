@@ -1,100 +1,76 @@
-Story: BuildJsonResponse (function)
-  Build a JSON response from status code and message
-  
-  Given:
-    - StatusCode is available
-    - Message is available
-    - JsonResult becomes empty
-    
-  Step: Build JSON structure
-    - JsonResult becomes '{"status": <StatusCode>, "message": "<Message>"}'
-    
-  End: Return JsonResult
+Story: ValidatePositive (function)
+Given:
+  Num: Integer = 0
+  IsValid: Boolean = FALSE
+
+Step 1 → Check if number is positive
+  Because: Only positive numbers are valid
+  Then: IsValid becomes Num > 0
+
+End: Return IsValid
 
 ---
 
-Story: ValidateId (function)
-  Validate that an ID is a positive number
-  
-  Given:
-    - Id is available
-    - IsValid becomes false
-    
-  Step: Check if ID is positive
-    - IsValid becomes Id > 0
-    
-  End: Return IsValid
+Story: DoubleValue (function)
+Given:
+  Value: Integer = 0
+  Result: Integer = 0
+
+Step 1 → Multiply by 2
+  Because: Need to double the input value
+  Then: Result becomes Value * 2
+
+End: Return Result
 
 ---
 
-Story: GetUserById (function)
-  Get user information by ID
-  
-  Given:
-    - UserId is available
-    - Response becomes empty
-    
-  Step: Check if user ID is valid
-    - Valid becomes ValidateId(UserId)
-    - If Valid is true:
-      - Response becomes BuildJsonResponse(200, "User found: ID " + UserId)
-    - If Valid is false:
-      - Response becomes BuildJsonResponse(400, "Invalid user ID")
-      
-  End: Return Response
+Story: ProcessNumber (function)
+Given:
+  Input: Integer = 0
+  IsPos: Boolean = FALSE
+  Doubled: Integer = 0
+  Result: Integer = 0
+
+Step 1 → Validate input
+  Because: Check if input is positive
+  Then: IsPos becomes ValidatePositive(Input)
+
+Step 2 → If IsPos = TRUE
+  Because: Only double positive numbers
+  Then: Doubled becomes DoubleValue(Input)
+  Then: Result becomes Doubled
+  Otherwise: go to Step 3
+
+Step 3 → Handle negative
+  Because: Return zero for negative inputs
+  Then: Result becomes 0
+
+End: Return Result
 
 ---
 
-Story: CreateUser (function)
-  Create a new user
-  
-  Given:
-    - Username is available
-    - Response becomes empty
-    
-  Step: Validate username
-    - Length becomes Username length
-    - If Length < 3:
-      - Response becomes BuildJsonResponse(400, "Username too short")
-    - If Length >= 3:
-      - Response becomes BuildJsonResponse(201, "User created: " + Username)
-      
-  End: Return Response
+Story: TestFunctions
+Given:
+  Test1: Integer = 5
+  Test2: Integer = -3
+  Test3: Integer = 10
+  Result1: Integer = 0
+  Result2: Integer = 0
+  Result3: Integer = 0
 
----
+Step 1 → Process first test
+  Because: Test with positive number
+  Then: Result1 becomes ProcessNumber(Test1)
+  Effect: Print "Input: {Test1}, Result: {Result1}"
 
-Story: HandleApiRequest
-  API server that handles user operations
-  
-  Given:
-    - Server is a web server
-    - Port is 8080
-    
-  Step: Define GET /user route
-    - When GET /user:
-      - Query becomes request query
-      - UserId becomes Query["id"]
-      - If UserId is empty:
-        - Send BuildJsonResponse(400, "Missing user ID")
-      - If UserId is not empty:
-        - Send GetUserById(UserId)
-        
-  Step: Define POST /user route
-    - When POST /user:
-      - Body becomes request body
-      - Username becomes Body["username"]
-      - If Username is empty:
-        - Send BuildJsonResponse(400, "Missing username")
-      - If Username is not empty:
-        - Send CreateUser(Username)
-        
-  Step: Define health check route
-    - When GET /health:
-      - Send BuildJsonResponse(200, "API is healthy")
-      
-  Step: Start the server
-    - Server listens on Port
-    - Show "API server running on port " + Port
-    - Show "Routes: GET /user?id=N, POST /user, GET /health"
-    
-  End
+Step 2 → Process second test
+  Because: Test with negative number
+  Then: Result2 becomes ProcessNumber(Test2)
+  Effect: Print "Input: {Test2}, Result: {Result2}"
+
+Step 3 → Process third test
+  Because: Test with another positive number
+  Then: Result3 becomes ProcessNumber(Test3)
+  Effect: Print "Input: {Test3}, Result: {Result3}"
+
+End: Return Result3

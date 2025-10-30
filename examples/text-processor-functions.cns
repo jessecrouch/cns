@@ -1,123 +1,97 @@
-Story: CountWords (function)
-  Count the number of words in text
-  
-  Given:
-    - Text is available
-    - Count becomes 0
-    - Words becomes empty list
-    
-  Step: Split text into words
-    - Words becomes Text split by " "
-    - Count becomes Words length
-    
-  End: Return Count
+Story: IsPositive (function)
+Given:
+  Num: Integer = 0
+  Result: Boolean = FALSE
+
+Step 1 → Check if positive
+  Because: Determine if number is greater than zero
+  Then: Result becomes Num > 0
+
+End: Return Result
 
 ---
 
-Story: CountVowels (function)
-  Count vowels in text
-  
-  Given:
-    - Text is available
-    - Vowels becomes "aeiouAEIOU"
-    - Count becomes 0
-    - Index becomes 0
-    - Length becomes Text length
-    
-  Step: Count each vowel
-    - For Index from 0 to Length:
-      - Char becomes Text[Index]
-      - If Vowels contains Char:
-        - Count becomes Count + 1
-        
-  End: Return Count
+Story: Square (function)
+Given:
+  Num: Integer = 0
+  Result: Integer = 0
+
+Step 1 → Calculate square
+  Because: Multiply number by itself
+  Then: Result becomes Num * Num
+
+End: Return Result
 
 ---
 
-Story: Reverse (function)
-  Reverse a string
-  
-  Given:
-    - Text is available
-    - Result becomes ""
-    - Index becomes Text length - 1
-    
-  Step: Build reversed string
-    - For Index from (Text length - 1) to 0:
-      - Result becomes Result + Text[Index]
-      
-  End: Return Result
+Story: SumSquares (function)
+Given:
+  A: Integer = 0
+  B: Integer = 0
+  SquareA: Integer = 0
+  SquareB: Integer = 0
+  Sum: Integer = 0
+
+Step 1 → Square first number
+  Because: Get A squared
+  Then: SquareA becomes Square(A)
+
+Step 2 → Square second number
+  Because: Get B squared
+  Then: SquareB becomes Square(B)
+
+Step 3 → Add squares
+  Because: Sum the squared values
+  Then: Sum becomes SquareA + SquareB
+
+End: Return Sum
 
 ---
 
-Story: IsPalindrome (function)
-  Check if text is a palindrome
-  
-  Given:
-    - Text is available
-    - Reversed becomes empty
-    - Clean becomes Text lowercase
-    - IsPalin becomes false
-    
-  Step: Compare with reverse
-    - Reversed becomes Reverse(Clean)
-    - IsPalin becomes Clean = Reversed
-    
-  End: Return IsPalin
+Story: AbsValue (function)
+Given:
+  Num: Integer = 0
+  IsPos: Boolean = FALSE
+  Result: Integer = 0
+
+Step 1 → Check if positive
+  Because: Determine if we need to negate
+  Then: IsPos becomes IsPositive(Num)
+
+Step 2 → If IsPos = TRUE
+  Because: Positive numbers stay the same
+  Then: Result becomes Num
+  Otherwise: go to Step 3
+
+Step 3 → Negate the number
+  Because: Make negative numbers positive
+  Then: Result becomes 0 - Num
+
+End: Return Result
 
 ---
 
-Story: GetStats (function)
-  Get comprehensive text statistics
-  
-  Given:
-    - Text is available
-    - Stats becomes empty
-    - WordCount becomes 0
-    - VowelCount becomes 0
-    - CharCount becomes 0
-    
-  Step: Calculate all statistics
-    - CharCount becomes Text length
-    - WordCount becomes CountWords(Text)
-    - VowelCount becomes CountVowels(Text)
-    - Stats becomes "Chars: " + CharCount + ", Words: " + WordCount + ", Vowels: " + VowelCount
-    
-  End: Return Stats
+Story: ProcessNumbers
+Given:
+  X: Integer = -5
+  Y: Integer = 3
+  AbsX: Integer = 0
+  AbsY: Integer = 0
+  SumSq: Integer = 0
 
----
+Step 1 → Get absolute value of X
+  Because: Need positive version of X
+  Then: AbsX becomes AbsValue(X)
+  Effect: Print "Absolute value of {X} is {AbsX}"
 
-Story: ProcessText
-  Text processor with reusable functions
-  
-  Given:
-    - InputText is "Hello World This is CNS"
-    
-  Step: Display original text
-    - Show "Input: " + InputText
-    - Show ""
-    
-  Step: Show word count
-    - Words becomes CountWords(InputText)
-    - Show "Word count: " + Words
-    
-  Step: Show vowel count
-    - Vowels becomes CountVowels(InputText)
-    - Show "Vowel count: " + Vowels
-    
-  Step: Show reversed text
-    - RevText becomes Reverse(InputText)
-    - Show "Reversed: " + RevText
-    
-  Step: Check if palindrome
-    - TestWord is "racecar"
-    - IsPalin becomes IsPalindrome(TestWord)
-    - Show ""
-    - Show "Is '" + TestWord + "' a palindrome? " + IsPalin
-    
-  Step: Show comprehensive stats
-    - AllStats becomes GetStats(InputText)
-    - Show ""
-    - Show "Statistics: " + AllStats
-    
-  End
+Step 2 → Get absolute value of Y
+  Because: Need positive version of Y
+  Then: AbsY becomes AbsValue(Y)
+  Effect: Print "Absolute value of {Y} is {AbsY}"
+
+Step 3 → Calculate sum of squares
+  Because: Demonstrate function composition
+  Then: SumSq becomes SumSquares(AbsX, AbsY)
+  Effect: Print "Sum of squares: {AbsX}^2 + {AbsY}^2 = {SumSq}"
+
+End: Return SumSq
