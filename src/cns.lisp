@@ -1004,11 +1004,24 @@ World' and ' rest'"
               (- (eval-expr (trim (car parts)) env)
                  (eval-expr (trim (cadr parts)) env))))
            
-            ;; Arithmetic: n + 1
-            ((search "+" trimmed)
-             (let ((parts (split-string trimmed #\+)))
-               (+ (eval-expr (trim (car parts)) env)
-                  (eval-expr (trim (cadr parts)) env))))
+             ;; Addition/Concatenation: n + 1 or "hello" + "world"
+             ((search "+" trimmed)
+              (let* ((parts (split-string trimmed #\+))
+                     (left-val (eval-expr (trim (car parts)) env))
+                     (right-val (eval-expr (trim (cadr parts)) env)))
+                ;; If both values are strings, concatenate
+                ;; If both are numbers, add
+                ;; Otherwise, coerce to strings and concatenate
+                (cond
+                  ((and (stringp left-val) (stringp right-val))
+                   (concatenate 'string left-val right-val))
+                  ((and (numberp left-val) (numberp right-val))
+                   (+ left-val right-val))
+                  (t
+                   ;; Mixed types: convert to strings and concatenate
+                   (concatenate 'string
+                                (if (stringp left-val) left-val (format nil "~A" left-val))
+                                (if (stringp right-val) right-val (format nil "~A" right-val)))))))
             
             ;; Arithmetic: n / 2 (division)
             ((search "/" trimmed)
@@ -1022,10 +1035,11 @@ World' and ' rest'"
                (mod (eval-expr (trim (car parts)) env)
                     (eval-expr (trim (cadr parts)) env))))
             
-            ;; List operations: length of list
-            ((starts-with (string-upcase trimmed) "LENGTH OF ")
-             (let ((var-name (trim (subseq trimmed 10))))
-               (length (gethash var-name env))))
+             ;; Length operation: length of list or string
+             ((starts-with (string-upcase trimmed) "LENGTH OF ")
+              (let* ((var-name (trim (subseq trimmed 10)))
+                     (value (eval-expr var-name env)))
+                (length value)))
             
              ;; List operations: get item at index (0-based)
              ((search " AT " (string-upcase trimmed))
