@@ -50,21 +50,21 @@ cd cns-starter
 - **No package managers** - No pip, npm, cargo, or composer needed
 - **Instant execution** - 16x faster than Python setup (3s vs 48s)
 - **Built-in HTTP client** - Call REST APIs without external libraries
-- **Built-in JSON parser** - Parse JSON responses natively
+- **Built-in JSON parser** - Parse nested objects, arrays with dot notation
 - **37% smaller code** - For API development compared to Python
 
 ### Production Ready (v1.1.0)
 - ✅ HTTP/HTTPS client (GET/POST) - secure APIs ready
 - ✅ Environment variables - `ENV("API_KEY", "default")`
 - ✅ File I/O, TCP sockets
-- ✅ JSON parsing, string operations
+- ✅ JSON parsing (nested, arrays, all types), string operations
 - ✅ Lists, maps, control flow
 - ✅ Functions with recursion
 
 ### Coming Soon
 
 **Phase B - Web Backend Ready** (2-3 weeks)
-- 🚧 Better JSON (nested objects, arrays, dot notation) - 80% done
+- ✅ Enhanced JSON (nested objects, arrays, dot notation) - 100% complete
 - 🚧 Regex pattern matching
 - 🚧 Date/time operations
 - 🚧 Database support (SQLite, PostgreSQL)
@@ -282,8 +282,19 @@ Effect: HTTP POST to api_url with request_body into result
 
 **JSON parsing:**
 ```cns
+# Simple fields
 Then: user_name becomes PARSE JSON response GET "name"
 Then: user_age becomes PARSE JSON response GET "age"
+
+# Nested objects (dot notation)
+Then: city becomes PARSE JSON response GET "user.address.city"
+
+# Array indexing
+Then: first_item becomes PARSE JSON response GET "items[0]"
+Then: user_email becomes PARSE JSON response GET "users[2].email"
+
+# Array/object length
+Then: item_count becomes PARSE JSON response GET "items" LENGTH
 ```
 
 **Control flow:**

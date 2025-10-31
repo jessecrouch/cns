@@ -108,7 +108,9 @@
                  (t (vector-push-extend ch result)))
                (setf escaped nil))
               ((char= ch #\\) (setf escaped t))
-              ((char= ch #\") (return (values (coerce result 'string) (1+ i))))
+              ((char= ch #\")
+               ;; Use return-from to properly return from the function
+               (return-from json-parse-string (values (coerce result 'string) (1+ i))))
               (t (vector-push-extend ch result)))
             (incf i)))
     (values (coerce result 'string) i)))
@@ -161,12 +163,12 @@
                (error "Unexpected end of JSON in object"))
              (unless (char= (char str pos) #\")
                (error "Expected string key in object at position ~D, found: ~C" pos (char str pos)))
-             (multiple-value-bind (key new-pos) (json-parse-string str pos)
-               (setf pos (json-skip-whitespace str new-pos))
-               (when (>= pos (length str))
-                 (error "Unexpected end of JSON after key"))
-               (unless (char= (char str pos) #\:)
-                 (error "Expected : after key '~A' at position ~D, found: ~C" key pos (char str pos)))
+              (multiple-value-bind (key new-pos) (json-parse-string str pos)
+                (setf pos (json-skip-whitespace str new-pos))
+                (when (>= pos (length str))
+                  (error "Unexpected end of JSON after key"))
+                (unless (char= (char str pos) #\:)
+                  (error "Expected : after key '~A' at position ~D, found: ~C" key pos (char str pos)))
                (setf pos (1+ pos))
                
                ;; Parse value
@@ -206,18 +208,18 @@
                  (t (error "Expected , or ] in array")))))))
         
         ;; Boolean true
-        ((and (>= (+ pos 4) (length str))
-              (string= (subseq str pos (min (+ pos 4) (length str))) "true"))
+        ((and (<= (+ pos 4) (length str))
+              (string= (subseq str pos (+ pos 4)) "true"))
          (values t (+ pos 4)))
         
         ;; Boolean false
-        ((and (>= (+ pos 5) (length str))
-              (string= (subseq str pos (min (+ pos 5) (length str))) "false"))
+        ((and (<= (+ pos 5) (length str))
+              (string= (subseq str pos (+ pos 5)) "false"))
          (values nil (+ pos 5)))
         
         ;; Null
-        ((and (>= (+ pos 4) (length str))
-              (string= (subseq str pos (min (+ pos 4) (length str))) "null"))
+        ((and (<= (+ pos 4) (length str))
+              (string= (subseq str pos (+ pos 4)) "null"))
          (values :null (+ pos 4)))
         
         ;; Number
@@ -1418,19 +1420,39 @@ World' and ' rest'"
                      (get-pos (search " GET " (string-upcase rest)))
                      (length-pos (search " LENGTH" (string-upcase rest))))
                 (cond
-                  ;; PARSE JSON {expr} GET "path.to.value[0]"
-                  (get-pos
-                   (let* ((json-expr (trim (subseq rest 0 get-pos)))
-                          (path-expr (trim (subseq rest (+ get-pos 5))))
-                          (json-str (eval-expr json-expr env))
-                          ;; Remove quotes from path if present
-                          (path (if (and (> (length path-expr) 1)
-                                        (char= (char path-expr 0) #\")
-                                        (char= (char path-expr (1- (length path-expr))) #\"))
-                                   (subseq path-expr 1 (1- (length path-expr)))
-                                   path-expr)))
-                     ;; For now, only use simple parser (nested/array support coming in next commit)
-                     (parse-json-value json-str path)))
+                  ;; PARSE JSON {expr} GET "path.to.value[0]" [LENGTH]
+                   (get-pos
+                    (let* ((json-expr (trim (subseq rest 0 get-pos)))
+                           (after-get (trim (subseq rest (+ get-pos 5))))
+                           ;; Check if LENGTH appears after GET
+                           (length-suffix-pos (search " LENGTH" (string-upcase after-get)))
+                           (path-expr (if length-suffix-pos
+                                         (trim (subseq after-get 0 length-suffix-pos))
+                                         after-get))
+                           (json-str (eval-expr json-expr env))
+                           ;; Remove quotes from path if present
+                           (path (if (and (> (length path-expr) 1)
+                                         (char= (char path-expr 0) #\")
+                                         (char= (char path-expr (1- (length path-expr))) #\"))
+                                    (subseq path-expr 1 (1- (length path-expr)))
+                                    path-expr)))
+                     ;; Parse JSON fully and extract value using path
+                     (let ((parsed (parse-json-full json-str)))
+                       (let ((value (if (or (position #\. path) (position #\[ path))
+                                       ;; Use json-get-path for nested paths or array indexing
+                                       (json-get-path parsed path)
+                                       ;; For simple keys, direct hash table lookup
+                                       (if (hash-table-p parsed)
+                                           (gethash path parsed)
+                                           parsed))))
+                         ;; If LENGTH suffix, return length of the extracted value
+                         (if length-suffix-pos
+                             (cond
+                               ((hash-table-p value) (hash-table-count value))
+                               ((listp value) (length value))
+                               ((stringp value) (length value))
+                               (t 0))
+                             value)))))
                   
                   ;; PARSE JSON {expr} LENGTH - return array/object length
                   (length-pos

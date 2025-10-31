@@ -78,6 +78,33 @@ Use the CNS runner from the project root:
 - Output: 15 (1+2+3+4+5)
 - Demonstrates: Digit extraction pattern
 
+### JSON Examples (v1.1.0+)
+
+**test-json-direct.cns** - Simple JSON parsing
+- Parse flat JSON objects
+- Extract string and numeric fields
+- Demonstrates: Basic JSON parsing with GET operator
+
+**test-json-nested.cns** - Nested JSON with arrays
+- Parse deeply nested objects (user.profile.name)
+- Array indexing (tags[0])
+- Array/object length (GET "tags" LENGTH)
+- Demonstrates: Full JSON capabilities including dot notation
+
+**test-json-comprehensive.cns** - Complete JSON feature test
+- Nested objects (3 levels deep)
+- Array element access by index
+- Mixed paths (users[2].email)
+- All JSON types: strings, numbers, booleans, null
+- Array and object length operations
+- Demonstrates: All JSON parser features
+
+**test-json-parse.cns** - JSON parsing with type handling
+- Boolean values (true/false)
+- Null values
+- Numeric values
+- Demonstrates: JSON type system
+
 ## Understanding CNS Structure
 
 Each example follows the CNS narrative structure:

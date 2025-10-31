@@ -45,12 +45,20 @@ Then: port becomes ENV("PORT", "8080")
 
 ## 🔧 Improvements
 
-### JSON Parser Foundation
-- Added internal JSON parser with nested object/array support (foundation)
-- Simple JSON parsing (flat objects) fully working
-- Nested JSON support 80% complete (minor bug to fix in next release)
+### Enhanced JSON Parser (100% Complete)
+- **Full nested object support**: Access deeply nested values with dot notation
+  - Example: `PARSE JSON data GET "user.profile.name"`
+- **Array indexing**: Access array elements by index
+  - Example: `PARSE JSON data GET "items[0]"`
+- **Mixed paths**: Combine objects and arrays
+  - Example: `PARSE JSON data GET "users[2].profile.email"`
+- **Array/object length**: Get size with LENGTH operator
+  - Example: `PARSE JSON data GET "items" LENGTH`
+- **All JSON types**: strings, numbers, booleans (true/false), null, objects, arrays
 
 ### Bug Fixes
+- Fixed `json-parse-string` position tracking using `return-from` instead of `return`
+- Fixed boolean/null parsing conditions (`<=` instead of `>=`)
 - Fixed `extract-quoted-string` to return string instead of array
 - Fixed Given variable initialization to handle string literals properly
 - Improved error messages in JSON parser with position tracking
@@ -67,7 +75,7 @@ Then: port becomes ENV("PORT", "8080")
 **Test Coverage:**
 - HTTP/HTTPS requests ✅
 - Environment variables ✅
-- JSON parsing (simple) ✅
+- JSON parsing (nested, arrays, all types) ✅
 - File I/O ✅
 - Web servers ✅
 - Control flow ✅

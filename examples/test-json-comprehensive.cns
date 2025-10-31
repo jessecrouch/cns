@@ -1,0 +1,68 @@
+Story: Comprehensive JSON Parser Test
+  Narrative: Test all JSON features including nested objects, arrays, booleans, numbers, null
+
+Given:
+  json_data: String = "{\"user\":{\"name\":\"Alice\",\"age\":30,\"active\":true},\"scores\":[95,87,92],\"address\":{\"city\":\"Portland\",\"zip\":null},\"tags\":[\"admin\",\"developer\"]}"
+  
+  name: String = ""
+  age: Integer = 0
+  active: String = ""
+  first_score: Integer = 0
+  city: String = ""
+  zip: String = ""
+  tag_count: Integer = 0
+  score_count: Integer = 0
+  second_tag: String = ""
+
+Step 1 → Parse nested object path (3 levels deep)
+  Because: Testing deep nested object access
+  Then: name becomes PARSE JSON json_data GET "user.name"
+
+Step 2 → Parse nested number
+  Because: Testing numeric values in nested objects
+  Then: age becomes PARSE JSON json_data GET "user.age"
+
+Step 3 → Parse boolean value
+  Because: Testing boolean parsing
+  Then: active becomes PARSE JSON json_data GET "user.active"
+
+Step 4 → Parse array element by index
+  Because: Testing array indexing
+  Then: first_score becomes PARSE JSON json_data GET "scores[0]"
+
+Step 5 → Parse nested string in different branch
+  Because: Testing multiple nested paths
+  Then: city becomes PARSE JSON json_data GET "address.city"
+
+Step 6 → Parse null value
+  Because: Testing null handling
+  Then: zip becomes PARSE JSON json_data GET "address.zip"
+
+Step 7 → Get array length with path
+  Because: Testing LENGTH on nested array
+  Then: tag_count becomes PARSE JSON json_data GET "tags" LENGTH
+
+Step 8 → Get another array length
+  Because: Testing LENGTH on numeric array
+  Then: score_count becomes PARSE JSON json_data GET "scores" LENGTH
+
+Step 9 → Parse second array element
+  Because: Testing array indexing with different index
+  Then: second_tag becomes PARSE JSON json_data GET "tags[1]"
+
+Step 10 → Display all results
+  Because: Verify all parsing worked correctly
+  Effect: PRINT "=== JSON Parsing Results ==="
+  Effect: PRINT "User Name: {name}"
+  Effect: PRINT "User Age: {age}"
+  Effect: PRINT "User Active: {active}"
+  Effect: PRINT "First Score: {first_score}"
+  Effect: PRINT "City: {city}"
+  Effect: PRINT "Zip Code: {zip}"
+  Effect: PRINT "Tag Count: {tag_count}"
+  Effect: PRINT "Score Count: {score_count}"
+  Effect: PRINT "Second Tag: {second_tag}"
+
+End:
+  Outcome: All JSON features tested successfully
+  Result: All values parsed correctly
