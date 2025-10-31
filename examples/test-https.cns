@@ -1,0 +1,23 @@
+Story: Test HTTPS Support
+  Narrative: Verify that CNS can make HTTPS requests to secure APIs
+
+Given:
+  - api_url is String with value "https://api.github.com/zen"
+  - response_body is String (empty initially)
+  - status is Integer (zero initially)
+
+Step 1 → Make HTTPS GET request to GitHub API
+  Effect: HTTP GET from api_url into response_body
+  Then:
+    status becomes 200
+  
+  Because: GitHub API returns a random Zen quote over HTTPS
+
+Step 2 → Display the response
+  Effect: PRINT "GitHub Zen: {response_body}"
+  
+  Because: We want to see the API response
+
+End:
+  Outcome: Successfully retrieved data via HTTPS
+  Result: response_body contains GitHub Zen quote

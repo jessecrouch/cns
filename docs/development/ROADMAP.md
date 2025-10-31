@@ -105,14 +105,16 @@ Both formats are first-class citizens and will always be supported. CNSC-first i
 
 ### Priority 1: CRITICAL (Week 1)
 
-#### 1. HTTPS Support (1-2 days)
+#### 1. HTTPS Support ✅ COMPLETE (1-2 days)
 **Why**: 90% of modern APIs require HTTPS
 **Effort**: Wrap Common Lisp's CL+SSL library
+**Status**: ✅ Implemented with graceful fallback to HTTP if cl+ssl unavailable
 **Syntax**:
 ```cns
 Effect: HTTPS GET from "https://api.github.com/users/jessecrouch" into response
 ```
-**Implementation**: Add SSL socket layer to existing HTTP client
+**Implementation**: SSL socket layer added to HTTP client with automatic protocol detection
+**Install**: See [INSTALL-HTTPS.md](../../INSTALL-HTTPS.md) for cl+ssl setup
 
 #### 2. Better JSON Parser (2-3 days)
 **Why**: Can't parse nested objects or arrays currently

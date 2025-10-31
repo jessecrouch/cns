@@ -6,6 +6,17 @@
 ;;; Load socket support
 (require 'sb-bsd-sockets)
 
+;;; Load SSL support (optional - gracefully degrades to HTTP-only if not available)
+(defvar *https-enabled* nil)
+(handler-case
+    (progn
+      (require 'cl+ssl)
+      (setf *https-enabled* t))
+  (error (e)
+    (format *error-output* "HTTPS support unavailable (cl+ssl not found): ~A~%~
+                            Install with: (ql:quickload :cl+ssl)~%~
+                            Falling back to HTTP-only mode.~%" e)))
+
 ;;; ============================================================================
 ;;; Helper Functions
 ;;; ============================================================================
@@ -396,20 +407,20 @@ World' and ' rest'"
     (values protocol host port path)))
 
 (defun http-request (url &key (method "GET") (body nil) (headers nil))
-  "Make HTTP request to URL using raw sockets.
+  "Make HTTP/HTTPS request to URL using raw sockets (HTTP) or CL+SSL (HTTPS).
    method: GET, POST, PUT, DELETE, etc.
    body: Request body (string)
    headers: Alist of additional headers ((name . value) ...)
    Returns (values status-code response-headers response-body).
    
    Example:
-     (http-request \"http://example.com/api\" :method \"POST\" :body \"{\\\"key\\\":\\\"value\\\"}\")
+     (http-request \"https://api.example.com\" :method \"POST\" :body \"{\\\"key\\\":\\\"value\\\"}\")
    
-   Note: HTTPS is not supported with raw sockets. Use http:// URLs only."
+   Note: HTTPS requires cl+ssl library. Falls back to HTTP if unavailable."
   (multiple-value-bind (protocol host port path)
       (parse-url url)
-    (when (string= protocol "https")
-      (format *error-output* "WARNING: HTTPS not supported with raw sockets, trying HTTP instead~%")
+    (when (and (string= protocol "https") (not *https-enabled*))
+      (format *error-output* "WARNING: HTTPS requested but cl+ssl not available, falling back to HTTP~%")
       (setf protocol "http")
       (setf port 80))
     
@@ -425,11 +436,20 @@ World' and ' rest'"
                                                   (sb-bsd-sockets:host-ent-address host-ent)
                                                   port))
                  
-                 ;; Create stream for reading/writing
-                 (let ((stream (sb-bsd-sockets:socket-make-stream socket
-                                                                  :input t
-                                                                  :output t
-                                                                  :element-type 'character)))
+                 ;; Create stream for reading/writing (with SSL if HTTPS)
+                 (let ((stream (if (and (string= protocol "https") *https-enabled*)
+                                   ;; HTTPS: wrap socket with SSL stream
+                                   (funcall (find-symbol "MAKE-SSL-CLIENT-STREAM" "CL+SSL")
+                                            (sb-bsd-sockets:socket-make-stream socket
+                                                                               :input t
+                                                                               :output t
+                                                                               :element-type '(unsigned-byte 8))
+                                            :hostname host)
+                                   ;; HTTP: use plain socket stream
+                                   (sb-bsd-sockets:socket-make-stream socket
+                                                                      :input t
+                                                                      :output t
+                                                                      :element-type 'character))))
                    ;; Build HTTP request
                    (format stream "~A ~A HTTP/1.1~C~C" method path #\Return #\Newline)
                    (format stream "Host: ~A~C~C" host #\Return #\Newline)

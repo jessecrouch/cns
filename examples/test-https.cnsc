@@ -1,0 +1,11 @@
+Story: Test HTTPS Support
+G: api_url:S="https://api.github.com/zen", response:S, status:I
+
+S1→ Make HTTPS GET request
+  E: HTTP GET from api_url into response
+  status=200
+
+S2→ Display response
+  E: PRINT "GitHub Zen: {response}"
+
+End: HTTPS working, got Zen quote

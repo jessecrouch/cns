@@ -54,7 +54,7 @@ cd cns-starter
 - **37% smaller code** - For API development compared to Python
 
 ### Production Ready (v1.0.0)
-- ✅ HTTP client (GET/POST)
+- ✅ HTTP/HTTPS client (GET/POST)
 - ✅ File I/O, TCP sockets
 - ✅ JSON parsing, string operations
 - ✅ Lists, maps, control flow
@@ -63,8 +63,8 @@ cd cns-starter
 ### Coming Soon
 
 **Phase B - Web Backend Ready** (2-3 weeks)
-- 🚧 HTTPS support
-- 🚧 Better JSON (nested objects, arrays)
+- ✅ HTTPS support (requires `cl+ssl` - [install guide](INSTALL-HTTPS.md))
+- 🚧 Better JSON (nested objects, arrays, dot notation)
 - 🚧 Environment variables
 - 🚧 Regex pattern matching
 - 🚧 Date/time operations
