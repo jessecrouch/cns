@@ -130,15 +130,16 @@ Then: count becomes PARSE JSON response GET "items" LENGTH
 - Array indexing and iteration
 - JSON generation (stringify)
 
-#### 3. Environment Variables (2 hours)
+#### 3. Environment Variables ✅ COMPLETE (2 hours)
 **Why**: Essential for API keys, config, secrets
 **Effort**: Trivial - call `sb-ext:posix-getenv`
+**Status**: ✅ Implemented and tested
 **Syntax**:
 ```cns
-Given:
-  api_key: String = ENV("GITHUB_TOKEN")
-  db_url: String = ENV("DATABASE_URL", "sqlite:///local.db")  # with default
+Then: api_key becomes ENV("GITHUB_TOKEN", "fallback_key")
+Then: db_url becomes ENV("DATABASE_URL", "sqlite:///local.db")
 ```
+**Examples**: See `examples/test-env-vars.cns`
 
 ### Priority 2: HIGH VALUE (Week 2)
 

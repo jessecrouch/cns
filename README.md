@@ -53,8 +53,9 @@ cd cns-starter
 - **Built-in JSON parser** - Parse JSON responses natively
 - **37% smaller code** - For API development compared to Python
 
-### Production Ready (v1.0.0)
-- ✅ HTTP/HTTPS client (GET/POST)
+### Production Ready (v1.1.0)
+- ✅ HTTP/HTTPS client (GET/POST) - secure APIs ready
+- ✅ Environment variables - `ENV("API_KEY", "default")`
 - ✅ File I/O, TCP sockets
 - ✅ JSON parsing, string operations
 - ✅ Lists, maps, control flow
@@ -63,9 +64,7 @@ cd cns-starter
 ### Coming Soon
 
 **Phase B - Web Backend Ready** (2-3 weeks)
-- ✅ HTTPS support (requires `cl+ssl` - [install guide](INSTALL-HTTPS.md))
-- 🚧 Better JSON (nested objects, arrays, dot notation)
-- 🚧 Environment variables
+- 🚧 Better JSON (nested objects, arrays, dot notation) - 80% done
 - 🚧 Regex pattern matching
 - 🚧 Date/time operations
 - 🚧 Database support (SQLite, PostgreSQL)
