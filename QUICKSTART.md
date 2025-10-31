@@ -102,6 +102,34 @@ Step 1 → Write report header
 End: Return total
 ```
 
+### Example 5: HTTP API Calls (Zero Dependencies!)
+```cns
+Story: Fetch data from a REST API
+
+Given:
+  api_url: String = "http://httpbin.org/json"
+  response: String = ""
+  status: Integer = 0
+
+Step 1 → Call the API
+  Because: we need to fetch data from the server
+  Effect: HTTP GET from api_url into response
+
+Step 2 → Check status
+  Because: verify the request succeeded
+  Then: status becomes HTTP_STATUS
+  Effect: Print "API Status: {status}"
+
+End: Return response
+```
+
+**Run the killer app demo:**
+```bash
+./cns-run examples/killer-app-demo.cns
+```
+
+This calls 2 real APIs, parses JSON, and displays results. **No pip install. No setup. Just works!**
+
 ## 5. Use the Interactive REPL
 
 Start the REPL:
@@ -174,6 +202,11 @@ End: Return variable_name
 - `Effect: Print "text with {variable}"`
 - `Effect: Write "data" to file.txt`
 - `Effect: Append "more" to file.txt`
+- `Effect: HTTP GET from url_var into response_var`
+- `Effect: HTTP POST to url_var with body_var into response_var`
+
+**JSON Parsing:**
+- `value becomes PARSE JSON json_data GET "key"`
 
 ## Tips
 

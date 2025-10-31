@@ -1,4 +1,5 @@
 Story: The CNS Killer App - Multi-API Demo in One Shot
+# STARTER - Demonstrates HTTP client, JSON parsing, and zero-dependency API calls
 
 Given:
   api1: String = "http://ip-api.com/json"

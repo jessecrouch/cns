@@ -1,4 +1,5 @@
 Story: Calculate the nth Fibonacci number
+# STARTER - Classic algorithm example with loops and state management
 
 Given:
   n: Integer = 10

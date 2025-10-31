@@ -1,4 +1,5 @@
 Story: A simple greeting program
+# STARTER - Basic CNS example showing loops and counting
 
 Given:
   greetings: Integer = 3

@@ -1,4 +1,5 @@
 Story: Demo webserver serving HTML - runs until cancelled
+# STARTER - Simple HTTP server example, press Ctrl+C to stop
 
 Given:
   port: Integer = 8080

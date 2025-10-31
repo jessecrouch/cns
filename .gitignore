@@ -48,3 +48,6 @@ opencodetmp/
 # LLM test results (optional - can commit if desired)
 tests/llm-tests/results/
 tests/llm-tests/generated/
+
+# Build artifacts (starter packages)
+build/

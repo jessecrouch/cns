@@ -1,4 +1,5 @@
 Story: Compute factorial of a positive integer
+# STARTER - Simple math example showing recursion and loops
 
 Given:
   n: Integer = 5

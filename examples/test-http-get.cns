@@ -1,4 +1,5 @@
 Story: Test HTTP GET request to fetch data from an API
+# STARTER - Basic HTTP client example showing GET requests
 
 Given:
   api_url: String = "http://httpbin.org/get"
