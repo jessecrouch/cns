@@ -1,22 +1,27 @@
 #!/bin/bash
 # CNS Runner - Execute CNS files from the command line
-# Usage: ./cns-run <file.cns>
-#        ./cns-run --all        (run all examples)
-#        ./cns-run --list       (list available examples)
+# Usage: ./cns-run <file.cns>       (run verbose CNS)
+#        ./cns-run <file.cnsc>      (run compact CNSC - auto-expands)
+#        ./cns-run --all            (run all examples)
+#        ./cns-run --list           (list available examples)
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CNS_LISP="$SCRIPT_DIR/cns.lisp"
+CNS_EXPAND="$SCRIPT_DIR/cns-expand"
 
 if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     echo "CNS Runner - Execute Causal Narrative Script programs"
     echo ""
     echo "Usage:"
-    echo "  ./cns-run <file.cns>        Run a specific CNS file"
+    echo "  ./cns-run <file.cns>        Run a verbose CNS file"
+    echo "  ./cns-run <file.cnsc>       Run a compact CNSC file (auto-expands)"
     echo "  ./cns-run --all             Run all example files"
     echo "  ./cns-run --list            List available examples"
     echo "  ./cns-run --repl            Start interactive REPL"
     echo "  ./cns-run --test            Run test suite"
+    echo ""
+    echo "Both .cns and .cnsc formats are supported seamlessly."
     echo ""
     exit 0
 fi
@@ -64,7 +69,7 @@ fi
 
 if [ -z "$1" ]; then
     echo "Error: No file specified"
-    echo "Usage: ./cns-run <file.cns>"
+    echo "Usage: ./cns-run <file.cns> or <file.cnsc>"
     echo "       ./cns-run --help for more options"
     exit 1
 fi
@@ -74,5 +79,21 @@ if [ ! -f "$1" ]; then
     exit 1
 fi
 
-# Run the specified CNS file
-sbcl --noinform --load "$CNS_LISP" --eval "(load-cns-file \"$1\")" --quit
+# Check if it's a CNSC file (compact format)
+if [[ "$1" == *.cnsc ]]; then
+    # Auto-expand CNSC to CNS, then execute
+    TEMP_CNS=$(mktemp /tmp/cns-expanded.XXXXXX.cns)
+    trap "rm -f $TEMP_CNS" EXIT
+    
+    "$CNS_EXPAND" "$1" > "$TEMP_CNS"
+    if [ $? -ne 0 ]; then
+        echo "Error: Failed to expand CNSC file '$1'"
+        exit 1
+    fi
+    
+    # Run the expanded CNS file
+    sbcl --noinform --load "$CNS_LISP" --eval "(load-cns-file \"$TEMP_CNS\")" --quit
+else
+    # Run the CNS file directly
+    sbcl --noinform --load "$CNS_LISP" --eval "(load-cns-file \"$1\")" --quit
+fi

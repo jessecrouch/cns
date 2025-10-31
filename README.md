@@ -60,7 +60,9 @@ cd cns-starter
 - ✅ Lists, maps, control flow
 - ✅ Functions with recursion
 
-### Coming Soon (Phase B - 2-3 weeks)
+### Coming Soon
+
+**Phase B - Web Backend Ready** (2-3 weeks)
 - 🚧 HTTPS support
 - 🚧 Better JSON (nested objects, arrays)
 - 🚧 Environment variables
@@ -68,11 +70,35 @@ cd cns-starter
 - 🚧 Date/time operations
 - 🚧 Database support (SQLite, PostgreSQL)
 
-**[See full roadmap →](docs/development/ROADMAP.md)**
+**Phase C - Benchmark Proven** (2-3 months)
+- 🎯 SWE-Bench agent (Top 10-15 target)
+- 🤖 Self-evolving code generation
+- 🏆 Industry benchmark validation
+
+**Result**: First indie project to crack Top 15 on SWE-Bench using narrative programming
+
+**[See full roadmap →](docs/development/ROADMAP.md)** · **[Benchmark strategy →](docs/development/BENCHMARK-STRATEGY.md)**
 
 ---
 
 ## Example: Multi-API Workflow
+
+**CNS Compact (CNSC)** - optimized for LLMs:
+```cnsc
+Story: Multi-API orchestration demo
+
+G: api1:S="http://ip-api.com/json", response1:S="", city:S=""
+
+S1→ HTTP GET FROM api1 INTO response1
+
+S2→ city=PARSE JSON response1 GET "city"
+  → PRINT "Your city: {city}"
+
+E: "Done"
+```
+
+<details>
+<summary>📖 Show verbose CNS format (for learning)</summary>
 
 ```cns
 Story: Multi-API orchestration demo
@@ -94,6 +120,7 @@ Step 2 → Parse JSON response
 End: Done
   Because: API successfully called and parsed
 ```
+</details>
 
 **Output:**
 ```
@@ -161,15 +188,21 @@ brew install sbcl
 ```
 
 ### Option 1: Starter Package (Recommended)
-Perfect for beginners - includes 6 curated examples:
+Perfect for beginners - includes 6 curated examples in both `.cns` and `.cnsc` formats:
 
 ```bash
 curl -L https://github.com/jessecrouch/cns/releases/latest/download/cns-starter.tar.gz | tar xz
 cd cns-starter
+
+# Run verbose format (great for learning)
 ./cns-run examples/hello.cns
+
+# Run compact format (production-ready)
+./cns-run examples/hello.cnsc
 ```
 
-**Package size:** 34KB
+**Package size:** 34KB  
+**Formats**: Both `.cns` (verbose) and `.cnsc` (compact) work seamlessly
 
 ### Option 2: Full Repository
 For contributors and advanced users:
@@ -187,15 +220,19 @@ cd cns
 ## Usage
 
 ```bash
-# Run any CNS program
-./cns-run examples/factorial.cns
+# Run any CNS program (verbose or compact format)
+./cns-run examples/factorial.cns      # Verbose format
+./cns-run examples/fibonacci.cnsc     # Compact format (auto-expands)
 
-# Validate syntax (no execution)
+# Validate syntax (both formats supported)
 ./src/cns-validate examples/webserver.cns
+./src/cns-validate examples/webserver.cnsc
 
-# Expand CNSC to verbose CNS
-./src/cns-expand examples/fibonacci.cnsc
+# Expand CNSC to verbose CNS (for learning/reference)
+./src/cns-expand examples/fibonacci.cnsc > fibonacci.cns
 ```
+
+**Tip**: Use `.cnsc` for production code (62% smaller), `.cns` for learning
 
 ---
 

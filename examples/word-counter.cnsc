@@ -1,0 +1,15 @@
+Story: Count words in a text file
+# STARTER - Shows file I/O and string operations in compact form
+
+G: filename:S="test-input.txt", content:S="", words:L=[], word_count:I=0
+
+S1→ content=READ FROM FILE filename
+
+S2→ words=SPLIT content BY " "
+
+S3→ word_count=LIST LENGTH words
+
+S4→ PRINT "File: {filename}"
+  → PRINT "Words: {word_count}"
+
+E: word_count

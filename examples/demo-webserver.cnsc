@@ -1,0 +1,26 @@
+Story: Demo webserver serving HTML - runs until cancelled
+# STARTER - Simple HTTP server in compact form, press Ctrl+C to stop
+
+G: port:I=8080, max_connections:I=999999, connection_count:I=0
+
+S1→ CREATE SOCKET server_socket ON port
+  → PRINT "✓ CNS Webserver started on port {port}"
+  → PRINT "✓ Open http://localhost:{port}/ in your browser"
+  → PRINT "✓ Press Ctrl+C to stop"
+
+S2→ ACCEPT CONNECTION ON server_socket
+
+S3→ NETWORK READ FROM client_stream INTO request_data
+
+S4→ SEND "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<html><head><title>CNS Demo</title><style>body{font-family:Arial;margin:40px;background:#667eea;color:#fff}h1{margin-top:0}.box{background:#fff;color:#333;padding:30px;border-radius:8px;box-shadow:0 4px 6px rgba(0,0,0,0.1)}.highlight{color:#764ba2;font-weight:bold}</style></head><body><div class=\"box\"><h1>Welcome to CNS Webserver!</h1><p>This page is served by a <span class=\"highlight\">Causal Narrative Script</span> program.</p><p>CNS is a programming language optimized for LLMs with explicit causality and narrative flow.</p><hr><p><strong>Server Stats:</strong></p><p>Port: {port} | Connections: {connection_count}</p><p>Refresh to test persistence!</p></div></body></html>" TO client
+
+S5→ CLOSE CONNECTION client_socket
+
+S6→ connection_count=connection_count+1
+  → PRINT "✓ Served request #{connection_count}"
+
+S7→ connection_count<max_connections? ->S2 : ->E
+
+E: "Server stopped after {connection_count} connections"
+  → CLOSE SOCKET server_socket
+  → PRINT "✓ Webserver stopped"

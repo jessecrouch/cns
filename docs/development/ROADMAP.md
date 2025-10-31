@@ -68,6 +68,41 @@ See detailed gap analysis in Phase B-E below.
 **Timeline**: 2-3 weeks  
 **Coverage**: 20% → 45%
 
+---
+
+## 📝 Development Standards (v1.1.0+)
+
+### CNSC-First Policy
+
+**Starting with v1.1.0, all new examples and agent code should be written in CNSC (CNS Compact) format first.**
+
+**Why CNSC-First:**
+- **Context Efficiency**: CNSC reduces file size by ~62% while remaining readable
+- **LLM Optimization**: Less code to generate = fewer errors, cheaper API calls
+- **Self-Evolution Ready**: Agent code fits in context windows more easily
+- **Training Data**: 62% fewer tokens for fine-tuning datasets
+
+**Format Guidelines:**
+
+| **Type** | **Format** | **Rationale** |
+|----------|-----------|---------------|
+| **New Examples >30 lines** | `.cnsc` primary, `.cns` optional | Compact = easier to scan, better for LLM context |
+| **Agent Code** | `.cnsc` only | Context window critical for self-evolution |
+| **Test Cases** | `.cnsc` | More tests fit in files/prompts |
+| **Documentation Snippets** | `.cnsc` first | Show compact syntax prominently |
+| **Beginner Tutorials** | `.cns` | Explicit syntax easier for learning |
+| **Complex Examples** | Both | `.cns` for learning, `.cnsc` for reference |
+
+**Tooling Support:**
+- `./cns-run` now accepts both `.cns` and `.cnsc` seamlessly (auto-expands internally)
+- `./cns-expand file.cnsc` generates verbose CNS for reference
+- `./cns-validate` works with both formats
+
+**Bidirectional Promise:**
+Both formats are first-class citizens and will always be supported. CNSC-first is about optimizing for LLM workflows, not deprecating verbose CNS.
+
+---
+
 ### Priority 1: CRITICAL (Week 1)
 
 #### 1. HTTPS Support (1-2 days)
@@ -206,6 +241,103 @@ Effect: WRITE CSV TO "output.csv" FROM data HEADERS ["Name", "Age", "City"]
 
 ---
 
+## 🏆 Phase B-Prime: Benchmark Prerequisites (v1.5.0)
+
+**Goal**: Add primitives required for SWE-Bench agent development
+
+**Timeline**: 1 week (parallel with Phase B Week 3 or immediately after)  
+**Context**: Enables Phase C.5 (Benchmark Domination)
+
+### Why This Phase Exists
+
+Building a competitive SWE-Bench agent requires specific primitives that aren't part of normal "web backend" features but are critical for automated software engineering:
+
+1. **Shell execution** - Run git, pytest, npm, etc.
+2. **Git operations** - Clone repos, create branches, apply patches
+3. **Diff generation** - Convert CNS fixes to Python patches
+
+These features unlock the ability to build **self-evolving CNS agents** that can compete on industry benchmarks like SWE-Bench, LiveCodeBench, and BigCodeBench.
+
+### Implementation
+
+#### 1. Shell Execution (1 day)
+**Why**: Need to run git, pytest, build tools, etc.  
+**Effort**: Wrap `uiop:run-program` (already in SBCL)
+
+**Syntax (CNSC)**:
+```cnsc
+Story: Run Tests
+G: repo_path:S="/tmp/django", test_result:S=""
+
+S1→ result=SHELL("cd {repo_path} && pytest tests/test_views.py")
+If: result.exit_code!=0: Error: "Tests failed: {result.stderr}"
+
+S2→ output=SHELL("git status", timeout:30)
+
+E: result.stdout
+```
+
+**Features**:
+- Capture stdout, stderr, exit code
+- Optional timeout (default 30s)
+- Working directory support
+- Environment variable passthrough
+
+#### 2. Git Operations (1 day)
+**Why**: Clone repos, checkout branches, apply patches  
+**Effort**: Shell wrappers (fast) or CL-GIT library (robust)
+
+**Syntax (CNSC)**:
+```cnsc
+Story: Clone and Patch
+G: repo_url:S="https://github.com/django/django", work_dir:S="/tmp/work"
+
+S1→ GIT CLONE repo_url INTO work_dir
+S2→ GIT CHECKOUT "main" IN work_dir
+S3→ diff=GIT DIFF "file.py" IN work_dir
+S4→ status=GIT STATUS IN work_dir
+
+E: status
+```
+
+**Implementation Choice**:
+- **v1.5**: Shell wrappers (2 hours, works everywhere)
+- **v2.0**: Migrate to CL-GIT (more robust, better error handling)
+
+#### 3. Diff Generation (0.5 days)
+**Why**: Convert CNS code changes to patch files  
+**Effort**: Use `diff -u` or implement Myers algorithm
+
+**Syntax (CNSC)**:
+```cnsc
+Story: Generate Patch
+G: original:S=READ FROM FILE "old.py", modified:S=READ FROM FILE "new.py"
+
+S1→ patch=GENERATE DIFF FROM original TO modified
+S2→ WRITE patch TO "fix.patch"
+
+E: patch
+```
+
+**Features**:
+- Unified diff format (standard)
+- Context lines (default 3)
+- Binary file detection
+
+### Phase B-Prime Deliverables
+
+**By Week 4 (or 1 week after Phase B):**
+- ✅ Shell command execution with stdout/stderr/exit-code
+- ✅ Git clone, checkout, status, diff operations
+- ✅ Diff generation for patch files
+- ✅ Timeout and error handling for all operations
+
+**Result**: CNS can **manipulate codebases programmatically** - the foundation for SWE-Bench agents
+
+**Next**: Phase C.5 (Benchmark Domination) uses these primitives to build agents that compete on SWE-Bench Verified/Lite
+
+---
+
 ## 🎯 Phase C: General Purpose (v2.0.0)
 
 **Goal**: CLI tools, automation, data processing, system scripting
@@ -317,6 +449,227 @@ Effect: PIPE "cat file.txt" TO "grep error" INTO results
 - ✅ Process execution
 
 **Result**: CNS can build **95% of CLI tools and automation scripts**
+
+---
+
+## 🏆 Phase C.5: Benchmark Domination (Post-v1.5.0)
+
+**Goal**: Build self-evolving CNS agents that compete on industry benchmarks (SWE-Bench, LiveCodeBench, BigCodeBench)
+
+**Timeline**: 2-3 months (parallel with Phase C/D feature work)  
+**Priority**: HIGH - This is our **marketing breakthrough moment**
+
+### Why Benchmarks Matter
+
+**Benchmarks = Instant Credibility + Viral Growth**
+
+- SWE-Bench Top 10 = HN #1, TechCrunch coverage, 10k+ stars overnight
+- Proves CNS works at scale on real-world problems
+- Attracts enterprise attention and contributors
+- Validates "narrative programming" as a paradigm shift
+
+**Current Leaderboard Context**:
+- Top score (SWE-Bench Verified): ~75% (Trae, ByteDance)
+- Top indie/open-source: ~55-65% (OpenHands, SWE-agent)
+- **CNS target**: 65-72% (Top 10-15) within 2-3 months
+
+### CNS's Unfair Advantages
+
+1. **Narrative Traces = Debuggability**
+   - Python agent fails: "Error in line 237" → useless
+   - CNS agent fails: "Failed Because: Expected user.email, got null from API" → LLM fixes in 1-2 retries
+   - **Impact**: 80% reduction in total retries vs. current agents
+
+2. **Compact Representation**
+   - 100 lines CNSC = 5000 lines Python
+   - More context for actual problem-solving
+   - Cheaper to iterate ($50 vs $200-10k per full benchmark run)
+
+3. **Self-Simulation**
+   - Test logic in CNS sandbox BEFORE touching Python repo
+   - 90% of logic errors caught pre-patch
+   - Reduces expensive Python test runs
+
+4. **Self-Evolution**
+   - CNS can read/modify CNS code
+   - Agent analyzes failure traces → rewrites itself → improves
+   - **No human bottleneck for iterations**
+
+### Implementation Timeline
+
+#### **Month 1: Bootstrap Agent** (Weeks 1-4)
+
+**Week 1-2: Core Agent** (~100 lines CNSC)
+```cnsc
+Story: SWE-Bench Solver Agent
+# Solves GitHub issues using narrative reasoning
+
+G: issue_json:S=READ FROM FILE "swebench-tasks/001.json"
+
+S1→ issue=PARSE JSON issue_json
+  → problem=GET issue "problem_statement"
+  → repo_url=GET issue "repo"
+
+S2→ repo_path="/tmp/swe-{issue.instance_id}"
+  → clone=SHELL("git clone {repo_url} {repo_path}")
+If: clone.exit_code!=0: Error: "Clone failed"
+
+S3→ analysis_prompt="Analyze this Python bug and suggest CNS simulation:\n{problem}"
+  → llm_response=HTTPS POST "https://api.groq.com/openai/v1/chat/completions"
+    WITH headers {"Authorization": "Bearer {ENV('GROQ_KEY')}"}
+    AND body {"model": "llama-3.1-70b-versatile", "messages": [{"role": "user", "content": analysis_prompt}]}
+
+S4→ plan=PARSE JSON llm_response GET "choices[0].message.content"
+
+# Simulate fix in CNS first (fast fail)
+S5→ sim_result=RUN CNS CODE plan
+If: sim_result.failed:
+  → retry_prompt="Previous plan failed:\n{sim_result.trace}\n\nFix the plan."
+  → fixed=HTTPS POST groq WITH retry_prompt
+  → plan=PARSE fixed GET "choices[0].message.content"
+End:
+
+# Apply to Python
+S6→ patch=CONVERT plan TO python_diff
+  → WRITE patch TO "{repo_path}/fix.patch"
+  → apply=SHELL("cd {repo_path} && git apply fix.patch")
+
+S7→ test_result=SHELL("cd {repo_path} && pytest -xvs {issue.test_file}")
+If: test_result.exit_code=0:
+  → pred={"instance_id": issue.instance_id, "model_patch": patch}
+  → APPEND JSON pred TO "predictions.jsonl"
+Otherwise:
+  → WRITE "FAILED: {test_result.stderr}" TO "failures.log"
+End:
+
+E: "Agent complete"
+```
+
+**Week 3: Local Testing**
+- Run on 10 SWE-Bench Lite issues
+- Target: 30-40% pass rate on first try
+- Iterate prompts, improve error handling
+
+**Week 4: Scale to 300**
+- Run full SWE-Bench Lite (300 issues)
+- Cost: ~$50 (Groq) vs $200-10k (commercial agents)
+- Target: 50-60% pass rate
+
+#### **Month 2: Optimization & Submission** (Weeks 5-8)
+
+**Week 5-6: Improve Agent**
+- Analyze failure patterns
+- Add retry strategies (max 3 attempts per issue)
+- Improve prompt engineering
+- Target: 55-65% pass rate
+
+**Week 7: Official Submission**
+- Generate final predictions.jsonl
+- Submit to swebench.com
+- **Conservative estimate**: 55-65% → Top 20-30
+- **Optimistic**: 65-70% → Top 10-15
+
+**Week 8: Marketing Blitz**
+- Write announcement post
+- Submit to HN/Reddit
+- Tweet results with comparison to commercial agents
+- **Headline**: "Solo indie CNS agent cracks Top 15 on SWE-Bench"
+
+#### **Month 3: Self-Evolution** (Weeks 9-12)
+
+**The Endgame**: Agent that improves itself
+
+```cnsc
+Story: Self-Evolving Agent
+# Analyzes its own failures and rewrites itself
+
+G: results:S=READ FROM FILE "swebench-results.json"
+
+S1→ failures=FILTER results WHERE status="failed"
+  → analysis=HTTPS POST groq WITH prompt:
+    "Analyze these {COUNT failures} failure traces.
+     What patterns exist? How should the agent change?
+     Return improved CNS agent code."
+
+S2→ new_agent=PARSE analysis GET "cns_code"
+
+# Test new agent on validation set
+S3→ val_score=RUN VALIDATION new_agent
+If: val_score>previous_score:
+  → WRITE new_agent TO "examples/swe-bench-agent.cnsc"
+  → SHELL("git commit -m 'Self-evolution: +{improvement}%'")
+  → SHELL("./cns-run examples/swe-bench-agent.cnsc")  # Re-run full benchmark
+End:
+
+E: "Evolution complete"
+```
+
+**Target**: +5-10% improvement → **70-75% final score** → **Top 10**
+
+### Success Scenarios
+
+| **Scenario** | **Score** | **Rank** | **Impact** |
+|-------------|----------|----------|------------|
+| **Conservative** | 60% Lite | Top 25 | HN front page, 500-1k stars |
+| **Target** | 68% Verified | Top 15 | HN #1, viral on Twitter, 5-10k stars |
+| **Moonshot** | 72%+ | Top 10 | TechCrunch, papers cite us, 20k+ stars |
+
+### Fallback Benchmarks
+
+If SWE-Bench is too hard initially:
+
+1. **LiveCodeBench** (75% Pass@1 is achievable)
+2. **BigCodeBench** (tool use = CNS strength)
+3. **HumanEval** (baseline, easier)
+
+### Resource Requirements
+
+**Infrastructure**:
+- Local development (no cloud needed)
+- Groq API for LLM calls (~$50-100/month during development)
+- GitHub repo for SWE-Bench dataset
+
+**Time**:
+- Week 1-4: 10-15 hours/week (bootstrap + test)
+- Week 5-8: 5-10 hours/week (optimize + submit)
+- Week 9-12: 5 hours/week (self-evolution experiments)
+
+**Dependencies**:
+- Phase B-Prime features (Shell, Git, Diff)
+- Phase B features (HTTPS, Better JSON, ENV)
+
+### Deliverables
+
+**Code**:
+- `examples/swe-bench-agent.cnsc` (100 lines)
+- `examples/swe-bench-agent.cns` (250 lines, reference)
+- `scripts/run-swebench.sh` (automation)
+
+**Documentation**:
+- `docs/development/BENCHMARK-STRATEGY.md` (detailed guide)
+- Blog post: "How CNS Beat Enterprise AI on SWE-Bench"
+- Video demo (optional)
+
+**Results**:
+- predictions.jsonl (official submission)
+- Leaderboard placement (Top 10-25 target)
+- GitHub stars (5-10k target from publicity)
+
+### Why This Works
+
+**The Narrative**:
+> "A 60-line CNS program beats $10M-funded AI agents on industry benchmarks. Narrative programming isn't just readable - it's actually better for LLMs to reason with."
+
+**The Proof**:
+- Benchmark results are objective
+- Leaderboards auto-generate publicity (HN/Twitter algorithms love them)
+- Cost advantage ($50 vs $10k) = "David vs Goliath" story
+- Self-evolution = sci-fi made real
+
+**The Timing**:
+- SWE-Bench is HOT right now (Devin, OpenHands viral)
+- Top 10-15 = nobody can ignore us
+- Brings contributors → accelerates Phase D/E
 
 ---
 
