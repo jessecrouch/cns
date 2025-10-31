@@ -284,47 +284,91 @@ cns/
 - ✅ Phase 1 verbose CNS (4 programs)
 - ✅ Phase 2 CNSC (4 programs)
 
-## Validated Thesis
+## Vision & Long-Term Goals
 
-> **"LLMs can build APIs 10x faster in CNS/CNSC than Python/Node"**
+> **"The first general-purpose programming language designed from the ground up for LLM comprehension and generation"**
 
-**Evidence**:
-1. ✅ 100% first-pass success vs ~30% for Python
+### Current Achievement (v1.0.0)
+CNS has proven that LLMs can generate production-ready code with **100% success rate** when using narrative syntax. What started as an API scripting language is evolving into a full general-purpose language.
+
+### Validated Advantages
+1. ✅ 100% first-pass LLM success vs ~30% for Python
 2. ✅ Zero dependency setup (vs pip/venv for Python)
 3. ✅ 37% smaller code for API demos (42 vs 67 lines)
 4. ✅ 16x faster time-to-first-run (3s vs 48s)
 5. ✅ Self-documenting code (no separate docs needed)
 6. ✅ Instant validation & execution
-7. ✅ 62% compact format available (CNSC)
-8. ✅ Real programs work: file I/O, networking, HTTP APIs
+7. ✅ Real programs work: file I/O, networking, HTTP APIs
 
-**Multi-Format Strategy**:
-- For APIs: **CNS with HTTP** (37% smaller than Python)
-- For algorithms: **CNSC** (only 30% larger than Python)
-- For docs: **Verbose CNS** (self-documenting narrative)
-- Benefit: Zero dependencies across all formats
+### Target Coverage (Roadmap)
+- **v1.0.0 (Current)**: 20% - API scripting, basic automation
+- **v1.5.0 (Phase B)**: 45% - Web backends, data pipelines, REST APIs
+- **v2.0.0 (Phase C)**: 70% - CLI tools, system scripting, general automation
+- **v3.0.0 (Phase D)**: 85% - Full ecosystem with packages, async, compression
+- **v4.0.0+ (Phase E)**: 95%+ - Graphics/UI via FFI (long-term)
 
-## Next Steps (Optional)
+### Multi-Format Strategy
+- **Verbose CNS**: Self-documenting narrative (for learning, documentation)
+- **CNSC**: Compact format (for LLM generation, production)
+- **HTTP-focused**: API development (current strength)
+- **General-purpose**: All use cases (target state)
 
-### Short-term (1-2 weeks)
-- [ ] Push to GitHub and create v1.0.0 release
-- [ ] Upload starter package (34KB) to GitHub releases
-- [ ] Create demo video (killer-app-demo.cns showcase)
-- [ ] Better JSON parser (nested objects, dot notation)
-- [ ] Environment variables (`ENV("API_KEY")`)
+## Development Roadmap
 
-### Medium-term (1-2 months)
-- [ ] HTTPS support (currently HTTP only)
-- [ ] Helper functions (LENGTH_OF, JOIN, CURRENT_TIME)
-- [ ] Fine-tune LLM on CNS/CNSC dataset
-- [ ] Create VS Code extension (syntax highlighting)
-- [ ] GitHub Actions (auto-build starter on release)
+**See detailed roadmap**: `docs/development/ROADMAP.md`
 
-### Long-term (3+ months)
-- [ ] CNS package manager (for sharing functions)
-- [ ] Standard library expansion
-- [ ] Multi-file project support
-- [ ] Debugging tools (step-through execution)
+### Phase B: Web Backend Ready (v1.5.0) - 2-3 weeks
+
+**Goal**: Enable production REST APIs, web scrapers, data-driven backends
+
+**Priority 1: CRITICAL** (Week 1)
+- [ ] HTTPS support (90% of APIs require it) - 1-2 days
+- [ ] Better JSON parser (nested objects, arrays, dot notation) - 2-3 days
+- [ ] Environment variables (`ENV("API_KEY")`) - 2 hours
+
+**Priority 2: HIGH VALUE** (Week 2)
+- [ ] Regular expressions (pattern matching, validation) - 1 day
+- [ ] Date/time operations (timestamps, scheduling) - 1 day
+- [ ] String helpers (TRIM, UPPER, LOWER, REPLACE, JOIN) - 1 day
+
+**Priority 3: DATA APPS** (Week 3)
+- [ ] Database support (SQLite, PostgreSQL) - 3-5 days
+- [ ] CSV import/export - 1 day
+
+**Result**: CNS can build 95% of REST APIs that Python/Node can build
+
+### Phase C: General Purpose (v2.0.0) - 4-6 weeks total
+
+**CLI & System** (Week 4)
+- [ ] Command-line arguments (ARG, FLAG, OPTION) - 3 hours
+- [ ] File system ops (LIST_FILES, DELETE, RENAME, MKDIR) - 1 day
+- [ ] Math helpers (SQRT, RANDOM, ROUND, ABS) - 1 day
+
+**Advanced Data** (Week 5)
+- [ ] Better list ops (SORT, REVERSE, UNIQUE, SLICE, SUM) - 1 day
+- [ ] Map/dictionary ops (KEYS, VALUES, MERGE) - 1 day
+- [ ] Advanced string ops (PAD, STRIP, URL_ENCODE) - 1 day
+
+**Security & Encoding** (Week 6)
+- [ ] Hashing & crypto (SHA256, HMAC, Base64, UUID) - 1-2 days
+- [ ] Process execution (EXEC, PIPE) - 1 day
+
+**Result**: CNS can build 95% of CLI tools and automation scripts
+
+### Phase D & E: Ecosystem Maturity (3-12 months)
+
+- Compression (ZIP, GZIP)
+- WebSockets
+- Async/concurrency
+- Package manager
+- Graphics/UI (via FFI)
+
+### Immediate Next Steps (Week 1 Sprint)
+
+**Days 1-2**: HTTPS support (CL+SSL integration)  
+**Days 3-5**: Better JSON parser (CL-JSON or custom)  
+**Day 6**: Environment variables  
+**Day 7**: Testing, docs, v1.1.0 release prep
 
 ## Known Issues
 
@@ -355,7 +399,7 @@ The language is ready for:
 - ✅ Educational tools (starter package)
 - ✅ Training datasets (compact format)
 
-**Recommendation**: Push to GitHub with v1.0.0 release including starter package.
+**Recommendation**: ✅ v1.0.0 released! Now starting Phase B development (HTTPS + JSON + ENV).
 
 ---
 
