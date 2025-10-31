@@ -1,0 +1,35 @@
+Story: Test Environment Variables
+  Narrative: Verify that ENV() function works with and without defaults
+
+Given:
+  api_key: String = ""
+  user_name: String = ""
+  port: String = ""
+  missing_var: String = ""
+
+Step 1 → Get API key from environment
+  Because: Test ENV with actual environment variable
+  Then: api_key becomes ENV("TEST_API_KEY", "default_key_123")
+
+Step 2 → Get username from environment
+  Because: Test ENV with another variable  
+  Then: user_name becomes ENV("USER", "unknown_user")
+
+Step 3 → Get port with default
+  Because: Test ENV with likely missing variable and default
+  Then: port becomes ENV("APP_PORT", "8080")
+
+Step 4 → Get missing variable without default
+  Because: Test ENV with no default (should return empty string)
+  Then: missing_var becomes ENV("NONEXISTENT_VAR")
+
+Step 5 → Display all values
+  Because: Show what was retrieved
+  Effect: PRINT "API Key: {api_key}"
+  Effect: PRINT "User: {user_name}"
+  Effect: PRINT "Port: {port}"
+  Effect: PRINT "Missing: '{missing_var}'"
+
+End:
+  Outcome: Environment variables retrieved successfully
+  Result: All ENV() calls completed

@@ -1,0 +1,8 @@
+Story: Test CNSC Assignment
+G: x:I, y:S
+
+S1→ x=42
+S2→ y="hello"
+S3→ E: PRINT "x={x}, y={y}"
+
+End: Done

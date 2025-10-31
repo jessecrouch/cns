@@ -1266,21 +1266,40 @@ World' and ' rest'"
                     ;; Make sure there's no unescaped quote in the middle (which would mean it's "str" = "str")
                     (not (position #\" trimmed :start 1 :end (1- (length trimmed)))))
                (subseq trimmed 1 (1- (length trimmed))))
-             
-             ;; Function call: FuncName(arg1, arg2, ...) (check BEFORE variable lookup BUT NOT if it contains "becomes")
-             ((and (not (search "becomes" trimmed))  ; Not a becomes statement
-                   (multiple-value-bind (is-call func-name args-str)
-                       (detect-function-call trimmed)
-                     (when is-call
-                       (let* ((arg-exprs (if (and args-str (> (length args-str) 0))
-                                            (split-string args-str #\,)
-                                            '()))
-                              (arg-values (mapcar (lambda (arg) (eval-expr (trim arg) env)) arg-exprs)))
-                         (return-from eval-expr (call-function func-name arg-values :verbose (and context t))))))))
-             
-             ;; Variable lookup (use multiple-value-bind to check existence)
-             ((multiple-value-bind (value exists) (gethash trimmed env)
-                (when exists value)))
+              
+              ;; Environment variable: ENV("VAR_NAME") or ENV("VAR_NAME", "default") (MUST come before function call!)
+              ((starts-with (string-upcase trimmed) "ENV(")
+               (let* ((rest (subseq trimmed 4))
+                      (close-paren (position #\) rest :from-end t))
+                      (args-str (if close-paren (subseq rest 0 close-paren) rest))
+                      (args (split-string args-str #\,))
+                      (var-name-expr (trim (car args)))
+                      (default-expr (when (cdr args) (trim (cadr args))))
+                      ;; Evaluate and remove quotes from var name
+                      (var-name-raw (eval-expr var-name-expr env))
+                      (var-name (if (stringp var-name-raw) var-name-raw var-name-expr))
+                      ;; Evaluate default value if present
+                      (default-val (when default-expr (eval-expr default-expr env)))
+                      ;; Get environment variable
+                      (env-val (sb-ext:posix-getenv var-name)))
+                 (if env-val
+                     env-val
+                     (or default-val ""))))
+              
+              ;; Function call: FuncName(arg1, arg2, ...) (check BEFORE variable lookup BUT NOT if it contains "becomes")
+              ((and (not (search "becomes" trimmed))  ; Not a becomes statement
+                    (multiple-value-bind (is-call func-name args-str)
+                        (detect-function-call trimmed)
+                      (when is-call
+                        (let* ((arg-exprs (if (and args-str (> (length args-str) 0))
+                                             (split-string args-str #\,)
+                                             '()))
+                               (arg-values (mapcar (lambda (arg) (eval-expr (trim arg) env)) arg-exprs)))
+                          (return-from eval-expr (call-function func-name arg-values :verbose (and context t))))))))
+              
+              ;; Variable lookup (use multiple-value-bind to check existence)
+              ((multiple-value-bind (value exists) (gethash trimmed env)
+                 (when exists value)))
             
             ;; List literal: [1, 2, 3] or []
             ((and (> (length trimmed) 1)
