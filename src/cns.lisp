@@ -363,6 +363,142 @@ World' and ' rest'"
     (build-http-response status-code html)))
 
 ;;; ============================================================================
+;;; HTTP Client (using raw sockets - zero dependencies!)
+;;; ============================================================================
+
+(defun parse-url (url)
+  "Parse URL into components.
+   Returns (values protocol host port path).
+   Examples:
+     http://example.com/path -> (http example.com 80 /path)
+     https://api.co:443/v1 -> (https api.co 443 /v1)"
+  (let* ((protocol-end (search "://" url))
+         (protocol (if protocol-end
+                      (subseq url 0 protocol-end)
+                      "http"))
+         (after-protocol (if protocol-end
+                            (subseq url (+ protocol-end 3))
+                            url))
+         (slash-pos (position #\/ after-protocol))
+         (host-port (if slash-pos
+                       (subseq after-protocol 0 slash-pos)
+                       after-protocol))
+         (path (if slash-pos
+                  (subseq after-protocol slash-pos)
+                  "/"))
+         (colon-pos (position #\: host-port))
+         (host (if colon-pos
+                  (subseq host-port 0 colon-pos)
+                  host-port))
+         (port (if colon-pos
+                  (parse-integer (subseq host-port (1+ colon-pos)))
+                  (if (string= protocol "https") 443 80))))
+    (values protocol host port path)))
+
+(defun http-request (url &key (method "GET") (body nil) (headers nil))
+  "Make HTTP request to URL using raw sockets.
+   method: GET, POST, PUT, DELETE, etc.
+   body: Request body (string)
+   headers: Alist of additional headers ((name . value) ...)
+   Returns (values status-code response-headers response-body).
+   
+   Example:
+     (http-request \"http://example.com/api\" :method \"POST\" :body \"{\\\"key\\\":\\\"value\\\"}\")
+   
+   Note: HTTPS is not supported with raw sockets. Use http:// URLs only."
+  (multiple-value-bind (protocol host port path)
+      (parse-url url)
+    (when (string= protocol "https")
+      (format *error-output* "WARNING: HTTPS not supported with raw sockets, trying HTTP instead~%")
+      (setf protocol "http")
+      (setf port 80))
+    
+    (handler-case
+        (let ((socket (make-instance 'sb-bsd-sockets:inet-socket
+                                     :type :stream
+                                     :protocol :tcp)))
+          (unwind-protect
+               (progn
+                 ;; Connect to server
+                 (let ((host-ent (sb-bsd-sockets:get-host-by-name host)))
+                   (sb-bsd-sockets:socket-connect socket 
+                                                  (sb-bsd-sockets:host-ent-address host-ent)
+                                                  port))
+                 
+                 ;; Create stream for reading/writing
+                 (let ((stream (sb-bsd-sockets:socket-make-stream socket
+                                                                  :input t
+                                                                  :output t
+                                                                  :element-type 'character)))
+                   ;; Build HTTP request
+                   (format stream "~A ~A HTTP/1.1~C~C" method path #\Return #\Newline)
+                   (format stream "Host: ~A~C~C" host #\Return #\Newline)
+                   (format stream "User-Agent: CNS/1.0~C~C" #\Return #\Newline)
+                   (format stream "Accept: */*~C~C" #\Return #\Newline)
+                   (format stream "Connection: close~C~C" #\Return #\Newline)
+                   
+                   ;; Add body length if present
+                   (when body
+                     (format stream "Content-Length: ~D~C~C" (length body) #\Return #\Newline)
+                     (unless (assoc "Content-Type" headers :test #'string-equal)
+                       (format stream "Content-Type: application/json~C~C" #\Return #\Newline)))
+                   
+                   ;; Add custom headers
+                   (dolist (header headers)
+                     (format stream "~A: ~A~C~C" (car header) (cdr header) #\Return #\Newline))
+                   
+                   ;; End headers
+                   (format stream "~C~C" #\Return #\Newline)
+                   
+                   ;; Send body if present
+                   (when body
+                     (write-string body stream))
+                   
+                   (finish-output stream)
+                   
+                   ;; Read response
+                   (let ((status-line (read-line stream nil nil))
+                         (response-headers '())
+                         (response-body nil))
+                     
+                     ;; Parse status line
+                     (let* ((status-code 0)
+                            (status-parts (when status-line (split-string status-line #\Space))))
+                       (when (>= (length status-parts) 2)
+                         (setf status-code (parse-integer (cadr status-parts) :junk-allowed t)))
+                       
+                       ;; Read headers
+                       (loop for line = (read-line stream nil nil)
+                             while (and line (not (string= (trim line) "")))
+                             do (let ((colon-pos (position #\: line)))
+                                  (when colon-pos
+                                    (push (cons (trim (subseq line 0 colon-pos))
+                                               (trim (subseq line (1+ colon-pos))))
+                                          response-headers))))
+                       
+                       ;; Read body based on Content-Length or until connection closes
+                       (let ((content-length-header (cdr (assoc "Content-Length" response-headers :test #'string-equal))))
+                         (setf response-body
+                               (if content-length-header
+                                   ;; If Content-Length is specified, read exact number of chars
+                                   (let* ((length (parse-integer content-length-header :junk-allowed t))
+                                          (body-str (make-string length)))
+                                     (read-sequence body-str stream)
+                                     body-str)
+                                   ;; Otherwise read until EOF (Connection: close)
+                                   (with-output-to-string (out)
+                                     (loop for ch = (read-char stream nil nil)
+                                           while ch
+                                           do (write-char ch out))))))
+                       
+                       (values status-code (nreverse response-headers) response-body)))))
+            ;; Always close socket
+            (close-socket socket)))
+      (error (e)
+        (format *error-output* "HTTP request error: ~A~%" e)
+        (values 0 nil (format nil "ERROR: ~A" e))))))
+
+;;; ============================================================================
 ;;; CNSC (Compact) Preprocessor
 ;;; ============================================================================
 
@@ -602,15 +738,19 @@ World' and ' rest'"
          
           ;; Variable declaration in Given section
           ((and (eql current-section :given) indented)
-           (let* ((parts (split-string trimmed #\:))
-                  (name (trim (car parts)))
-                  (rest (cdr parts)))
-             (when rest
-               (let* ((type-and-value (trim (car rest)))
-                      ;; First, split by = to separate type/value
-                      (type-val-parts (split-string type-and-value #\=))
-                      (type-part (trim (car type-val-parts)))
-                      (val-part (if (cdr type-val-parts) (trim (cadr type-val-parts)) nil))
+           (let* ((first-colon (position #\: trimmed))
+                  (name (if first-colon (trim (subseq trimmed 0 first-colon)) trimmed))
+                  (rest-str (if first-colon (trim (subseq trimmed (1+ first-colon))) nil)))
+             (when rest-str
+               (let* ((type-and-value rest-str)
+                      ;; Split by = to separate type/value (only first =)
+                      (first-equals (position #\= type-and-value))
+                      (type-part (if first-equals 
+                                    (trim (subseq type-and-value 0 first-equals))
+                                    type-and-value))
+                      (val-part (if first-equals 
+                                   (trim (subseq type-and-value (1+ first-equals)))
+                                   nil))
                       ;; Now check type-part for semantic tag [...] (NOT in val-part!)
                       (bracket-start (position #\[ type-part))
                       (type (if bracket-start
@@ -1533,6 +1673,97 @@ World' and ' rest'"
                     (format t "  Effect: Failed to read from network: ~A~%" e))))
               (when verbose
                 (format t "  Effect: Network read (no stream available)~%")))))
+      
+      ;; HTTP GET: Effect: HTTP GET from "url" into variable  
+      ((starts-with (string-upcase trimmed) "HTTP GET")
+       (let* ((rest (trim (subseq trimmed 8)))
+              (rest-upper (string-upcase rest))
+              ;; Handle both "from" at start and " from " in middle
+              (from-pos (or (and (starts-with rest-upper "FROM ") 0)
+                           (search " FROM " rest-upper)))
+              (into-pos (search " INTO " rest-upper)))
+         (when (and (numberp from-pos) into-pos)
+           (let* ((from-skip (if (= from-pos 0) 5 6))  ; "FROM " vs " FROM "
+                  (url-expr (trim (subseq rest (+ from-pos from-skip) into-pos)))
+                  (target-var (trim (subseq rest (+ into-pos 6))))
+                  ;; Evaluate URL expression to resolve variables
+                  (url (eval-expr url-expr env)))
+             ;; Remove quotes from URL if present
+             (when (and (stringp url) (> (length url) 1)
+                       (char= (char url 0) #\")
+                       (char= (char url (1- (length url))) #\"))
+               (setf url (subseq url 1 (1- (length url)))))
+             
+             (when verbose
+               (format t "  Effect: HTTP GET from ~A~%" url))
+             
+             (handler-case
+                 (multiple-value-bind (status headers body)
+                     (http-request url :method "GET")
+                   ;; Store response in target variable
+                   (setf (gethash target-var env) body)
+                   ;; Store metadata in special variables
+                   (setf (gethash "HTTP_STATUS" env) status)
+                   (setf (gethash "HTTP_HEADERS" env) headers)
+                   (when verbose
+                     (format t "  Effect: HTTP GET completed (status ~D, ~A bytes)~%" 
+                             status (length body))))
+               (error (e)
+                 (setf (gethash target-var env) "")
+                 (when verbose
+                   (format t "  Effect: HTTP GET failed: ~A~%" e))))))))
+      
+      ;; HTTP POST: Effect: HTTP POST to "url" with body_var into response_var
+      ((starts-with (string-upcase trimmed) "HTTP POST")
+       (let* ((rest (trim (subseq trimmed 9)))
+              (rest-upper (string-upcase rest))
+              ;; Handle both "to" at start and " to " in middle
+              (to-pos (or (and (starts-with rest-upper "TO ") 0)
+                         (search " TO " rest-upper)))
+              (with-pos (search " WITH " rest-upper))
+              (into-pos (search " INTO " rest-upper)))
+         (when (and (numberp to-pos) into-pos)
+           (let* ((to-skip (if (= to-pos 0) 3 4))  ; "TO " vs " TO "
+                  (url-expr (if with-pos
+                               (trim (subseq rest (+ to-pos to-skip) with-pos))
+                               (trim (subseq rest (+ to-pos to-skip) into-pos))))
+                  (body-expr (when with-pos
+                              (trim (subseq rest (+ with-pos 6) into-pos))))
+                  (target-var (trim (subseq rest (+ into-pos 6))))
+                  ;; Evaluate expressions
+                  (url (eval-expr url-expr env))
+                  (body (when body-expr (eval-expr body-expr env))))
+             
+             ;; Remove quotes from URL if present
+             (when (and (stringp url) (> (length url) 1)
+                       (char= (char url 0) #\")
+                       (char= (char url (1- (length url))) #\"))
+               (setf url (subseq url 1 (1- (length url)))))
+             
+             ;; Remove quotes from body if it's a literal string
+             (when (and body (stringp body) (> (length body) 1)
+                       (char= (char body 0) #\")
+                       (char= (char body (1- (length body))) #\"))
+               (setf body (subseq body 1 (1- (length body)))))
+             
+             (when verbose
+               (format t "  Effect: HTTP POST to ~A~%" url))
+             
+             (handler-case
+                 (multiple-value-bind (status headers response-body)
+                     (http-request url :method "POST" :body body)
+                   ;; Store response in target variable
+                   (setf (gethash target-var env) response-body)
+                   ;; Store metadata
+                   (setf (gethash "HTTP_STATUS" env) status)
+                   (setf (gethash "HTTP_HEADERS" env) headers)
+                   (when verbose
+                     (format t "  Effect: HTTP POST completed (status ~D, ~A bytes)~%" 
+                             status (length response-body))))
+               (error (e)
+                 (setf (gethash target-var env) "")
+                 (when verbose
+                   (format t "  Effect: HTTP POST failed: ~A~%" e))))))))
       
       ;; Socket: Network write
       ((starts-with (string-upcase trimmed) "NETWORK WRITE")

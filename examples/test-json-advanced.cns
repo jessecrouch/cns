@@ -1,0 +1,19 @@
+Story: Test advanced JSON parsing with nested objects
+
+Given:
+  json_data: String = ""
+  city: String = ""
+  temp: Integer = 0
+  status: Integer = 0
+
+Step 1 → Fetch weather data
+  Because: Get JSON with nested structure from API
+  Effect: HTTP GET from "http://httpbin.org/json" into json_data
+
+Step 2 → Parse nested value
+  Because: Extract value from nested JSON
+  Then: city becomes PARSE JSON json_data GET "slideshow"
+  Effect: Print "Parsed: {city}"
+
+End: Return city
+  Because: Return parsed data

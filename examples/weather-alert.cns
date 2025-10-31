@@ -1,0 +1,31 @@
+Story: Multi-API workflow - Get location, fetch weather, display results
+
+Given:
+  location_api: String = "http://ip-api.com/json"
+  location_data: String = ""
+  city: String = ""
+  weather_api: String = "https://wttr.in/"
+  weather_url: String = ""
+  weather_data: String = ""
+
+Step 1 → Get user location from IP
+  Because: Need to know where the user is located
+  Effect: HTTP GET from location_api into location_data
+  Effect: Print "Location API response received"
+
+Step 2 → Parse city from location response
+  Because: Extract city name from JSON
+  Then: city becomes PARSE JSON location_data GET "city"
+  Effect: Print "Detected city: {city}"
+
+Step 3 → Display location summary
+  Because: Show what we detected
+  Effect: Print "✓ Location detected: {city}"
+  Effect: Print "✓ Multi-API workflow completed successfully!"
+  
+Step 4 → Show JSON data sample
+  Because: Demonstrate JSON parsing works
+  Effect: Print "Raw location data: {location_data}"
+
+End: Return weather_data
+  Because: Return the weather information

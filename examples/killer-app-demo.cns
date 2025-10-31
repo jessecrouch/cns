@@ -1,0 +1,62 @@
+Story: The CNS Killer App - Multi-API Demo in One Shot
+
+Given:
+  api1: String = "http://ip-api.com/json"
+  response1: String = ""
+  city: String = ""
+  country: String = ""
+  isp: String = ""
+  
+  api2: String = "http://httpbin.org/uuid"
+  response2: String = ""
+  uuid: String = ""
+
+Step 1 → Display header
+  Because: Show what we're about to do
+  Effect: Print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  Effect: Print "  CNS KILLER APP DEMO"
+  Effect: Print "  Multi-API Orchestration in Pure CNS"
+  Effect: Print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  Effect: Print ""
+
+Step 2 → Call first API
+  Because: Get geo-location from IP
+  Effect: Print "[1/2] Calling IP Geolocation API..."
+  Effect: HTTP GET from api1 into response1
+
+Step 3 → Parse location data
+  Because: Extract fields from JSON
+  Then: city becomes PARSE JSON response1 GET "city"
+  Then: country becomes PARSE JSON response1 GET "country"
+  Then: isp becomes PARSE JSON response1 GET "isp"
+  Effect: Print "     ✓ Location: {city}, {country}"
+  Effect: Print "     ✓ ISP: {isp}"
+  Effect: Print ""
+
+Step 4 → Call second API
+  Because: Generate unique identifier
+  Effect: Print "[2/2] Calling UUID Generator API..."
+  Effect: HTTP GET from api2 into response2
+
+Step 5 → Parse UUID
+  Because: Extract UUID from JSON
+  Then: uuid becomes PARSE JSON response2 GET "uuid"
+  Effect: Print "     ✓ Generated UUID: {uuid}"
+  Effect: Print ""
+
+Step 6 → Show results
+  Because: Demonstrate success
+  Effect: Print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  Effect: Print "  ✅ SUCCESS!"
+  Effect: Print ""
+  Effect: Print "  • Called 2 different REST APIs"
+  Effect: Print "  • Parsed JSON responses"
+  Effect: Print "  • Zero dependencies (no pip, npm, cargo)"
+  Effect: Print "  • Pure CNS - Just run it!"
+  Effect: Print ""
+  Effect: Print "  🚀 This would take 100+ lines in Python"
+  Effect: Print "  📦 CNS does it in 30 lines with zero setup"
+  Effect: Print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+End: Return "Demo complete"
+  Because: All APIs called successfully

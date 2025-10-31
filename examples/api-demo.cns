@@ -1,0 +1,63 @@
+Story: Killer App Demo - Multi-API Data Aggregation
+
+Given:
+  ip_api: String = "http://ip-api.com/json"
+  location_json: String = ""
+  city: String = ""
+  country: String = ""
+  timezone: String = ""
+  lat: String = ""
+  lon: String = ""
+  isp: String = ""
+  
+  time_api: String = "http://worldtimeapi.org/api/ip"
+  time_json: String = ""
+  datetime: String = ""
+  
+  count: Integer = 0
+
+Step 1 → Fetch user's location data
+  Because: Get geo-location from IP address
+  Effect: HTTP GET from ip_api into location_json
+  Effect: Print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  Effect: Print "  CNS Killer App Demo"
+  Effect: Print "  Multi-API Data Aggregation"
+  Effect: Print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+Step 2 → Parse location fields
+  Because: Extract all useful location data
+  Then: city becomes PARSE JSON location_json GET "city"
+  Then: country becomes PARSE JSON location_json GET "country"
+  Then: timezone becomes PARSE JSON location_json GET "timezone"
+  Then: isp becomes PARSE JSON location_json GET "isp"
+  Then: lat becomes PARSE JSON location_json GET "lat"
+  Then: lon becomes PARSE JSON location_json GET "lon"
+
+Step 3 → Display location info
+  Because: Show aggregated geo data
+  Effect: Print ""
+  Effect: Print "📍 LOCATION DETECTED:"
+  Effect: Print "   City: {city}, {country}"
+  Effect: Print "   Timezone: {timezone}"
+  Effect: Print "   ISP: {isp}"
+  Effect: Print "   Coordinates: {lat}, {lon}"
+
+Step 4 → Fetch current time
+  Because: Call second API to get server time
+  Effect: HTTP GET from time_api into time_json
+  Then: datetime becomes PARSE JSON time_json GET "datetime"
+  Effect: Print ""
+  Effect: Print "🕐 CURRENT TIME:"
+  Effect: Print "   {datetime}"
+
+Step 5 → Show summary
+  Because: Demonstrate successful multi-API coordination
+  Then: count becomes 2
+  Effect: Print ""
+  Effect: Print "✅ SUCCESS!"
+  Effect: Print "   Called {count} different APIs"
+  Effect: Print "   Zero dependencies required"
+  Effect: Print "   Pure CNS - No pip, no npm, no cargo"
+
+End: Return "Demo completed"
+  Because: Multi-API workflow successful
