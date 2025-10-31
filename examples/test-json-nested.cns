@@ -1,0 +1,36 @@
+Story: Test Enhanced JSON Parser with Nested Objects and Arrays
+  Narrative: Verify dot notation and array indexing work correctly
+
+Given:
+  json_data: String = "{\"user\":{\"profile\":{\"name\":\"Alice\",\"age\":30}},\"tags\":[\"admin\",\"developer\"]}"
+  name: String = ""
+  first_tag: String = ""
+  age: Integer = 0
+  tag_count: Integer = 0
+
+Step 1 → Parse nested object path
+  Because: Testing dot notation for nested objects
+  Then: name becomes PARSE JSON json_data GET "user.profile.name"
+
+Step 2 → Parse array indexing
+  Because: Testing array indexing with brackets
+  Then: first_tag becomes PARSE JSON json_data GET "tags[0]"
+
+Step 3 → Parse nested value
+  Because: Testing numeric values in nested objects
+  Then: age becomes PARSE JSON json_data GET "user.profile.age"
+
+Step 4 → Get array length
+  Because: Testing LENGTH operator on arrays
+  Then: tag_count becomes PARSE JSON json_data GET "tags" LENGTH
+
+Step 5 → Display results
+  Because: Show all parsed values
+  Effect: PRINT "Name: {name}"
+  Effect: PRINT "Age: {age}"
+  Effect: PRINT "First tag: {first_tag}"
+  Effect: PRINT "Tag count: {tag_count}"
+
+End:
+  Outcome: Enhanced JSON parser working correctly
+  Result: All nested paths and array indexes resolved

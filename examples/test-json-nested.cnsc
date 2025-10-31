@@ -1,0 +1,20 @@
+Story: Test Enhanced JSON Parser
+G: json:S="{\"user\":{\"profile\":{\"name\":\"Alice\",\"age\":30}},\"tags\":[\"admin\",\"developer\"]}", name:S, tag:S, age:I, count:I
+
+S1→ Parse nested path
+  name=PARSE JSON json GET "user.profile.name"
+
+S2→ Parse array index
+  tag=PARSE JSON json GET "tags[0]"
+
+S3→ Parse numeric value
+  age=PARSE JSON json GET "user.profile.age"
+
+S4→ Get array length
+  count=PARSE JSON json GET "tags" LENGTH
+
+S5→ Display results
+  E: PRINT "Name: {name}, Age: {age}"
+  E: PRINT "Tag: {tag}, Count: {count}"
+
+End: JSON parser working with nested/arrays

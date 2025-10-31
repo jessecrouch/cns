@@ -1,0 +1,24 @@
+Story: Test Enhanced JSON Parser Direct
+  Narrative: Test JSON parsing with simple flat JSON first
+
+Given:
+  json: String = "{\"name\":\"Bob\",\"age\":25}"
+  name: String = ""
+  age: Integer = 0
+
+Step 1 → Parse name from JSON
+  Because: Extract name field from JSON
+  Then: name becomes PARSE JSON json GET "name"
+
+Step 2 → Parse age from JSON  
+  Because: Extract age field from JSON
+  Then: age becomes PARSE JSON json GET "age"
+
+Step 3 → Display results
+  Effect: PRINT "Parsed: {name}, age {age}"
+  
+  Because: Show what we extracted
+
+End:
+  Outcome: JSON parsing successful
+  Result: name and age extracted correctly

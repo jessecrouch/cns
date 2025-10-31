@@ -47,7 +47,7 @@
   (zerop (length (trim str))))
 
 (defun parse-json-value (json-str key)
-  "Simple JSON parser to extract a value by key.
+  "Simple JSON parser to extract a value by key (LEGACY - use parse-json-full for new code).
    Handles: strings, numbers, booleans, null
    Example: {\"name\":\"John\",\"age\":30} with key 'name' -> 'John'"
   (handler-case
@@ -85,6 +85,201 @@
       (format *error-output* "JSON parse error: ~A~%" e)
       "")))
 
+;;; ============================================================================
+;;; Enhanced JSON Parser with Nested Objects, Arrays, and Dot Notation
+;;; ============================================================================
+
+(defun json-parse-string (str &optional (start 0))
+  "Parse JSON string from position. Returns (values parsed-string new-position)."
+  (let ((result (make-array 0 :element-type 'character :fill-pointer 0 :adjustable t))
+        (i (1+ start))
+        (escaped nil))
+    (loop while (< i (length str)) do
+          (let ((ch (char str i)))
+            (cond
+              (escaped
+               (case ch
+                 (#\n (vector-push-extend #\Newline result))
+                 (#\r (vector-push-extend #\Return result))
+                 (#\t (vector-push-extend #\Tab result))
+                 (#\" (vector-push-extend #\" result))
+                 (#\\ (vector-push-extend #\\ result))
+                 (#\/ (vector-push-extend #\/ result))
+                 (t (vector-push-extend ch result)))
+               (setf escaped nil))
+              ((char= ch #\\) (setf escaped t))
+              ((char= ch #\") (return (values (coerce result 'string) (1+ i))))
+              (t (vector-push-extend ch result)))
+            (incf i)))
+    (values (coerce result 'string) i)))
+
+(defun json-skip-whitespace (str pos)
+  "Skip whitespace and return new position."
+  (loop while (and (< pos (length str))
+                   (member (char str pos) '(#\Space #\Tab #\Newline #\Return)))
+        do (incf pos))
+  pos)
+
+(defun json-parse-number (str start)
+  "Parse JSON number. Returns (values number new-position)."
+  (let ((end start))
+    (loop while (and (< end (length str))
+                     (or (digit-char-p (char str end))
+                         (member (char str end) '(#\- #\+ #\. #\e #\E))))
+          do (incf end))
+    (let ((num-str (subseq str start end)))
+      (values (if (position #\. num-str)
+                  (read-from-string num-str)
+                  (parse-integer num-str :junk-allowed t))
+              end))))
+
+(defun json-parse-value (str start)
+  "Parse JSON value (string, number, boolean, null, object, array).
+   Returns (values parsed-value new-position)."
+  (let ((pos (json-skip-whitespace str start)))
+    (when (>= pos (length str))
+      (return-from json-parse-value (values nil pos)))
+    
+    (let ((ch (char str pos)))
+      (cond
+        ;; String
+        ((char= ch #\")
+         (json-parse-string str pos))
+        
+        ;; Object
+        ((char= ch #\{)
+         (let ((obj (make-hash-table :test 'equal))
+               (pos (1+ pos)))
+           (setf pos (json-skip-whitespace str pos))
+           (when (and (< pos (length str)) (char= (char str pos) #\}))
+             (return-from json-parse-value (values obj (1+ pos))))
+           
+           (loop
+             ;; Parse key
+             (setf pos (json-skip-whitespace str pos))
+             (when (>= pos (length str))
+               (error "Unexpected end of JSON in object"))
+             (unless (char= (char str pos) #\")
+               (error "Expected string key in object at position ~D, found: ~C" pos (char str pos)))
+             (multiple-value-bind (key new-pos) (json-parse-string str pos)
+               (setf pos (json-skip-whitespace str new-pos))
+               (when (>= pos (length str))
+                 (error "Unexpected end of JSON after key"))
+               (unless (char= (char str pos) #\:)
+                 (error "Expected : after key '~A' at position ~D, found: ~C" key pos (char str pos)))
+               (setf pos (1+ pos))
+               
+               ;; Parse value
+               (multiple-value-bind (value new-pos) (json-parse-value str pos)
+                 (setf (gethash key obj) value)
+                 (setf pos (json-skip-whitespace str new-pos))
+                 
+                 (when (>= pos (length str))
+                   (error "Unexpected end of JSON in object"))
+                 
+                 ;; Check for comma or end
+                 (cond
+                   ((char= (char str pos) #\})
+                    (return (values obj (1+ pos))))
+                   ((char= (char str pos) #\,)
+                    (setf pos (1+ pos)))
+                   (t (error "Expected , or } in object at position ~D, found: ~C" pos (char str pos)))))))))
+        
+        ;; Array
+        ((char= ch #\[)
+         (let ((arr '())
+               (pos (1+ pos)))
+           (setf pos (json-skip-whitespace str pos))
+           (when (char= (char str pos) #\])
+             (return-from json-parse-value (values (nreverse arr) (1+ pos))))
+           
+           (loop
+             (multiple-value-bind (value new-pos) (json-parse-value str pos)
+               (push value arr)
+               (setf pos (json-skip-whitespace str new-pos))
+               
+               (cond
+                 ((char= (char str pos) #\])
+                  (return (values (nreverse arr) (1+ pos))))
+                 ((char= (char str pos) #\,)
+                  (setf pos (1+ pos)))
+                 (t (error "Expected , or ] in array")))))))
+        
+        ;; Boolean true
+        ((and (>= (+ pos 4) (length str))
+              (string= (subseq str pos (min (+ pos 4) (length str))) "true"))
+         (values t (+ pos 4)))
+        
+        ;; Boolean false
+        ((and (>= (+ pos 5) (length str))
+              (string= (subseq str pos (min (+ pos 5) (length str))) "false"))
+         (values nil (+ pos 5)))
+        
+        ;; Null
+        ((and (>= (+ pos 4) (length str))
+              (string= (subseq str pos (min (+ pos 4) (length str))) "null"))
+         (values :null (+ pos 4)))
+        
+        ;; Number
+        ((or (digit-char-p ch) (char= ch #\-))
+         (json-parse-number str pos))
+        
+        (t (error "Unexpected character: ~A" ch))))))
+
+(defun parse-json-full (json-str)
+  "Parse JSON string into Lisp data structures.
+   Objects -> hash tables
+   Arrays -> lists
+   Strings -> strings
+   Numbers -> numbers
+   Booleans -> t/nil
+   Null -> :null
+   
+   Example: 
+     (parse-json-full \"{\\\"name\\\":\\\"John\\\",\\\"age\\\":30}\")
+     => #<HASH-TABLE {name: \"John\", age: 30}>"
+  (handler-case
+      (multiple-value-bind (value pos) (json-parse-value json-str 0)
+        (declare (ignore pos))
+        value)
+    (error (e)
+      (format *error-output* "JSON parse error: ~A~%" e)
+      nil)))
+
+(defun json-get-path (json-obj path)
+  "Get value from JSON object using dot notation path.
+   Supports:
+     - Nested objects: \"user.profile.name\"
+     - Array indexing: \"users[0].name\"
+     - Mixed: \"data.items[2].title\"
+   
+   Example:
+     (json-get-path obj \"user.profile.name\")
+     (json-get-path obj \"items[0]\")"
+  (handler-case
+      (let ((current json-obj)
+            (parts (split-string path #\.)))
+        (dolist (part parts)
+          (let* ((bracket-pos (position #\[ part))
+                 (key (if bracket-pos (subseq part 0 bracket-pos) part))
+                 (index (when bracket-pos
+                          (let* ((end-bracket (position #\] part))
+                                 (index-str (subseq part (1+ bracket-pos) end-bracket)))
+                            (parse-integer index-str :junk-allowed t)))))
+            
+            ;; Get object property if key is not empty
+            (when (and (> (length key) 0) (hash-table-p current))
+              (setf current (gethash key current)))
+            
+            ;; Get array element if index specified
+            (when (and index (listp current))
+              (setf current (nth index current)))))
+        
+        current)
+    (error (e)
+      (format *error-output* "JSON path error: ~A~%" e)
+      nil)))
+
 (defun extract-quoted-string (str)
   "Extract a quoted string from str, handling escape sequences.
    Returns (values extracted-string rest-of-string).
@@ -117,15 +312,16 @@ World' and ' rest'"
                    (setf escaped nil))
                  ((char= ch #\\)
                   (setf escaped t))
-                 ((char= ch #\")
-                  ;; End of string
-                  (return-from extract-quoted-string
-                    (values result (subseq str (1+ i)))))
-                 (t
-                  (vector-push-extend ch result)))
+                  ((char= ch #\")
+                   ;; End of string
+                   (return-from extract-quoted-string
+                     (values (coerce result 'string) (subseq str (1+ i)))))
+                  (t
+                   (vector-push-extend ch result)))
                 (incf i)))
         ;; If we get here, string was not closed
-        (values result "")))))
+        (values (coerce result 'string) "")))))
+
 
 (defun parse-query-string (query-string)
   "Parse URL query string into alist.
@@ -784,8 +980,8 @@ World' and ' rest'"
                       (val (if val-part
                               ;; Check if value is a quoted string
                               (if (and (> (length val-part) 0) (char= (char val-part 0) #\"))
-                                  ;; Extract and re-wrap with quotes to preserve string literal
-                                  (format nil "\"~A\"" (extract-quoted-string val-part))
+                                  ;; Extract string content (extract-quoted-string removes quotes)
+                                  (extract-quoted-string val-part)
                                   val-part)
                               nil)))
                   ;; Append to the given node (which is at (car ast))
@@ -1197,23 +1393,39 @@ World' and ' rest'"
                 (or (eval-expr (trim left) env)
                     (eval-expr (trim right) env))))
             
-             ;; JSON parsing: PARSE JSON {json_string} GET "key"
+             ;; JSON parsing: PARSE JSON {json_string} GET "key" or GET "path.to.value[0]"
              ((starts-with (string-upcase trimmed) "PARSE JSON ")
               (let* ((rest (trim (subseq trimmed 11)))
-                     (get-pos (search " GET " (string-upcase rest))))
-                (if get-pos
-                    (let* ((json-expr (trim (subseq rest 0 get-pos)))
-                           (key-expr (trim (subseq rest (+ get-pos 5))))
-                           (json-str (eval-expr json-expr env))
-                           ;; Remove quotes from key if present
-                           (key (if (and (> (length key-expr) 1)
-                                        (char= (char key-expr 0) #\")
-                                        (char= (char key-expr (1- (length key-expr))) #\"))
-                                   (subseq key-expr 1 (1- (length key-expr)))
-                                   key-expr)))
-                      (parse-json-value json-str key))
-                    ;; No GET clause - return the raw JSON string
-                    (eval-expr rest env))))
+                     (get-pos (search " GET " (string-upcase rest)))
+                     (length-pos (search " LENGTH" (string-upcase rest))))
+                (cond
+                  ;; PARSE JSON {expr} GET "path.to.value[0]"
+                  (get-pos
+                   (let* ((json-expr (trim (subseq rest 0 get-pos)))
+                          (path-expr (trim (subseq rest (+ get-pos 5))))
+                          (json-str (eval-expr json-expr env))
+                          ;; Remove quotes from path if present
+                          (path (if (and (> (length path-expr) 1)
+                                        (char= (char path-expr 0) #\")
+                                        (char= (char path-expr (1- (length path-expr))) #\"))
+                                   (subseq path-expr 1 (1- (length path-expr)))
+                                   path-expr)))
+                     ;; For now, only use simple parser (nested/array support coming in next commit)
+                     (parse-json-value json-str path)))
+                  
+                  ;; PARSE JSON {expr} LENGTH - return array/object length
+                  (length-pos
+                   (let* ((json-expr (trim (subseq rest 0 length-pos)))
+                          (json-str (eval-expr json-expr env))
+                          (parsed (parse-json-full json-str)))
+                     (cond
+                       ((hash-table-p parsed) (hash-table-count parsed))
+                       ((listp parsed) (length parsed))
+                       (t 0))))
+                  
+                  ;; No GET/LENGTH - parse and return full structure
+                  (t (let* ((json-expr (eval-expr rest env)))
+                       (parse-json-full json-expr))))))
             
              ;; File reading: READ FROM FILE "filepath" (MUST come before - operator!)
              ((starts-with (string-upcase trimmed) "READ FROM FILE ")
@@ -2038,13 +2250,12 @@ World' and ' rest'"
                   (type (caddr var))
                   (val (cadddr var)))
                ;; Parse value intelligently:
-              ;; - If it contains newlines, it's from extract-quoted-string -> keep as string
-              ;; - If it's a simple number, parse it
-              ;; - Otherwise evaluate it
+              ;; - If val is already a plain string (from extract-quoted-string), use it directly
+              ;; - Otherwise evaluate it as an expression
               (setf (gethash name env) 
                     (if val 
-                        (if (and (stringp val) (position #\Newline val))
-                            val  ; Multiline string from extract-quoted-string
+                        (if (stringp val)
+                            val  ; Already a string from extract-quoted-string
                             (eval-expr val env))  ; Number or expression
                         nil))
               (when verbose
