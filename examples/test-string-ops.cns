@@ -1,0 +1,36 @@
+Story: Test new string operations
+
+Given:
+  request: String = "GET /api/users"
+  text: String = "hello world test"
+  csv: String = "apple,banana,orange"
+  starts_result: Boolean
+  contains_result: Boolean
+  split_result: List
+
+Step 1 → Test STARTS WITH operator
+  Because: Need to check if request starts with GET
+  Then: starts_result becomes request STARTS WITH "GET"
+  Effect: Print "Request starts with GET: {starts_result}"
+
+Step 2 → Test CONTAINS operator
+  Because: Need to check if text contains a word
+  Then: contains_result becomes text CONTAINS "world"
+  Effect: Print "Text contains 'world': {contains_result}"
+
+Step 3 → Test SPLIT operator
+  Because: Need to split CSV into list
+  Then: split_result becomes SPLIT csv BY ","
+  Effect: Print "Split result: {split_result}"
+
+Step 4 → Test STARTS WITH false case
+  Because: Verify negative case works
+  Then: starts_result becomes request STARTS WITH "POST"
+  Effect: Print "Request starts with POST: {starts_result}"
+
+Step 5 → Test CONTAINS false case
+  Because: Verify negative case works
+  Then: contains_result becomes text CONTAINS "xyz"
+  Effect: Print "Text contains 'xyz': {contains_result}"
+
+End: Return "String operations tested"

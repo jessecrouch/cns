@@ -89,6 +89,64 @@ Step 4 → For each name, score in names, scores
 - Use `go to End` to exit early, `repeat from Step N` to loop back
 - Assignment operator is `becomes`, NOT `=`
 
+## Example: Factorial (Iterative Pattern)
+
+Task: "Calculate factorial of 5"
+
+```cns
+Story: Compute factorial of a positive integer
+
+Given:
+  n: Integer = 5
+  result: Integer = 1
+  counter: Integer = 5
+
+Step 1 → Multiply result by current counter
+  Because: Each number contributes to factorial
+  Then: result becomes result * counter
+  Then: counter becomes counter - 1
+
+Step 2 → Check if more numbers to multiply
+  Because: Continue until we reach 1
+  If counter > 0
+    Then: repeat from Step 1
+  Otherwise: go to End
+
+End: Return result
+```
+
+## Example: Word Count from File
+
+Task: "Count words in a file"
+
+```cns
+Story: Count words in a text file
+
+Given:
+  filename: String = "input.txt"
+  content: String
+  words: List
+  count: Integer = 0
+
+Step 1 → Read file content
+  Because: Need text to analyze
+  Effect: Read from file filename into content
+
+Step 2 → Split content into words
+  Because: Need individual words to count
+  Then: words becomes SPLIT content BY " "
+
+Step 3 → Count words in list
+  Because: Determine total word count
+  Then: count becomes length of words
+
+Step 4 → Display result
+  Because: User needs to see the count
+  Effect: Print "Word count: {count}"
+
+End: Return count
+```
+
 ## Task: {TASK}
 
 Generate valid CNS code following the format above:

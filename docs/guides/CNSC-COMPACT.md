@@ -2,7 +2,7 @@
 
 ## Overview
 
-CNSC (CNS Compact) is a token-optimized version of CNS designed specifically for LLM code generation. It achieves **70-76% reduction in code size** while maintaining full semantic equivalence with verbose CNS.
+CNSC (CNS Compact) is a token-optimized version of CNS designed specifically for LLM code generation. It achieves **60-66% reduction in code size** while maintaining full semantic equivalence with verbose CNS.
 
 ## Why CNSC?
 
@@ -18,18 +18,21 @@ CNSC compresses CNS syntax using:
 - **Standard operators**: `=` instead of `becomes`, `?:` instead of `If/Otherwise`
 - **No documentation**: "Because" clauses are optional (generated on expansion)
 
-### Empirical Results
+### Validated Results
 
-From our LLM testing (Grok 2):
+From comprehensive LLM testing (Grok-2, Phase 1 & 2):
 
 | Metric | Verbose CNS | Compact CNSC | Improvement |
 |--------|-------------|--------------|-------------|
-| **Code size** | 599 chars | 139 chars | **-76%** |
-| **Prompt size** | ~520 tokens | ~420 tokens | **-19%** |
-| **Generation time** | 2.54s | 1.20s | **-53%** |
-| **First-pass success** | ✓ | ✓ | **Equal** |
+| **Code size** | 521 chars (avg) | 201 chars (avg) | **-62%** |
+| **Generation time** | 1.91s (avg) | 1.36s (avg) | **-29%** |
+| **Validation success** | 100% (4/4) | 100% (4/4) | **Equal** |
+| **Execution success** | 100% (4/4) | 100% (4/4) | **Equal** |
+| **Runtime correctness** | 100% (4/4) | 100% (4/4) | **Equal** |
 
-**Conclusion**: CNSC has zero negative impact on LLM generation quality while providing massive token savings.
+**Tests included**: Factorial, Word Count (file I/O), Fibonacci, Prime Check
+
+**Conclusion**: CNSC has zero negative impact on LLM generation quality while providing substantial code reduction. See [Validation Results](../development/CNSC-VALIDATION-RESULTS.md) for detailed analysis.
 
 ## Syntax Reference
 
@@ -106,6 +109,30 @@ S3→ i=i+1; count=count+1
 
 Use semicolon (`;`) to separate multiple actions in one step.
 
+### Effects (File I/O, Print, etc.)
+
+**Verbose CNS:**
+```cns
+Step 1 → Read file content
+  Because: Need text to analyze
+  Effect: Read from file filename into content
+```
+
+**CNSC:**
+```cnsc
+S1→ Effect: Read from file filename into content
+```
+
+### String Operations
+
+String operators work identically in both CNS and CNSC:
+
+```cnsc
+S1→ starts=text STARTS WITH "Hello"
+S2→ has=text CONTAINS "World"
+S3→ words=SPLIT text BY " "
+```
+
 ### End Section
 
 **Verbose CNS:**
@@ -118,51 +145,93 @@ End: Return result
 E: result
 ```
 
-## Complete Example
+## Complete Examples
 
-### Factorial (Verbose CNS - 599 chars)
+### Example 1: Factorial
 
+**Verbose CNS** (459 chars):
 ```cns
-Story: Calculate the factorial of a given number n
+Story: Compute factorial of a positive integer
 
 Given:
-  n: Integer = 5
+  n: Integer = 6
   result: Integer = 1
-  counter: Integer = 5
+  counter: Integer = 6
 
-Step 1 → Initialize result and counter
-  Because: Need to set initial values
-  Then: result becomes 1
-  Then: counter becomes n
-
-Step 2 → Process current value
-  Because: Need to include this number in factorial calculation
+Step 1 → Multiply result by current counter
+  Because: Each number contributes to factorial
   Then: result becomes result * counter
   Then: counter becomes counter - 1
 
-Step 3 → If counter > 0
-  Because: Continue until counter reaches zero
-  Then: repeat from Step 2
+Step 2 → Check if more numbers to multiply
+  Because: Continue until we reach 1
+  If counter > 0
+    Then: repeat from Step 1
   Otherwise: go to End
 
 End: Return result
 ```
 
-### Factorial (CNSC - 139 chars)
-
+**CNSC** (158 chars):
 ```cnsc
-Story: Calculate the factorial of n
+Story: Calculate factorial of 6
 
-G: n:I=5, result:I=1, i:I=1
+G: n:I=6, result:I=1, counter:I=6
 
-S1→ i<=n? result=result*i : ->E
-S2→ i=i+1
-S3→ i<=n? ->S1 : ->E
+S1→ result=result*counter
+S2→ counter=counter-1
+S3→ counter>0? ->S1 : ->E
 
 E: result
 ```
 
-**Savings: 76%** (460 characters fewer)
+**Savings: 66%** (301 chars) | **Generated in 1.27s** | **Output: 720**
+
+### Example 2: Word Count (File I/O + String Operations)
+
+**Verbose CNS** (614 chars):
+```cns
+Story: Count words in a specified text file
+
+Given:
+  filename: String = "test-wordcount-input.txt"
+  content: String
+  words: List
+  count: Integer = 0
+
+Step 1 → Read file content
+  Because: Need text to analyze
+  Effect: Read from file filename into content
+
+Step 2 → Split content into words
+  Because: Need individual words to count
+  Then: words becomes SPLIT content BY " "
+
+Step 3 → Count words in list
+  Because: Determine total word count
+  Then: count becomes length of words
+
+Step 4 → Display result
+  Because: User needs to see the count
+  Effect: Print "Word count: {count}"
+
+End: Return count
+```
+
+**CNSC** (245 chars):
+```cnsc
+Story: Count words in test-wordcount-input.txt
+
+G: filename:S="test-wordcount-input.txt", content:S="", words:L, count:I=0
+
+S1→ Effect: Read from file filename into content
+S2→ words=SPLIT content BY " "
+S3→ count=length of words
+
+E: count
+```
+
+**Savings: 60%** (369 chars) | **Generated in 1.17s** | **Output: 10 words**
 
 ## Usage
 
@@ -415,8 +484,14 @@ A: If you're generating with LLMs, yes. If hand-writing for learning, start with
 ## Examples
 
 See `examples/` directory:
-- `fibonacci.cnsc` - Fibonacci sequence
-- `is-prime.cnsc` - Prime number checker
-- `factorial.cnsc` - Factorial calculation (from LLM generation)
+- `fibonacci.cnsc` - Fibonacci sequence (194 chars, generates 10th number: 55)
+- `is-prime.cnsc` - Prime number checker (199 chars, checks if 17 is prime)
+- `math-library.cnsc` - Multiple functions with calls (556 chars)
 
-All examples have been validated and execute correctly.
+See `tests/llm-tests/generated/` for LLM-generated CNSC programs:
+- `factorial-cnsc_iter1_*.cns` - Factorial (158 chars, output: 720)
+- `wordcount-cnsc_iter1_*.cns` - Word count with file I/O (245 chars, output: 10 words)
+- `fibonacci-cnsc_iter1_*.cns` - Fibonacci (194 chars, output: 55)
+- `prime-cnsc_iter1_*.cns` - Prime check (208 chars, output: 1/prime)
+
+All examples have been validated and execute correctly with 100% success rate.

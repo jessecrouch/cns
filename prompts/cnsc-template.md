@@ -46,6 +46,19 @@ E: <return_value>
 - Use conditional jump: `condition? ->S1 : ->E`
 - Example (count down): `n>0? ->S1 : ->E`
 
+**String Operations:**
+- Check prefix: `text STARTS WITH "prefix"` → Returns T/NIL
+- Check substring: `text CONTAINS "substring"` → Returns T/NIL
+- Split into list: `SPLIT text BY " "` → Returns list of strings
+
+**File I/O:**
+- Read file: `S1→ Effect: Read from file filename into content`
+- Write file: `S2→ Effect: Write content to file output`
+
+**Effects:**
+- Print: `S3→ Effect: Print "message"`
+- Format: `S4→ Effect: Print "Value: {variable}"`
+
 **End:**
 - Format: `E: <return_value>`
 - Example: `E: result`
@@ -78,6 +91,35 @@ S2→ divisor=divisor+1
 S3→ divisor*divisor<n? ->S1 : ->E
 
 E: is-prime
+```
+
+## Example 3: Factorial (Iterative Loop)
+
+```cnsc
+Story: Calculate factorial of n
+
+G: n:I=5, result:I=1, counter:I=5
+
+S1→ result=result*counter
+S2→ counter=counter-1
+S3→ counter>0? ->S1 : ->E
+
+E: result
+```
+
+## Example 4: Word Count (File I/O + String Operations)
+
+```cnsc
+Story: Count words in a text file
+
+G: filename:S="input.txt", content:S="", words:L, count:I=0
+
+S1→ Effect: Read from file filename into content
+S2→ words=SPLIT content BY " "
+S3→ count=length of words
+S4→ Effect: Print "Word count: {count}"
+
+E: count
 ```
 
 ## Critical Rules

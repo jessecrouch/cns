@@ -54,6 +54,20 @@ Step N → If <condition>
 - Socket: Network connection
 - Object: Complex data structures
 
+### String Operations
+- `text STARTS WITH "prefix"` - Returns T if text starts with prefix, NIL otherwise
+- `text CONTAINS "substring"` - Returns T if text contains substring, NIL otherwise
+- `SPLIT text BY ","` - Splits text into list using delimiter
+
+Example:
+```
+Step 5 → Parse request method
+  Then: is_get becomes request STARTS WITH "GET"
+  Then: has_json becomes request CONTAINS "application/json"
+  Then: parts becomes SPLIT request BY "\n"
+  Because: Extract request information using string operations
+```
+
 ### Available Effects
 - `Print "<message>"` - Output with {var} interpolation
 - `Write "<content>" to <file>` - File writing
@@ -84,7 +98,7 @@ Generate complete CNS code that:
 6. Handles errors with an Error block
 7. Ends with proper cleanup
 
-## Example: Simple Webserver
+## Example 1: Simple Webserver
 
 Task: "Create a webserver on port 8080 that responds with 'Hello, World!'"
 
@@ -107,11 +121,11 @@ Step 2 → Accept connection on server_socket
   Then: connection_count becomes connection_count + 1
   
 Step 3 → Parse HTTP request
-  Effect: Network read
+  Effect: Network read from client_stream into request_data
   Because: Receive and understand client's HTTP request
   
 Step 4 → Send response to client
-  Effect: Send "HTTP/1.1 200 OK\nContent-Type: text/plain\n\n{response}" to client
+  Effect: Send "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\n{response}" to client
   Because: Return the greeting to the client
   
 Step 5 → If connection_count < 3
@@ -127,6 +141,67 @@ Error:
 End: Close server_socket
   Effect: Close socket server_socket
   Because: Clean up network resources properly
+```
+
+## Example 2: Webserver with Routing
+
+Task: "Create a webserver with /hello and /goodbye routes"
+
+```cns
+Story: Webserver with multiple routes using string operations
+
+Given:
+  port: Integer = 8080
+  server_socket: Socket
+  request_data: String
+  response: String
+  is_hello: String
+  is_goodbye: String
+  
+Step 1 → Create server_socket on port
+  Effect: Create socket server_socket on port
+  Because: Need to listen for incoming HTTP connections
+  
+Step 2 → Accept connection on server_socket
+  Effect: Accept connection on server_socket
+  Because: Handle incoming HTTP request
+  
+Step 3 → Read request from client
+  Effect: Network read from client_stream into request_data
+  Because: Receive HTTP request data
+  
+Step 4 → Check if request is for /hello route
+  Then: is_hello becomes request_data STARTS WITH "GET /hello"
+  Because: Determine if client wants hello greeting
+  
+Step 5 → Check if request is for /goodbye route
+  Then: is_goodbye becomes request_data STARTS WITH "GET /goodbye"
+  Because: Determine if client wants goodbye message
+  
+Step 6 → If is_hello = T
+  Then: response becomes "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nHello, World!"
+  Otherwise: go to Step 7
+  Because: Respond to hello route
+  
+Step 7 → If is_goodbye = T
+  Then: response becomes "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nGoodbye, World!"
+  Otherwise: go to Step 8
+  Because: Respond to goodbye route
+  
+Step 8 → If response = ""
+  Then: response becomes "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\n\r\nRoute not found"
+  Because: No route matched, return 404
+  
+Step 9 → Send response to client
+  Effect: Send response to client
+  Because: Return HTTP response
+  
+Step 10 → Repeat from Step 2
+  Because: Continue serving requests
+  
+End: Return "Server stopped"
+  Effect: Close socket server_socket
+  Because: Clean up network resources
 ```
 
 ## Your Task

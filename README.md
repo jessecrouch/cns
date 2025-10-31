@@ -36,6 +36,31 @@ End: Return result
 
 This executes to compute 5! = 120, with traceable reasoning at every step.
 
+### CNSC: Compact Format
+
+For LLM code generation and production use, CNS offers **CNSC (CNS Compact)** - a token-optimized format that achieves **62% code reduction** while maintaining 100% semantic equivalence:
+
+```cnsc
+Story: Calculate factorial of 6
+
+G: n:I=6, result:I=1, counter:I=6
+
+S1→ result=result*counter
+S2→ counter=counter-1
+S3→ counter>0? ->S1 : ->E
+
+E: result
+```
+
+**Key Benefits:**
+- ✅ 62% smaller than verbose CNS
+- ✅ 29% faster LLM generation
+- ✅ Auto-expands to verbose format during execution
+- ✅ Zero quality loss (100% validation/execution success)
+- ✅ Best of both worlds: generate compact, expand for docs
+
+See [CNSC Guide](docs/guides/CNSC-COMPACT.md) and [Validation Results](docs/development/CNSC-VALIDATION-RESULTS.md) for details.
+
 ## Why CNS?
 
 LLMs excel at:

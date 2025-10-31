@@ -466,6 +466,13 @@ World' and ' rest'"
                     (t
                      (push (format nil "  Otherwise: ~A" else-part) result)))))
                
+               ;; Effect: statements
+               ((starts-with step-content "Effect:")
+                (let ((effect-content (trim (subseq step-content 7))))
+                  (push (format nil "Step ~D → Execute effect" step-num) result)
+                  (push "  Because: execution step" result)
+                  (push (format nil "  Effect: ~A" effect-content) result)))
+               
                ;; Simple assignment(s): var=expr or var=expr; var2=expr2
                ((contains-char step-content #\=)
                 (push (format nil "Step ~D → Execute assignments" step-num) result)
@@ -1068,17 +1075,66 @@ World' and ' rest'"
                     (format *error-output* "File read error: ~A~%" e)
                     ""))))
             
-            ;; Assignment: n becomes n - 1
-            ((search "becomes" trimmed)
-            (let* ((parts (split-string trimmed #\Space))
-                   (becomes-pos (position "becomes" parts :test #'string=))
-                   (var-name (trim (car parts)))
-                   (expr-parts (subseq parts (1+ becomes-pos)))
-                   (expr (format nil "~{~A~^ ~}" expr-parts)))
-              (setf (gethash var-name env)
-                    (eval-expr expr env))))
+             ;; Assignment: n becomes n - 1 (MUST come before string ops that use becomes!)
+             ((search " becomes " trimmed)
+            (let* ((becomes-pos (search " becomes " trimmed))
+                   (var-name (trim (subseq trimmed 0 becomes-pos)))
+                   (right-expr (trim (subseq trimmed (+ becomes-pos 9)))))  ; 9 = length of " becomes "
+              (let ((result (eval-expr right-expr env)))
+                (setf (gethash var-name env) result))))
             
-            ;; Arithmetic: result * n
+             ;; String operation: text STARTS WITH "prefix"
+             ((search " STARTS WITH " (string-upcase trimmed))
+              (let* ((pos (search " STARTS WITH " (string-upcase trimmed)))
+                     (str-expr (trim (subseq trimmed 0 pos)))
+                     (prefix-expr (trim (subseq trimmed (+ pos 13))))
+                     (str-val (eval-expr str-expr env))
+                     (prefix-val (eval-expr prefix-expr env)))
+                (if (and (stringp str-val) (stringp prefix-val))
+                    (and (>= (length str-val) (length prefix-val))
+                         (string= (subseq str-val 0 (length prefix-val)) prefix-val))
+                    nil)))
+            
+             ;; String operation: text CONTAINS "substring"
+             ((search " CONTAINS " (string-upcase trimmed))
+              (let* ((pos (search " CONTAINS " (string-upcase trimmed)))
+                     (str-expr (trim (subseq trimmed 0 pos)))
+                     (substr-expr (trim (subseq trimmed (+ pos 10))))
+                     (str-val (eval-expr str-expr env))
+                     (substr-val (eval-expr substr-expr env)))
+                (if (and (stringp str-val) (stringp substr-val))
+                    (if (search substr-val str-val)
+                        t
+                        nil)
+                    nil)))
+            
+             ;; String operation: SPLIT text BY "delimiter"
+             ((starts-with (string-upcase trimmed) "SPLIT ")
+              (let* ((rest (trim (subseq trimmed 6)))
+                     (by-pos (search " BY " (string-upcase rest))))
+                (if by-pos
+                    (let* ((str-expr (trim (subseq rest 0 by-pos)))
+                           (delim-expr (trim (subseq rest (+ by-pos 4))))
+                           (str-val (eval-expr str-expr env))
+                           (delim-val (eval-expr delim-expr env)))
+                      (if (and (stringp str-val) (stringp delim-val))
+                          (let ((result nil)
+                                (start 0))
+                            (loop
+                              (let ((pos (search delim-val str-val :start2 start)))
+                                (if pos
+                                    (progn
+                                      (push (subseq str-val start pos) result)
+                                      (setf start (+ pos (length delim-val))))
+                                    (progn
+                                      (push (subseq str-val start) result)
+                                      (return)))))
+                            (nreverse result))
+                          nil))
+                    ;; No BY clause - error
+                    nil)))
+            
+             ;; Arithmetic: result * n
             ((search "*" trimmed)
              (let ((parts (split-string trimmed #\*)))
                (* (eval-expr (trim (car parts)) env)
@@ -1286,6 +1342,43 @@ World' and ' rest'"
         (when verbose
           (format t "  Effect: Print~%"))))
      
+     ;; Read from file into variable
+     ;; Syntax: "Read from file X into Y" or "Read from file 'filename' into var"
+     ((starts-with (string-upcase trimmed) "READ FROM FILE ")
+      (let* ((rest (trim (subseq trimmed 15)))
+             (rest-upper (string-upcase rest))
+             (into-pos (search " INTO " rest-upper)))
+        (when into-pos
+          (let* ((filepath-expr (trim (subseq rest 0 into-pos)))
+                 (target-var (trim (subseq rest (+ into-pos 6))))
+                 ;; Resolve filepath from variable or use literal
+                 (filepath-raw (eval-expr filepath-expr env))
+                 ;; Remove quotes if present
+                 (filepath (if (and (stringp filepath-raw)
+                                   (> (length filepath-raw) 1)
+                                   (char= (char filepath-raw 0) #\")
+                                   (char= (char filepath-raw (1- (length filepath-raw))) #\"))
+                              (subseq filepath-raw 1 (1- (length filepath-raw)))
+                              filepath-raw)))
+            (handler-case
+                (with-open-file (stream filepath :direction :input :if-does-not-exist nil)
+                  (if stream
+                      (let ((contents (make-string (file-length stream))))
+                        (read-sequence contents stream)
+                        (setf (gethash target-var env) contents)
+                        (when verbose
+                          (format t "  Effect: Read ~A bytes from ~A into ~A~%" 
+                                  (length contents) filepath target-var)))
+                      (progn
+                        (setf (gethash target-var env) "")
+                        (when verbose
+                          (format t "  Effect: File ~A not found, set ~A to empty~%" 
+                                  filepath target-var)))))
+              (error (e)
+                (setf (gethash target-var env) "")
+                (when verbose
+                  (format t "  Effect: File read error: ~A~%" e))))))))
+     
      ;; Write to file
      ((starts-with (string-upcase trimmed) "WRITE ")
       (let* ((rest (trim (subseq trimmed 6)))
@@ -1352,40 +1445,76 @@ World' and ' rest'"
          (format t "  Effect: Bind socket~%")))
       
       ;; Socket: Accept connection (REAL implementation)
+      ;; Supports: "Accept connection on X" or "Accept connection on X into Y"
       ((starts-with (string-upcase trimmed) "ACCEPT CONNECTION")
        (let* ((rest (if (> (length trimmed) 17)
                        (trim (subseq trimmed 17))
                        ""))
               (rest-upper (string-upcase rest))
-              (on-pos (when (> (length rest-upper) 0)
-                       (search "ON" rest-upper))))
-         (if on-pos
-             (let* ((socket-name (trim (subseq rest (+ on-pos 2))))  ; Skip "on"
-                    (server-socket (gethash socket-name env)))
+              ;; Handle "on" at start or with leading space
+              (on-pos (cond
+                       ((starts-with rest-upper "ON ") 0)
+                       ((> (length rest-upper) 0) (search " ON " rest-upper))
+                       (t nil)))
+              (into-pos (when (> (length rest-upper) 0)
+                         (search " INTO " rest-upper))))
+         (if (numberp on-pos)
+             (let* ((skip-chars (if (= on-pos 0) 3 4))  ; "ON " vs " ON "
+                    (socket-part (if into-pos
+                                    (trim (subseq rest (+ on-pos skip-chars) into-pos))
+                                    (trim (subseq rest (+ on-pos skip-chars)))))
+                    (client-var (when into-pos
+                                 (trim (subseq rest (+ into-pos 6)))))
+                    (server-socket (gethash socket-part env)))
                (if server-socket
                    (handler-case
                        (multiple-value-bind (client-socket client-stream)
                            (accept-connection server-socket)
                          ;; Store both socket and stream
-                         (setf (gethash "client_socket" env) client-socket)
-                         (setf (gethash "client_stream" env) client-stream)
+                         (if client-var
+                             ;; If "into Y" specified, use that variable name
+                             (progn
+                               (setf (gethash client-var env) client-socket)
+                               (setf (gethash "client_stream" env) client-stream))
+                             ;; Otherwise use default names
+                             (progn
+                               (setf (gethash "client_socket" env) client-socket)
+                               (setf (gethash "client_stream" env) client-stream)))
                          (when verbose
                            (format t "  Effect: Accepted REAL connection from client~%")))
                      (error (e)
                        (when verbose
                          (format t "  Effect: Failed to accept connection: ~A~%" e))))
                    (when verbose
-                     (format t "  Effect: Accept connection (socket '~A' not found)~%" socket-name))))
+                     (format t "  Effect: Accept connection (socket '~A' not found)~%" socket-part))))
              (when verbose
                (format t "  Effect: Accept connection (no socket specified)~%")))))
       
        ;; Socket: Network read (REAL implementation)
+       ;; Supports: "Network read" or "Network read from X into Y"
        ((starts-with (string-upcase trimmed) "NETWORK READ")
-        (let ((stream (gethash "client_stream" env)))
+        (let* ((rest (if (> (length trimmed) 12)
+                        (trim (subseq trimmed 12))
+                        ""))
+               (rest-upper (string-upcase rest))
+               (from-pos (search " FROM " rest-upper))
+               (into-pos (search " INTO " rest-upper))
+               (source-var (when from-pos
+                            (if into-pos
+                                (trim (subseq rest (+ from-pos 6) into-pos))
+                                (trim (subseq rest (+ from-pos 6))))))
+               (target-var (when into-pos
+                            (trim (subseq rest (+ into-pos 6)))))
+               (stream (if source-var
+                          (gethash source-var env)
+                          (gethash "client_stream" env))))
           (if stream
               (handler-case
                   (let ((data (socket-receive stream)))
-                    (setf (gethash "request_data" env) data)
+                    ;; Store in target variable if specified, otherwise use request_data
+                    (if target-var
+                        (setf (gethash target-var env) data)
+                        (setf (gethash "request_data" env) data))
                     ;; Auto-parse HTTP request and extract body
                     (when data
                       (let ((parsed (parse-http-request data)))
