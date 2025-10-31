@@ -147,7 +147,7 @@ This replaces the full technical README with a marketing-focused version.
 # build/cns-starter.tar.gz -> GitHub Releases page
 
 # Users download
-curl -L github.com/user/cns/releases/latest/download/cns-starter.tar.gz | tar xz
+curl -L https://github.com/jessecrouch/cns/releases/latest/download/cns-starter.tar.gz | tar xz
 cd cns-starter
 ./cns-run examples/killer-app-demo.cns
 ```
@@ -156,7 +156,7 @@ cd cns-starter
 
 Just clone and work in the main repo:
 ```bash
-git clone github.com/user/cns
+git clone https://github.com/jessecrouch/cns
 cd cns
 ./cns-run examples/killer-app-demo.cns
 ```
@@ -167,14 +167,14 @@ No need to think about the starter package unless releasing.
 
 **Option 1: Starter Package (Recommended)**
 ```bash
-curl -L github.com/user/cns/releases/latest/download/cns-starter.tar.gz | tar xz
+curl -L https://github.com/jessecrouch/cns/releases/latest/download/cns-starter.tar.gz | tar xz
 cd cns-starter
 ./cns-run examples/killer-app-demo.cns
 ```
 
 **Option 2: Full Repository**
 ```bash
-git clone github.com/user/cns
+git clone https://github.com/jessecrouch/cns
 cd cns
 ./cns-run examples/killer-app-demo.cns
 ```

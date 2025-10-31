@@ -11,8 +11,8 @@ CNS (Causal Narrative Script) is a programming language designed for rapid API d
 **Want to try CNS immediately?** Download the starter package:
 
 ```bash
-# Download starter (coming soon to GitHub Releases)
-curl -L https://github.com/yourname/cns/releases/latest/download/cns-starter.tar.gz | tar xz
+# Download starter (34KB - perfect for beginners)
+curl -L https://github.com/jessecrouch/cns/releases/latest/download/cns-starter.tar.gz | tar xz
 cd cns-starter
 ./cns-run examples/killer-app-demo.cns
 ```
@@ -20,7 +20,7 @@ cd cns-starter
 **Or clone the full repo:**
 
 ```bash
-git clone https://github.com/yourname/cns
+git clone https://github.com/jessecrouch/cns
 cd cns
 ./cns-run examples/killer-app-demo.cns
 ```
@@ -139,8 +139,8 @@ See [CNSC Guide](docs/guides/CNSC-COMPACT.md) and [Validation Results](docs/deve
 Download the minimal starter package with curated examples:
 
 ```bash
-# Download from GitHub Releases (coming soon)
-curl -L https://github.com/yourname/cns/releases/latest/download/cns-starter.tar.gz | tar xz
+# Download from GitHub Releases
+curl -L https://github.com/jessecrouch/cns/releases/latest/download/cns-starter.tar.gz | tar xz
 cd cns-starter
 ./cns-run examples/killer-app-demo.cns
 ```
@@ -151,14 +151,14 @@ cd cns-starter
 - QUICKSTART.md tutorial
 - Python comparison guide
 
-**Package size:** ~5MB (vs 20MB full repo)
+**Package size:** 34KB (vs 4.3MB full repo)
 
 ### Option 2: Full Repository (For Contributors)
 
 Clone the complete repository with all examples and development tools:
 
 ```bash
-git clone https://github.com/yourname/cns
+git clone https://github.com/jessecrouch/cns
 cd cns
 chmod +x cns-run
 ./cns-run examples/killer-app-demo.cns
