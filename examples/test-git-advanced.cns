@@ -1,0 +1,86 @@
+Story: Test advanced git operations including branch management, unified diffs, and log
+
+Given:
+  branches: String
+  code1: Number
+  status1: Number
+  history: String
+  code2: Number
+  patch: String
+  code3: Number
+  patch_len: Number
+  status2: Number
+  detailed_log: String
+  code4: Number
+
+Step 1 → List all branches
+  Because: testing GIT BRANCH list command
+  Effect: GIT BRANCH INTO branches WITH EXIT_CODE code1
+  Then: PRINT "--- Test 1: List Branches ---"
+        PRINT "Exit code:"
+        PRINT code1
+        PRINT "Branches:"
+        PRINT branches
+
+Step 2 → Create a test branch
+  Because: testing GIT BRANCH CREATE command
+  Effect: GIT BRANCH CREATE "test-feature-branch" WITH STATUS status1
+  Then: PRINT "\n--- Test 2: Create Branch ---"
+        PRINT "Create status:"
+        PRINT status1
+        IF status1 = 0 THEN
+          PRINT "Branch created successfully"
+        ELSE
+          PRINT "Branch creation failed (may already exist)"
+        END
+
+Step 3 → Get commit history
+  Because: testing GIT LOG command
+  Effect: GIT LOG "--oneline -5" INTO history WITH EXIT_CODE code2
+  Then: PRINT "\n--- Test 3: Git Log (last 5 commits) ---"
+        PRINT "Exit code:"
+        PRINT code2
+        PRINT "Recent commits:"
+        PRINT history
+
+Step 4 → Get unified diff of current changes
+  Because: testing GIT DIFF with unified format
+  Effect: GIT DIFF INTO patch WITH EXIT_CODE code3
+  Then: PRINT "\n--- Test 4: Unified Diff ---"
+        PRINT "Diff exit code:"
+        PRINT code3
+        IF code3 = 0 THEN
+          LET patch_len = LENGTH patch
+          IF patch_len > 0 THEN
+            PRINT "Unified patch generated ("
+            PRINT patch_len
+            PRINT " chars)"
+          ELSE
+            PRINT "No changes to diff"
+          END
+        END
+
+Step 5 → Delete the test branch
+  Because: testing GIT BRANCH DELETE command
+  Effect: GIT BRANCH DELETE "test-feature-branch" WITH STATUS status2
+  Then: PRINT "\n--- Test 5: Delete Branch ---"
+        PRINT "Delete status:"
+        PRINT status2
+        IF status2 = 0 THEN
+          PRINT "Branch deleted successfully"
+        ELSE
+          PRINT "Branch deletion failed (expected if not on main)"
+        END
+
+Step 6 → Get detailed log format
+  Because: testing GIT LOG with custom format
+  Effect: GIT LOG "--pretty=format:%h - %an, %ar : %s -3" INTO detailed_log WITH EXIT_CODE code4
+  Then: PRINT "\n--- Test 6: Detailed Log Format ---"
+        PRINT "Exit code:"
+        PRINT code4
+        PRINT "Detailed log:"
+        PRINT detailed_log
+
+End: Return "All advanced git tests completed"
+  Because: all advanced git operations tested
+

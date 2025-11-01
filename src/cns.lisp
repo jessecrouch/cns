@@ -2735,25 +2735,35 @@ World' and ' rest'"
              (when verbose
                (format t "  Effect: SHELL (invalid syntax)~%")))))
       
-      ;; GIT: Execute git operations
-      ;; Syntax: GIT CLONE "url" INTO "directory" WITH STATUS result
-      ;; Syntax: GIT STATUS INTO output WITH EXIT_CODE code
-      ;; Syntax: GIT CHECKOUT "branch" WITH STATUS result
-      ;; Syntax: GIT DIFF INTO patch WITH EXIT_CODE code
-      ;; Syntax: GIT ADD "files" WITH STATUS result
-      ;; Syntax: GIT COMMIT "message" WITH STATUS result
-      ((starts-with (string-upcase trimmed) "GIT ")
-       (let* ((rest (trim (subseq trimmed 4)))
-              (rest-upper (string-upcase rest))
-              ;; Determine git subcommand
-              (subcommand (cond
-                           ((starts-with rest-upper "CLONE ") "clone")
-                           ((starts-with rest-upper "STATUS") "status")
-                           ((starts-with rest-upper "CHECKOUT ") "checkout")
-                           ((starts-with rest-upper "DIFF") "diff")
-                           ((starts-with rest-upper "ADD ") "add")
-                           ((starts-with rest-upper "COMMIT ") "commit")
-                           (t nil))))
+       ;; GIT: Execute git operations
+       ;; Syntax: GIT CLONE "url" INTO "directory" WITH STATUS result
+       ;; Syntax: GIT STATUS INTO output WITH EXIT_CODE code
+       ;; Syntax: GIT CHECKOUT "branch" WITH STATUS result
+       ;; Syntax: GIT DIFF INTO patch WITH EXIT_CODE code
+       ;; Syntax: GIT DIFF "file" INTO patch WITH EXIT_CODE code
+       ;; Syntax: GIT ADD "files" WITH STATUS result
+       ;; Syntax: GIT COMMIT "message" WITH STATUS result
+       ;; Syntax: GIT BRANCH INTO output WITH EXIT_CODE code
+       ;; Syntax: GIT BRANCH CREATE "name" WITH STATUS result
+       ;; Syntax: GIT BRANCH DELETE "name" WITH STATUS result
+       ;; Syntax: GIT MERGE "branch" WITH STATUS result AND OUTPUT output
+       ;; Syntax: GIT LOG INTO output WITH EXIT_CODE code
+       ;; Syntax: GIT LOG "options" INTO output WITH EXIT_CODE code
+       ((starts-with (string-upcase trimmed) "GIT ")
+        (let* ((rest (trim (subseq trimmed 4)))
+               (rest-upper (string-upcase rest))
+               ;; Determine git subcommand
+               (subcommand (cond
+                            ((starts-with rest-upper "CLONE ") "clone")
+                            ((starts-with rest-upper "STATUS") "status")
+                            ((starts-with rest-upper "CHECKOUT ") "checkout")
+                            ((starts-with rest-upper "DIFF") "diff")
+                            ((starts-with rest-upper "ADD ") "add")
+                            ((starts-with rest-upper "COMMIT ") "commit")
+                            ((starts-with rest-upper "BRANCH") "branch")
+                            ((starts-with rest-upper "MERGE ") "merge")
+                            ((starts-with rest-upper "LOG") "log")
+                            (t nil))))
          (cond
           ;; GIT CLONE "url" INTO "directory" WITH STATUS result
           ((string= subcommand "clone")
@@ -2858,39 +2868,56 @@ World' and ' rest'"
                  (when verbose
                    (format t "  Effect: GIT CHECKOUT (invalid syntax)~%")))))
           
-          ;; GIT DIFF INTO patch WITH EXIT_CODE code
-          ((string= subcommand "diff")
-           (let* ((into-pos (search " INTO " rest-upper))
-                  (exit-pos (search " WITH EXIT_CODE " rest-upper))
-                  (output-var (when (and into-pos exit-pos)
-                               (trim (subseq rest (+ into-pos 6) exit-pos))))
-                  (exit-var (when exit-pos
-                             (trim (subseq rest (+ exit-pos 16))))))
-             (handler-case
-                 (let* ((process (sb-ext:run-program "/usr/bin/git"
-                                                    '("diff")
-                                                    :output :stream
-                                                    :error :stream
-                                                    :wait t
-                                                    :search nil))
-                        (output-stream (sb-ext:process-output process))
-                        (output (with-output-to-string (s)
-                                 (loop for line = (read-line output-stream nil nil)
-                                       while line
-                                       do (format s "~A~%" line))))
-                        (exit-code (or (sb-ext:process-exit-code process) 0)))
-                   (when output-var
-                     (setf (gethash output-var env) (string-trim '(#\Newline) output)))
-                   (when exit-var
-                     (setf (gethash exit-var env) exit-code))
-                   (close output-stream)
-                   (when verbose
-                     (format t "  Effect: GIT DIFF (exit: ~A)~%" exit-code)))
-               (error (e)
-                 (when output-var (setf (gethash output-var env) ""))
-                 (when exit-var (setf (gethash exit-var env) 1))
-                 (when verbose
-                   (format t "  Effect: GIT DIFF failed: ~A~%" e))))))
+           ;; GIT DIFF [file] INTO patch WITH EXIT_CODE code
+           ((string= subcommand "diff")
+            (let* ((after-diff (trim (subseq rest 4)))
+                   (after-diff-upper (string-upcase after-diff))
+                   ;; Check if file is specified
+                   (file-spec (when (char= (char after-diff 0) #\")
+                               (let ((file-end (position #\" after-diff :start 1)))
+                                 (if file-end (subseq after-diff 1 file-end) nil))))
+                   (after-file (if file-spec
+                                  (trim (subseq after-diff (+ (length file-spec) 2)))
+                                  after-diff))
+                   (after-file-upper (string-upcase after-file))
+                   (into-pos-space (search " INTO " after-file-upper))
+                   (into-pos-start (when (starts-with after-file-upper "INTO ") 0))
+                   (into-pos (or into-pos-space into-pos-start))
+                   (exit-pos (search " WITH EXIT_CODE " after-file-upper))
+                   (output-var (when (and into-pos exit-pos)
+                                (let ((start (if (eql into-pos 0) 5 (+ into-pos 6))))
+                                  (trim (subseq after-file start exit-pos)))))
+                   (exit-var (when exit-pos
+                              (trim (subseq after-file (+ exit-pos 16))))))
+              (handler-case
+                  (let* ((git-args (if file-spec
+                                      (list "diff" "--unified" file-spec)
+                                      '("diff" "--unified")))
+                         (process (sb-ext:run-program "/usr/bin/git"
+                                                     git-args
+                                                     :output :stream
+                                                     :error :stream
+                                                     :wait t
+                                                     :search nil))
+                         (output-stream (sb-ext:process-output process))
+                         (output (with-output-to-string (s)
+                                  (loop for line = (read-line output-stream nil nil)
+                                        while line
+                                        do (format s "~A~%" line))))
+                         (exit-code (or (sb-ext:process-exit-code process) 0)))
+                    (when output-var
+                      (setf (gethash output-var env) (string-trim '(#\Newline) output)))
+                    (when exit-var
+                      (setf (gethash exit-var env) exit-code))
+                    (close output-stream)
+                    (when verbose
+                      (format t "  Effect: GIT DIFF~A (exit: ~A)~%" 
+                              (if file-spec (format nil " ~A" file-spec) "") exit-code)))
+                (error (e)
+                  (when output-var (setf (gethash output-var env) ""))
+                  (when exit-var (setf (gethash exit-var env) 1))
+                  (when verbose
+                    (format t "  Effect: GIT DIFF failed: ~A~%" e))))))
           
           ;; GIT ADD "files" WITH STATUS result
           ((string= subcommand "add")
@@ -2921,37 +2948,242 @@ World' and ' rest'"
                  (when verbose
                    (format t "  Effect: GIT ADD (invalid syntax)~%")))))
           
-          ;; GIT COMMIT "message" WITH STATUS result
-          ((string= subcommand "commit")
-           (let* ((after-commit (trim (subseq rest 7)))
-                  (msg-end (position #\" after-commit :start 1))
-                  (message (if msg-end (subseq after-commit 1 msg-end) nil))
-                  (after-msg (if msg-end (trim (subseq after-commit (1+ msg-end))) ""))
-                  (status-pos (search " WITH STATUS " (string-upcase after-msg)))
-                  (status-var (when status-pos
-                               (trim (subseq after-msg (+ status-pos 13))))))
-             (if message
-                 (handler-case
-                     (let* ((process (sb-ext:run-program "/usr/bin/git"
-                                                        (list "commit" "-m" message)
-                                                        :output :stream
-                                                        :error :stream
-                                                        :wait t
-                                                        :search nil))
-                            (exit-code (or (sb-ext:process-exit-code process) 0)))
-                       (when status-var
-                         (setf (gethash status-var env) exit-code))
-                       (when verbose
-                         (format t "  Effect: GIT COMMIT '~A' (exit: ~A)~%" message exit-code)))
-                   (error (e)
-                     (when status-var (setf (gethash status-var env) 1))
-                     (when verbose
-                       (format t "  Effect: GIT COMMIT failed: ~A~%" e))))
-                 (when verbose
-                   (format t "  Effect: GIT COMMIT (invalid syntax)~%")))))
-          
-          (t (when verbose
-               (format t "  Effect: GIT (unknown subcommand)~%"))))))
+           ;; GIT COMMIT "message" WITH STATUS result
+           ((string= subcommand "commit")
+            (let* ((after-commit (trim (subseq rest 7)))
+                   (msg-end (position #\" after-commit :start 1))
+                   (message (if msg-end (subseq after-commit 1 msg-end) nil))
+                   (after-msg (if msg-end (trim (subseq after-commit (1+ msg-end))) ""))
+                   (status-pos (search " WITH STATUS " (string-upcase after-msg)))
+                   (status-var (when status-pos
+                                (trim (subseq after-msg (+ status-pos 13))))))
+              (if message
+                  (handler-case
+                      (let* ((process (sb-ext:run-program "/usr/bin/git"
+                                                         (list "commit" "-m" message)
+                                                         :output :stream
+                                                         :error :stream
+                                                         :wait t
+                                                         :search nil))
+                             (exit-code (or (sb-ext:process-exit-code process) 0)))
+                        (when status-var
+                          (setf (gethash status-var env) exit-code))
+                        (when verbose
+                          (format t "  Effect: GIT COMMIT '~A' (exit: ~A)~%" message exit-code)))
+                    (error (e)
+                      (when status-var (setf (gethash status-var env) 1))
+                      (when verbose
+                        (format t "  Effect: GIT COMMIT failed: ~A~%" e))))
+                  (when verbose
+                    (format t "  Effect: GIT COMMIT (invalid syntax)~%")))))
+           
+           ;; GIT BRANCH [CREATE "name" | DELETE "name"] [INTO output] WITH [STATUS|EXIT_CODE] var
+           ((string= subcommand "branch")
+            (let* ((after-branch (trim (subseq rest 6)))
+                   (after-branch-upper (string-upcase after-branch))
+                   (is-create (starts-with after-branch-upper "CREATE "))
+                   (is-delete (starts-with after-branch-upper "DELETE "))
+                   (operation (cond (is-create "create")
+                                   (is-delete "delete")
+                                   (t "list"))))
+              (cond
+               ;; GIT BRANCH CREATE "name" WITH STATUS result
+               ((string= operation "create")
+                (let* ((after-op (trim (subseq after-branch 7)))
+                       (name-end (position #\" after-op :start 1))
+                       (name (if name-end (subseq after-op 1 name-end) nil))
+                       (after-name (if name-end (trim (subseq after-op (1+ name-end))) ""))
+                       (status-pos (search " WITH STATUS " (string-upcase after-name)))
+                       (status-var (when status-pos
+                                    (trim (subseq after-name (+ status-pos 13))))))
+                  (if name
+                      (handler-case
+                          (let* ((process (sb-ext:run-program "/usr/bin/git"
+                                                             (list "branch" name)
+                                                             :output :stream
+                                                             :error :stream
+                                                             :wait t
+                                                             :search nil))
+                                 (exit-code (or (sb-ext:process-exit-code process) 0)))
+                            (when status-var
+                              (setf (gethash status-var env) exit-code))
+                            (when verbose
+                              (format t "  Effect: GIT BRANCH CREATE ~A (exit: ~A)~%" name exit-code)))
+                        (error (e)
+                          (when status-var (setf (gethash status-var env) 1))
+                          (when verbose
+                            (format t "  Effect: GIT BRANCH CREATE failed: ~A~%" e))))
+                      (when verbose
+                        (format t "  Effect: GIT BRANCH CREATE (invalid syntax)~%")))))
+               
+               ;; GIT BRANCH DELETE "name" WITH STATUS result
+               ((string= operation "delete")
+                (let* ((after-op (trim (subseq after-branch 7)))
+                       (name-end (position #\" after-op :start 1))
+                       (name (if name-end (subseq after-op 1 name-end) nil))
+                       (after-name (if name-end (trim (subseq after-op (1+ name-end))) ""))
+                       (status-pos (search " WITH STATUS " (string-upcase after-name)))
+                       (status-var (when status-pos
+                                    (trim (subseq after-name (+ status-pos 13))))))
+                  (if name
+                      (handler-case
+                          (let* ((process (sb-ext:run-program "/usr/bin/git"
+                                                             (list "branch" "-d" name)
+                                                             :output :stream
+                                                             :error :stream
+                                                             :wait t
+                                                             :search nil))
+                                 (exit-code (or (sb-ext:process-exit-code process) 0)))
+                            (when status-var
+                              (setf (gethash status-var env) exit-code))
+                            (when verbose
+                              (format t "  Effect: GIT BRANCH DELETE ~A (exit: ~A)~%" name exit-code)))
+                        (error (e)
+                          (when status-var (setf (gethash status-var env) 1))
+                          (when verbose
+                            (format t "  Effect: GIT BRANCH DELETE failed: ~A~%" e))))
+                      (when verbose
+                        (format t "  Effect: GIT BRANCH DELETE (invalid syntax)~%")))))
+               
+               ;; GIT BRANCH INTO output WITH EXIT_CODE code (list branches)
+               (t
+                (let* ((into-pos-space (search " INTO " after-branch-upper))
+                       (into-pos-start (when (starts-with after-branch-upper "INTO ") 0))
+                       (into-pos (or into-pos-space into-pos-start))
+                       (exit-pos (search " WITH EXIT_CODE " after-branch-upper))
+                       (output-var (when (and into-pos exit-pos)
+                                    (let ((start (if (eql into-pos 0) 5 (+ into-pos 6))))
+                                      (trim (subseq after-branch start exit-pos)))))
+                       (exit-var (when exit-pos
+                                  (trim (subseq after-branch (+ exit-pos 16))))))
+                  (handler-case
+                      (let* ((process (sb-ext:run-program "/usr/bin/git"
+                                                         '("branch" "-a")
+                                                         :output :stream
+                                                         :error :stream
+                                                         :wait t
+                                                         :search nil))
+                             (output-stream (sb-ext:process-output process))
+                             (output (with-output-to-string (s)
+                                      (loop for line = (read-line output-stream nil nil)
+                                            while line
+                                            do (format s "~A~%" line))))
+                             (exit-code (or (sb-ext:process-exit-code process) 0)))
+                        (when output-var
+                          (setf (gethash output-var env) (string-trim '(#\Newline) output)))
+                        (when exit-var
+                          (setf (gethash exit-var env) exit-code))
+                        (close output-stream)
+                        (when verbose
+                          (format t "  Effect: GIT BRANCH (exit: ~A)~%" exit-code)))
+                    (error (e)
+                      (when output-var (setf (gethash output-var env) ""))
+                      (when exit-var (setf (gethash exit-var env) 1))
+                      (when verbose
+                        (format t "  Effect: GIT BRANCH failed: ~A~%" e)))))))))
+           
+           ;; GIT MERGE "branch" WITH STATUS result [AND OUTPUT output]
+           ((string= subcommand "merge")
+            (let* ((after-merge (trim (subseq rest 6)))
+                   (branch-end (position #\" after-merge :start 1))
+                   (branch (if branch-end (subseq after-merge 1 branch-end) nil))
+                   (after-branch (if branch-end (trim (subseq after-merge (1+ branch-end))) ""))
+                   (after-branch-upper (string-upcase after-branch))
+                   (status-pos (search " WITH STATUS " after-branch-upper))
+                   (and-output-pos (search " AND OUTPUT " after-branch-upper))
+                   (status-var (when status-pos
+                                (if and-output-pos
+                                    (trim (subseq after-branch (+ status-pos 13) and-output-pos))
+                                    (trim (subseq after-branch (+ status-pos 13))))))
+                   (output-var (when and-output-pos
+                                (trim (subseq after-branch (+ and-output-pos 12))))))
+              (if branch
+                  (handler-case
+                      (let* ((process (sb-ext:run-program "/usr/bin/git"
+                                                         (list "merge" branch)
+                                                         :output :stream
+                                                         :error :stream
+                                                         :wait t
+                                                         :search nil))
+                             (output-stream (sb-ext:process-output process))
+                             (error-stream (sb-ext:process-error process))
+                             (output (with-output-to-string (s)
+                                      (loop for line = (read-line output-stream nil nil)
+                                            while line
+                                            do (format s "~A~%" line))
+                                      (loop for line = (read-line error-stream nil nil)
+                                            while line
+                                            do (format s "~A~%" line))))
+                             (exit-code (or (sb-ext:process-exit-code process) 0)))
+                        (when status-var
+                          (setf (gethash status-var env) exit-code))
+                        (when output-var
+                          (setf (gethash output-var env) (string-trim '(#\Newline) output)))
+                        (close output-stream)
+                        (close error-stream)
+                        (when verbose
+                          (format t "  Effect: GIT MERGE ~A (exit: ~A)~%" branch exit-code)))
+                    (error (e)
+                      (when status-var (setf (gethash status-var env) 1))
+                      (when output-var (setf (gethash output-var env) ""))
+                      (when verbose
+                        (format t "  Effect: GIT MERGE failed: ~A~%" e))))
+                  (when verbose
+                    (format t "  Effect: GIT MERGE (invalid syntax)~%")))))
+           
+           ;; GIT LOG ["options"] INTO output WITH EXIT_CODE code
+           ((string= subcommand "log")
+            (let* ((after-log (trim (subseq rest 3)))
+                   (after-log-upper (string-upcase after-log))
+                   ;; Check if options are specified
+                   (options (when (and (> (length after-log) 0) (char= (char after-log 0) #\"))
+                             (let ((opts-end (position #\" after-log :start 1)))
+                               (if opts-end (subseq after-log 1 opts-end) nil))))
+                   (after-opts (if options
+                                  (trim (subseq after-log (+ (length options) 2)))
+                                  after-log))
+                   (after-opts-upper (string-upcase after-opts))
+                   (into-pos-space (search " INTO " after-opts-upper))
+                   (into-pos-start (when (starts-with after-opts-upper "INTO ") 0))
+                   (into-pos (or into-pos-space into-pos-start))
+                   (exit-pos (search " WITH EXIT_CODE " after-opts-upper))
+                   (output-var (when (and into-pos exit-pos)
+                                (let ((start (if (eql into-pos 0) 5 (+ into-pos 6))))
+                                  (trim (subseq after-opts start exit-pos)))))
+                   (exit-var (when exit-pos
+                              (trim (subseq after-opts (+ exit-pos 16))))))
+              (handler-case
+                  (let* ((git-args (if options
+                                      (cons "log" (split-string options #\Space))
+                                      '("log" "--oneline" "-10")))
+                         (process (sb-ext:run-program "/usr/bin/git"
+                                                     git-args
+                                                     :output :stream
+                                                     :error :stream
+                                                     :wait t
+                                                     :search nil))
+                         (output-stream (sb-ext:process-output process))
+                         (output (with-output-to-string (s)
+                                  (loop for line = (read-line output-stream nil nil)
+                                        while line
+                                        do (format s "~A~%" line))))
+                         (exit-code (or (sb-ext:process-exit-code process) 0)))
+                    (when output-var
+                      (setf (gethash output-var env) (string-trim '(#\Newline) output)))
+                    (when exit-var
+                      (setf (gethash exit-var env) exit-code))
+                    (close output-stream)
+                    (when verbose
+                      (format t "  Effect: GIT LOG~A (exit: ~A)~%" 
+                              (if options (format nil " ~A" options) "") exit-code)))
+                (error (e)
+                  (when output-var (setf (gethash output-var env) ""))
+                  (when exit-var (setf (gethash exit-var env) 1))
+                  (when verbose
+                    (format t "  Effect: GIT LOG failed: ~A~%" e))))))
+           
+           (t (when verbose
+                (format t "  Effect: GIT (unknown subcommand)~%"))))))
       
       ;; Log (for error handling)
       ((starts-with (string-upcase trimmed) "LOG ")

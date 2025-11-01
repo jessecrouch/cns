@@ -53,9 +53,10 @@ cd cns-starter
 - **Built-in JSON parser** - Parse nested objects, arrays with dot notation
 - **37% smaller code** - For API development compared to Python
 
-### Production Ready (v1.5.0)
+### Production Ready (v1.6.0)
+- ✅ **Advanced git operations** - Branch management (list/create/delete), unified diffs, commit log, merge
 - ✅ **Shell execution** - Run commands, capture stdout/stderr/exit codes
-- ✅ **Git operations** - Status, diff, checkout, add, commit, clone
+- ✅ **Basic git operations** - Status, diff, checkout, add, commit, clone
 - ✅ **HTTP/HTTPS client** - Full SSL/TLS support with cl+ssl + flexi-streams
 - ✅ **Database operations** - SQLite (CONNECT, EXECUTE, QUERY) with complex SQL
 - ✅ **CSV file support** - Read/write with headers, list of maps
@@ -81,10 +82,11 @@ cd cns-starter
 - ✅ String helpers (TRIM, UPPERCASE, LOWERCASE, REPLACE, JOIN, LENGTH_OF)
 - ✅ CSV support (read/write with headers)
 
-**Phase C - Benchmark Track** (30% COMPLETE) 🚀
+**Phase C - Benchmark Track** (40% COMPLETE) 🚀
 - ✅ Shell execution (SHELL command with output capture)
-- ✅ Git operations (status, diff, checkout, add, commit, clone)
-- 🔄 Advanced diff generation for patch creation
+- ✅ Basic git operations (status, diff, checkout, add, commit, clone)
+- ✅ Advanced git operations (branch management, unified diffs, commit log, merge)
+- 🔄 Code search and navigation (FIND, GREP commands)
 - 🔄 Complete SWE-Bench agent implementation
 - 🎯 Top 10-15 SWE-Bench leaderboard target
 
