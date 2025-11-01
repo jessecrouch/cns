@@ -1,0 +1,19 @@
+Story: Simple Shell Demo
+
+Given:
+  result: String
+  exitcode: Number
+
+Step 1 → Run ls command
+  Because: testing shell execution
+  Effect: SHELL "ls README.md" INTO result WITH EXIT_CODE exitcode
+
+Step 2 → Show results
+  Because: displaying command output
+  Then: PRINT "Exit code:"
+  Then: PRINT exitcode
+  Then: PRINT "Output:"
+  Then: PRINT result
+
+End: Return result
+  Because: done

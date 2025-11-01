@@ -1,0 +1,44 @@
+Story: Test Shell Command Execution
+
+Given:
+  output: String
+  status: Number
+  error: String
+  count: String
+
+Step 1 → Test basic ls command
+  Because: testing SHELL with ls command
+  Effect: SHELL "ls -la README.md" INTO output WITH EXIT_CODE status
+  Then: PRINT "Exit code:"
+        PRINT status
+        PRINT "Output:"
+        PRINT output
+
+Step 2 → Test whoami command
+  Because: testing SHELL with whoami
+  Effect: SHELL "whoami" INTO output WITH EXIT_CODE status
+  Then: PRINT "Current user:"
+        PRINT output
+
+Step 3 → Test command with pipe
+  Because: testing SHELL with piped commands
+  Effect: SHELL "echo 'test line' | wc -w" INTO count WITH EXIT_CODE status
+  Then: PRINT "Word count:"
+        PRINT count
+
+Step 4 → Test failing command
+  Because: testing SHELL error handling
+  Effect: SHELL "nonexistent-command-xyz" INTO output WITH EXIT_CODE status AND ERROR error
+  Then: PRINT "Exit code (should be non-zero):"
+        PRINT status
+        PRINT "Error message:"
+        PRINT error
+
+Step 5 → Test pwd command
+  Because: testing SHELL with pwd
+  Effect: SHELL "pwd" INTO output WITH EXIT_CODE status
+  Then: PRINT "Current directory:"
+        PRINT output
+
+End: Return "Shell tests complete"
+  Because: all shell commands tested

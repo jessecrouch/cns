@@ -1,0 +1,46 @@
+Story: Test Git Workflow Automation
+
+Given:
+  output: String
+  status: Number
+
+Step 1 → Setup test directory
+  Because: creating test git repository
+  Effect: SHELL "mkdir -p /tmp/cns-git-test && cd /tmp/cns-git-test && git init" INTO output WITH EXIT_CODE status
+  Then: PRINT "Created test repository"
+
+Step 2 → Create and stage file
+  Because: creating and staging a test file
+  Effect: SHELL "echo 'Hello from CNS' > /tmp/cns-git-test/test.txt && cd /tmp/cns-git-test && git add test.txt" INTO output WITH EXIT_CODE status
+  Then: PRINT "Created and staged test.txt"
+
+Step 3 → Configure git user
+  Because: configuring git for commit
+  Effect: SHELL "cd /tmp/cns-git-test && git config user.email 'test@cns.local' && git config user.name 'CNS Test'" INTO output WITH EXIT_CODE status
+  Then: PRINT "Configured git user"
+
+Step 4 → Commit changes
+  Because: committing the test file
+  Effect: SHELL "cd /tmp/cns-git-test && git commit -m 'Initial commit from CNS'" INTO output WITH EXIT_CODE status
+  Then: PRINT "Committed:"
+  Then: PRINT output
+
+Step 5 → View commit log
+  Because: verifying commit was created
+  Effect: SHELL "cd /tmp/cns-git-test && git log --oneline" INTO output WITH EXIT_CODE status
+  Then: PRINT "Commit history:"
+  Then: PRINT output
+
+Step 6 → Modify file and check diff
+  Because: testing git diff
+  Effect: SHELL "echo 'Modified by CNS' >> /tmp/cns-git-test/test.txt && cd /tmp/cns-git-test && git diff" INTO output WITH EXIT_CODE status
+  Then: PRINT "Diff after modification:"
+  Then: PRINT output
+
+Step 7 → Cleanup
+  Because: removing test repository
+  Effect: SHELL "rm -rf /tmp/cns-git-test" INTO output WITH EXIT_CODE status
+  Then: PRINT "Test repository cleaned up"
+
+End: Return "Git workflow tests complete"
+  Because: all workflow operations tested
