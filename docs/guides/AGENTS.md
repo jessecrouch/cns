@@ -118,13 +118,251 @@ See `src/cns.lisp` for full implementation details and `examples/` for working C
   - Compress verbose documentation while preserving essential information
   - Regularly audit for historical artifacts that can be archived or removed
 
+## Agent Architecture & Best Practices
+
+### Core Principle: CNS as Orchestration Language
+
+**CNS is the conductor, not the orchestra.**
+
+Like Kubernetes YAML orchestrates containers without implementing them, CNS orchestrates intelligent components without implementing complex algorithms. This keeps CNS:
+- **Token-efficient**: Compact representation for LLM context windows
+- **LLM-readable**: Clear causal narrative of agent behavior  
+- **Focused**: Does one thing well - orchestration
+
+### What CNS Excels At
+
+✅ **Narrative Flow** - "Here's what happens and why" with explicit causality  
+✅ **Tool Orchestration** - SHELL, FIND, GREP, HTTP, File I/O  
+✅ **Conditional Logic** - If/Otherwise with clear branching  
+✅ **State Management** - Variables, lists, file persistence  
+✅ **Story Composition** - Reusable functions via multi-story files
+
+### What External Tools Should Handle
+
+❌ **Complex Algorithms** - Use Python/Rust/Go for performance-critical logic  
+❌ **LLM Inference** - Call Python scripts with OpenAI/Anthropic APIs  
+❌ **Language-specific Parsing** - Use tree-sitter, rustc, go vet  
+❌ **Heavy Computation** - Delegate to compiled languages
+
+### Story Composition Pattern
+
+CNS supports **multi-story files** with `---` separator. Stories can call each other like functions:
+
+```cns
+Story: Square (function)
+Given:
+  Num: Integer = 0
+  Result: Integer = 0
+
+Step 1 → Calculate square
+  Because: Multiply number by itself
+  Then: Result becomes Num * Num
+
+End: Result
+
+---
+
+Story: Main
+Given:
+  x: Integer = 5
+  result: Integer = 0
+
+Step 1 → Calculate
+  Then: result becomes Square(x)
+
+End: result
+```
+
+**Key Features:**
+- `---` separates Stories in same file
+- Stories can call each other: `Square(x)`
+- Return value via `End: variable`
+- Registered as "functions" at parse time
+
+### Modular Agent Design
+
+**Recommended Structure:**
+```
+cns-agents/
+├── core/
+│   ├── language-detector.cns    # Atomic: Detect repo language
+│   ├── test-runner.cns          # Atomic: Execute tests
+│   ├── code-searcher.cns        # Atomic: FIND + GREP wrapper
+│   └── patch-applier.cns        # Atomic: Git operations
+├── workflows/
+│   ├── swe-bench-rust.cns       # Compose: Rust workflow
+│   ├── swe-bench-go.cns         # Compose: Go workflow
+│   └── swe-bench-multi.cns      # Compose: Multi-language
+└── lib/
+    └── cns-stdlib.cns           # Reusable utilities
+```
+
+**Each Core Component:**
+- Single responsibility
+- Returns simple data (string, number, list)
+- Stateless (except via ENV or file state)
+- Callable from other Stories
+- Uses SHELL for external tools
+
+**Example: Modular Language Detector**
+```cns
+Story: DetectLanguage (function)
+Given:
+  repo_path: String
+  result: String = ""
+
+Step 1 → Check Rust
+  Effect: SHELL "test -f {repo_path}/Cargo.toml && echo rust || echo ''" INTO result WITH EXIT_CODE code
+
+Step 2 → Check Go if not found
+  If: result = ""
+    Effect: SHELL "test -f {repo_path}/go.mod && echo go || echo ''" INTO result WITH EXIT_CODE code
+
+Step 3 → Check JavaScript if not found
+  If: result = ""
+    Effect: SHELL "test -f {repo_path}/package.json && echo javascript || echo ''" INTO result WITH EXIT_CODE code
+
+End: result
+
+---
+
+Story: Main
+Given:
+  repo: String = "test-repos/rust-example"
+  lang: String = ""
+
+Step 1 → Detect language
+  Then: lang becomes DetectLanguage(repo)
+  Effect: Print "Detected: {lang}"
+
+End: lang
+```
+
+### Data Interchange Between Components
+
+Since CNS has limited data structures, use **JSON** for complex data:
+
+```cns
+Story: GetConfig (function)
+Given:
+  repo: String
+  config_json: String = ""
+
+Step 1 → Build JSON config
+  Then: lang becomes DetectLanguage(repo)
+  Then: config_json becomes "{\"language\":\"" + lang + "\",\"test_cmd\":\"cargo test\"}"
+
+End: config_json
+
+---
+
+Story: UseConfig
+Given:
+  config: String = ""
+  language: String = ""
+
+Step 1 → Get config
+  Then: config becomes GetConfig("my-repo")
+
+Step 2 → Parse language
+  Then: language becomes PARSE JSON config GET "language"
+
+End: language
+```
+
+### Available CNS Features
+
+**Effects:**
+- `Print "text {var}"` - Output with variable substitution
+- `SHELL "cmd" INTO var WITH EXIT_CODE code` - Execute command
+- `FIND "pattern" IN "path" INTO var WITH COUNT count` - File discovery
+- `GREP "pattern" IN var INTO result` - Code search
+- `READ FROM FILE "path"` - Read file content
+- `Write "content" to /path/to/file` - Write file
+- `ADD item TO LIST list` - Append to list
+- `CSV WRITE data TO file WITH HEADERS headers` - Write CSV
+- `HTTP GET "url" INTO var` - Fetch HTTP
+
+**Data Types:**
+- `String` - Text values
+- `Integer` / `Number` - Numeric values
+- `Boolean` - TRUE/FALSE
+- `List` - Arrays (use `ADD`, `REMOVE`, `LENGTH OF`)
+
+**Expressions:**
+- Arithmetic: `+`, `-`, `*`, `/`
+- Comparison: `=`, `<`, `>`, `<=`, `>=`
+- String concat: `+` (e.g., `"Hello " + name`)
+- JSON parsing: `PARSE JSON json GET "key.nested[0]"`
+- ENV vars: `ENV("VAR_NAME", "default")`
+
+**Control Flow:**
+- `If: condition` / `Otherwise:` - Branching
+- `repeat from Step N` - Loops
+- `go to End` - Early exit
+
+### Multi-Step Agent Example
+
+Complete agent that orchestrates external tools:
+
+```cns
+Story: SWE-bench Agent
+Given:
+  repo_path: String = "test-repos/rust-example"
+  language: String = ""
+  test_output: String = ""
+  exit_code: Number = 0
+  patch_needed: Boolean = FALSE
+
+Step 1 → Detect language
+  Effect: SHELL "test -f {repo_path}/Cargo.toml && echo rust || echo unknown" INTO language WITH EXIT_CODE code
+  Effect: Print "Language: {language}"
+
+Step 2 → Run tests
+  If: language = "rust"
+    Effect: SHELL "cd {repo_path} && cargo test --color=never" INTO test_output WITH EXIT_CODE exit_code
+
+Step 3 → Analyze results
+  If: exit_code = 0
+    Effect: Print "Tests passing - no fix needed"
+    Then: patch_needed becomes FALSE
+  Otherwise:
+    Effect: Print "Tests failing - generating patch"
+    Then: patch_needed becomes TRUE
+
+Step 4 → Generate patch if needed
+  If: patch_needed = TRUE
+    Effect: SHELL "python3 llm-patcher.py --repo {repo_path} --output patch.txt" INTO result WITH EXIT_CODE code
+    Effect: SHELL "cd {repo_path} && git apply ../patch.txt" INTO output WITH EXIT_CODE status
+
+End: patch_needed
+```
+
+### Future Enhancements (Roadmap)
+
+**Short-term:**
+1. **Map/Dictionary Type** - Key-value data structures
+2. **Include Directive** - Load external CNS files
+3. **State Persistence** - Auto-save/load variables between runs
+
+**Medium-term:**
+4. **CNS Package Manager** - `cns-pm install language-detector`
+5. **Story Registry** - Discover reusable components
+6. **Native JSON Objects** - First-class object syntax
+
+**Long-term:**
+7. **LLM Integration** - Built-in OpenAI/Anthropic effects
+8. **Streaming Execution** - Real-time agent monitoring
+9. **Multi-agent Coordination** - Agent-to-agent messaging
+
 ### Quick Reference
 - **Implementation**: `src/cns.lisp` - full interpreter code
 - **Examples**: `examples/` - working CNS programs (factorial, fibonacci, webserver, etc.)
 - **Prompts**: `prompts/` - templates for LLM code generation
 - **Tests**: `tests/` - comprehensive testing infrastructure
 - **Testing Guide**: `docs/development/TESTING.md` - validation and regression testing
-- **Roadmap**: `docs/development/UPDATES.md` - strategic direction and milestones
+- **Roadmap**: `docs/development/ROADMAP.md` - strategic direction and milestones
+- **Agent Examples**: `examples/swe-bench-agent.cns`, `examples/language-detect-simple.cns`
 
 For extending beyond Lisp (e.g., Python port), mirror the structure: Parser to AST (dicts/classes), interpreter as a class with state.
 
