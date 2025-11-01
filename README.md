@@ -398,10 +398,10 @@ End: Return result
 - **[LLM Integration](docs/guides/LLM-INTEGRATION.md)** - Using CNS with LLMs
 
 ### Development
-- **[ROADMAP.md](docs/development/ROADMAP.md)** - Feature roadmap (v1.0 → v2.0)
+- **[ROADMAP.md](docs/development/ROADMAP.md)** - Development roadmap (v1.7 → v2.0)
 - **[PROJECT-STATUS.md](PROJECT-STATUS.md)** - Current status and metrics
-- **[HTTP Client Summary](docs/development/HTTP-CLIENT-SUMMARY.md)** - Implementation details
-- **[Starter Package](docs/development/STARTER-PACKAGE.md)** - Distribution system
+- **[RELEASE-NOTES-v1.7.0.md](RELEASE-NOTES-v1.7.0.md)** - Latest release details
+- **[RELEASE-NOTES-HISTORY.md](RELEASE-NOTES-HISTORY.md)** - Historical releases (v1.1-v1.5)
 
 ---
 
