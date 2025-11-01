@@ -1,0 +1,90 @@
+Story: "Regex Pattern Matching and Extraction Tests"
+Purpose: "Test regex MATCHES and EXTRACT operators with various patterns"
+Context: "Email validation, phone parsing, URL extraction, data extraction"
+
+State:
+  email = "user@example.com"
+  phone = "Call me at 555-123-4567 or 555-987-6543"
+  url_text = "Visit https://github.com/user/repo for more info"
+  log_line = "[2024-01-15 10:30:45] ERROR: Failed to connect"
+  html = "<div class='content'>Hello World</div>"
+
+Steps:
+
+1. Test email validation with MATCHES
+   Effect: is_valid_email = email MATCHES "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+   Because: Email pattern validates standard email format
+   Then: is_valid_email should be true
+
+2. Test invalid email with MATCHES
+   Effect: invalid = "not-an-email" MATCHES "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+   Because: String doesn't match email pattern
+   Then: invalid should be false
+
+3. Test phone number detection with MATCHES
+   Effect: has_phone = phone MATCHES "\\d{3}-\\d{3}-\\d{4}"
+   Because: Text contains phone number pattern
+   Then: has_phone should be true
+
+4. Extract first phone number
+   Effect: first_phone = EXTRACT "\\d{3}-\\d{3}-\\d{4}" FROM phone
+   Because: Extract first match of phone pattern
+   Then: first_phone should be "555-123-4567"
+
+5. Extract URL from text
+   Effect: extracted_url = EXTRACT "https?://[^\\s]+" FROM url_text
+   Because: Extract HTTPS URL pattern from text
+   Then: extracted_url should be "https://github.com/user/repo"
+
+6. Extract date from log line with groups
+   Effect: log_date = EXTRACT "\\[(\\d{4}-\\d{2}-\\d{2})" GROUP 1 FROM log_line
+   Because: Extract first capture group (date) from log pattern
+   Then: log_date should be "2024-01-15"
+
+7. Extract time from log line with groups
+   Effect: log_time = EXTRACT "\\[\\d{4}-\\d{2}-\\d{2} (\\d{2}:\\d{2}:\\d{2})\\]" GROUP 1 FROM log_line
+   Because: Extract second capture group (time) from log pattern
+   Then: log_time should be "10:30:45"
+
+8. Extract log level with groups
+   Effect: log_level = EXTRACT "\\] (\\w+):" GROUP 1 FROM log_line
+   Because: Extract log level from pattern
+   Then: log_level should be "ERROR"
+
+9. Extract HTML tag content with groups
+   Effect: content = EXTRACT "<div class='content'>([^<]+)</div>" GROUP 1 FROM html
+   Because: Extract content between HTML tags
+   Then: content should be "Hello World"
+
+10. Test domain extraction from email
+    Effect: domain = EXTRACT "@([a-zA-Z0-9.-]+\\.[a-zA-Z]{2,})$" GROUP 1 FROM email
+    Because: Extract domain part of email
+    Then: domain should be "example.com"
+
+11. Test multiple digit extraction
+    Effect: first_digit_group = EXTRACT "(\\d+)" FROM phone
+    Because: Extract first sequence of digits
+    Then: first_digit_group should be "555"
+
+12. Test no match returns empty string
+    Effect: no_match = EXTRACT "xyz123abc" FROM email
+    Because: Pattern not found in text
+    Then: no_match should be empty string
+
+13. Test MATCHES with simple patterns
+    Effect: has_digit = phone MATCHES "\\d"
+    Because: Phone string contains digits
+    Then: has_digit should be true
+
+14. Test MATCHES with anchors
+    Effect: starts_with_call = phone MATCHES "^Call"
+    Because: String starts with "Call"
+    Then: starts_with_call should be true
+
+15. Test username extraction from email
+    Effect: username = EXTRACT "^([^@]+)@" GROUP 1 FROM email
+    Because: Extract username before @ symbol
+    Then: username should be "user"
+
+End: Return "All regex tests completed successfully"
+     Because: All pattern matching and extraction tests passed

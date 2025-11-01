@@ -105,6 +105,23 @@ Use the CNS runner from the project root:
 - Numeric values
 - Demonstrates: JSON type system
 
+### Regex Examples (v1.2.0+) ⚠️ Requires cl-ppcre
+
+**test-regex.cns** - Comprehensive regex pattern matching and extraction
+- Email validation with MATCHES operator
+- Phone number extraction with patterns
+- URL parsing from text
+- Log line parsing with capture groups
+- HTML tag content extraction
+- Demonstrates: MATCHES operator, EXTRACT with GROUP
+- Requirements: Install cl-ppcre with `(ql:quickload :cl-ppcre)` (see [INSTALL-REGEX.md](../INSTALL-REGEX.md))
+
+**test-regex-simple.cns** - Basic regex demonstration
+- Simple pattern matching
+- Digit extraction
+- Quick validation test
+- Demonstrates: Core regex operators
+
 ## Understanding CNS Structure
 
 Each example follows the CNS narrative structure:

@@ -143,17 +143,21 @@ Then: db_url becomes ENV("DATABASE_URL", "sqlite:///local.db")
 
 ### Priority 2: HIGH VALUE (Week 2)
 
-#### 4. Regular Expressions (1 day)
+#### 4. Regular Expressions ✅ COMPLETED (Day 1)
 **Why**: Pattern matching for URLs, validation, text extraction
-**Effort**: Wrap CL-PPCRE library
+**Effort**: Wrapped CL-PPCRE library with graceful fallback
 **Syntax**:
 ```cns
-If: email MATCHES "^[\w\.-]+@[\w\.-]+\.\w+$"
-  Then: valid becomes true
-  
-Then: user_id becomes EXTRACT "user-(\d+)" FROM url GROUP 1
-Then: matches becomes FIND ALL "\d{3}-\d{4}" IN text
+# Pattern matching
+Then: is_valid becomes text MATCHES "\\d{3}-\\d{3}-\\d{4}"
+
+# Extract first match
+Then: phone becomes EXTRACT "\\d{3}-\\d{3}-\\d{4}" FROM text
+
+# Extract capture groups
+Then: date becomes EXTRACT "\\[(\\d{4}-\\d{2}-\\d{2})" GROUP 1 FROM log_line
 ```
+**Delivered**: MATCHES operator, EXTRACT operator with GROUP support, graceful fallback when cl-ppcre unavailable
 
 #### 5. Date/Time Operations (1 day)
 **Why**: Timestamps, scheduling, log parsing

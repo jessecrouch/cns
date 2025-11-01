@@ -65,7 +65,7 @@ cd cns-starter
 
 **Phase B - Web Backend Ready** (2-3 weeks)
 - ✅ Enhanced JSON (nested objects, arrays, dot notation) - 100% complete
-- 🚧 Regex pattern matching
+- ✅ Regex pattern matching (MATCHES, EXTRACT with groups) - complete
 - 🚧 Date/time operations
 - 🚧 Database support (SQLite, PostgreSQL)
 
@@ -262,6 +262,7 @@ cd cns
 - Comparison: `>`, `<`, `>=`, `<=`, `==`, `!=`
 - Boolean: `AND`, `OR`, `NOT`
 - String: `CONTAINS`, `STARTS WITH`, `SPLIT`
+- Regex: `MATCHES`, `EXTRACT` (requires cl-ppcre)
 
 ### Syntax Examples
 
@@ -295,6 +296,19 @@ Then: user_email becomes PARSE JSON response GET "users[2].email"
 
 # Array/object length
 Then: item_count becomes PARSE JSON response GET "items" LENGTH
+```
+
+**Regex pattern matching** (requires cl-ppcre):
+```cns
+# Pattern matching
+Then: is_valid becomes email MATCHES "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+
+# Extract first match
+Then: phone becomes EXTRACT "\\d{3}-\\d{3}-\\d{4}" FROM text
+
+# Extract capture groups
+Then: date becomes EXTRACT "\\[(\\d{4}-\\d{2}-\\d{2})" GROUP 1 FROM log_line
+Then: time becomes EXTRACT "\\[\\d{4}-\\d{2}-\\d{2} (\\d{2}:\\d{2}:\\d{2})\\]" GROUP 1 FROM log_line
 ```
 
 **Control flow:**

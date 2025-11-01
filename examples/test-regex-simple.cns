@@ -1,0 +1,29 @@
+Story: "Simple Regex Test"
+Purpose: "Test basic regex functionality"
+Context: "Pattern matching demonstration"
+
+State:
+  text = "hello123world"
+
+Steps:
+
+1. Test if text contains digits
+   Effect: has_digits = text MATCHES "\\d+"
+   Because: Check for digit pattern
+   Then: has_digits will be true or false depending on regex library
+
+2. Extract digits from text
+   Effect: digits = EXTRACT "\\d+" FROM text
+   Because: Extract numeric sequence
+   Then: digits will contain "123" if regex works
+
+3. Display results
+   Effect: result_msg = "Text contains: " + text
+   Because: Build output message
+   
+4. Show result
+   Effect: PRINT result_msg
+   Because: Display the result
+
+End: Return "Regex test completed"
+     Because: Demonstrated regex operators

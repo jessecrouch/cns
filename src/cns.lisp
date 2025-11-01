@@ -17,6 +17,17 @@
                             Install with: (ql:quickload :cl+ssl)~%~
                             Falling back to HTTP-only mode.~%" e)))
 
+;;; Load regex support (optional - gracefully degrades if not available)
+(defvar *regex-enabled* nil)
+(handler-case
+    (progn
+      (require 'cl-ppcre)
+      (setf *regex-enabled* t))
+  (error (e)
+    (format *error-output* "Regex support unavailable (cl-ppcre not found): ~A~%~
+                            Install with: (ql:quickload :cl-ppcre)~%~
+                            MATCHES and EXTRACT operators will be unavailable.~%" e)))
+
 ;;; ============================================================================
 ;;; Helper Functions
 ;;; ============================================================================
@@ -1520,6 +1531,71 @@ World' and ' rest'"
                         t
                         nil)
                     nil)))
+            
+             ;; Regex operation: text MATCHES "pattern"
+             ((search " MATCHES " (string-upcase trimmed))
+              (if *regex-enabled*
+                  (let* ((pos (search " MATCHES " (string-upcase trimmed)))
+                         (str-expr (trim (subseq trimmed 0 pos)))
+                         (pattern-expr (trim (subseq trimmed (+ pos 9))))
+                         (str-val (eval-expr str-expr env))
+                         (pattern-val (eval-expr pattern-expr env)))
+                    (if (and (stringp str-val) (stringp pattern-val))
+                        (handler-case
+                            (if (funcall (symbol-function (intern "SCAN" :cl-ppcre))
+                                       pattern-val str-val)
+                                t
+                                nil)
+                          (error (e)
+                            (format *error-output* "Regex error: ~A~%" e)
+                            nil))
+                        nil))
+                  (progn
+                    (format *error-output* "MATCHES operator requires cl-ppcre. Install with: (ql:quickload :cl-ppcre)~%")
+                    nil)))
+            
+             ;; Regex operation: EXTRACT "pattern" FROM text [GROUP n]
+             ((starts-with (string-upcase trimmed) "EXTRACT ")
+              (if *regex-enabled*
+                  (let* ((rest (trim (subseq trimmed 8)))
+                         (from-pos (search " FROM " (string-upcase rest))))
+                    (if from-pos
+                        (let* ((pattern-expr (trim (subseq rest 0 from-pos)))
+                               (after-from (trim (subseq rest (+ from-pos 6))))
+                               ;; Check for GROUP clause
+                               (group-pos (search " GROUP " (string-upcase after-from)))
+                               (text-expr (if group-pos
+                                            (trim (subseq after-from 0 group-pos))
+                                            after-from))
+                               (group-num (if group-pos
+                                            (eval-expr (trim (subseq after-from (+ group-pos 7))) env)
+                                            0))
+                               (pattern-val (eval-expr pattern-expr env))
+                               (text-val (eval-expr text-expr env)))
+                          (if (and (stringp pattern-val) (stringp text-val))
+                              (handler-case
+                                  (multiple-value-bind (match groups)
+                                      (funcall (symbol-function (intern "SCAN-TO-STRINGS" :cl-ppcre))
+                                             pattern-val text-val)
+                                    (cond
+                                      ;; No match found
+                                      ((null match) "")
+                                      ;; GROUP 0 or no GROUP specified - return full match
+                                      ((= group-num 0) match)
+                                      ;; GROUP n - return specific capture group
+                                      ((and groups (< (1- group-num) (length groups)))
+                                       (aref groups (1- group-num)))
+                                      ;; Group number out of range
+                                      (t "")))
+                                (error (e)
+                                  (format *error-output* "Regex extraction error: ~A~%" e)
+                                  ""))
+                              ""))
+                        ;; No FROM clause
+                        ""))
+                  (progn
+                    (format *error-output* "EXTRACT operator requires cl-ppcre. Install with: (ql:quickload :cl-ppcre)~%")
+                    "")))
             
              ;; String operation: SPLIT text BY "delimiter"
              ((starts-with (string-upcase trimmed) "SPLIT ")
