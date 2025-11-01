@@ -53,7 +53,7 @@ cd cns-starter
 - **Built-in JSON parser** - Parse nested objects, arrays with dot notation
 - **37% smaller code** - For API development compared to Python
 
-### Production Ready (v1.6.0)
+### Production Ready (v1.7.0)
 - ✅ **Advanced git operations** - Branch management (list/create/delete), unified diffs, commit log, merge
 - ✅ **Shell execution** - Run commands, capture stdout/stderr/exit codes
 - ✅ **Basic git operations** - Status, diff, checkout, add, commit, clone
@@ -426,13 +426,13 @@ End: Return result
 
 ## Project Status
 
-**Current Version:** v1.0.0 - HTTP Client & Starter Package  
-**Language Coverage:** ~20% of general-purpose capabilities  
-**LLM Validation:** 100% success rate (8/8 tests)  
+**Current Version:** v1.7.0 - File Search Operations  
+**Language Coverage:** ~65% of general-purpose capabilities  
+**LLM Validation:** 100% success rate (10/10 tests)  
 
 ### Roadmap
-- **v1.0.0 (Current):** API scripting, basic automation
-- **v1.5.0 (3 weeks):** HTTPS, JSON, ENV, Regex, Databases → 45% coverage
+- **v1.7.0 (Current):** FIND/GREP for code navigation and search
+- **v1.8.0 (Next):** SWE-Bench agent v0.1 → automated issue resolution
 - **v2.0.0 (6 weeks):** CLI tools, file ops, crypto → 70% coverage
 - **v3.0.0+ (3-6 months):** Full ecosystem, packages → 85% coverage
 

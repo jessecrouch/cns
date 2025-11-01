@@ -1969,24 +1969,20 @@ World' and ' rest'"
                (- (eval-expr (trim (car parts)) env)
                   (eval-expr (trim (cadr parts)) env))))
            
-             ;; Addition/Concatenation: n + 1 or "hello" + "world"
+             ;; Addition/Concatenation: n + 1 or "hello" + "world" or "a" + b + "c"
              ((search "+" trimmed)
               (let* ((parts (split-string trimmed #\+))
-                     (left-val (eval-expr (trim (car parts)) env))
-                     (right-val (eval-expr (trim (cadr parts)) env)))
-                ;; If both values are strings, concatenate
-                ;; If both are numbers, add
-                ;; Otherwise, coerce to strings and concatenate
-                (cond
-                  ((and (stringp left-val) (stringp right-val))
-                   (concatenate 'string left-val right-val))
-                  ((and (numberp left-val) (numberp right-val))
-                   (+ left-val right-val))
-                  (t
-                   ;; Mixed types: convert to strings and concatenate
-                   (concatenate 'string
-                                (if (stringp left-val) left-val (format nil "~A" left-val))
-                                (if (stringp right-val) right-val (format nil "~A" right-val)))))))
+                     ;; Evaluate all parts
+                     (values (mapcar (lambda (p) (eval-expr (trim p) env)) parts)))
+                ;; Determine operation type by first two values
+                (if (and (numberp (car values)) (numberp (cadr values)))
+                    ;; All numeric: add them all
+                    (reduce #'+ values)
+                    ;; String concatenation: convert all to strings and concatenate
+                    (apply #'concatenate 'string
+                           (mapcar (lambda (v)
+                                    (if (stringp v) v (format nil "~A" v)))
+                                  values)))))
             
             ;; Arithmetic: n / 2 (division)
             ((search "/" trimmed)
@@ -2151,17 +2147,24 @@ World' and ' rest'"
   "Execute an effect (Print, Write, etc.)."
   (let ((trimmed (trim effect-str)))
     (cond
-     ;; Print "text" or Print {var} or Print "text {var}"
+     ;; Print "text" or Print {var} or Print "text {var}" or Print "text" + var + "more"
      ((starts-with (string-upcase trimmed) "PRINT ")
       (let* ((msg (trim (subseq trimmed 6)))
-             ;; Remove quotes if present
-             (unquoted (if (and (> (length msg) 1)
-                               (char= (char msg 0) #\")
-                               (char= (char msg (1- (length msg))) #\"))
-                          (subseq msg 1 (1- (length msg)))
-                          msg))
-             (expanded (substitute-vars unquoted env)))
-        (format t ">>> ~A~%" expanded)
+             ;; First try to evaluate as expression (handles + concatenation)
+             (result (handler-case
+                        (let ((val (eval-expr msg env)))
+                          (if (stringp val)
+                              val
+                              (format nil "~A" val)))
+                      (error ()
+                        ;; Fallback to simple substitution for backward compatibility
+                        (let* ((unquoted (if (and (> (length msg) 1)
+                                                 (char= (char msg 0) #\")
+                                                 (char= (char msg (1- (length msg))) #\"))
+                                            (subseq msg 1 (1- (length msg)))
+                                            msg)))
+                          (substitute-vars unquoted env))))))
+        (format t ">>> ~A~%" result)
         (when verbose
           (format t "  Effect: Print~%"))))
      
@@ -2666,10 +2669,173 @@ World' and ' rest'"
          (when verbose
            (format t "  Effect: Closed client connection~%"))))
       
-      ;; SHELL: Execute shell commands with output capture
-      ;; Syntax: SHELL "command" INTO output WITH EXIT_CODE code
-      ;; Syntax: SHELL "command" INTO output WITH EXIT_CODE code AND ERROR error
-      ((starts-with (string-upcase trimmed) "SHELL ")
+       ;; FIND: Search for files by pattern
+       ;; Syntax: FIND "pattern" INTO files
+       ;; Syntax: FIND "pattern" IN "directory" INTO files
+       ;; Syntax: FIND "pattern" IN "directory" INTO files WITH COUNT count
+       ((starts-with (string-upcase trimmed) "FIND ")
+        (let* ((rest (trim (subseq trimmed 5)))
+               (rest-upper (string-upcase rest))
+               ;; Extract the pattern (quoted string)
+               (pattern-end (position #\" rest :start 1))
+               (pattern (if pattern-end
+                           (subseq rest 1 pattern-end)
+                           nil))
+               (after-pattern (if pattern-end (trim (subseq rest (1+ pattern-end))) ""))
+               (after-pattern-upper (string-upcase after-pattern))
+               ;; Find IN, INTO, WITH COUNT positions
+               (in-pos (search " IN " after-pattern-upper))
+               (into-pos-space (search " INTO " after-pattern-upper))
+               (into-pos-start (when (starts-with after-pattern-upper "INTO ") 0))
+               (into-pos (or into-pos-space into-pos-start))
+               (count-pos (search " WITH COUNT " after-pattern-upper))
+               ;; Extract directory if present
+               (directory (when (and in-pos into-pos)
+                           (let* ((start (+ in-pos 4))
+                                  (end into-pos)
+                                  (dir-str (trim (subseq after-pattern start end))))
+                             (if (and (> (length dir-str) 1)
+                                     (char= (char dir-str 0) #\")
+                                     (char= (char dir-str (1- (length dir-str))) #\"))
+                                 (subseq dir-str 1 (1- (length dir-str)))
+                                 dir-str))))
+               ;; Extract variable names
+               (files-var (when into-pos
+                           (let ((start (if (zerop into-pos) 5 (+ into-pos 6)))
+                                 (end (or count-pos (length after-pattern))))
+                             (trim (subseq after-pattern start end)))))
+               (count-var (when count-pos
+                           (trim (subseq after-pattern (+ count-pos 12))))))
+          (if (and pattern files-var)
+              (handler-case
+                  (let* ((base-dir (or directory "."))
+                         (matches '())
+                         (match-count 0))
+                    ;; Recursive directory traversal
+                    (labels ((matches-pattern (name pattern)
+                              (let ((pattern-regex (cl-ppcre:create-scanner
+                                                    (cl-ppcre:regex-replace-all
+                                                     "\\*" 
+                                                     (cl-ppcre:regex-replace-all "\\." pattern "\\\\.")
+                                                     ".*")
+                                                    :case-insensitive-mode t)))
+                                (cl-ppcre:scan pattern-regex name)))
+                            (scan-directory (dir)
+                              (when (probe-file dir)
+                                (dolist (entry (uiop:directory-files dir))
+                                  (let ((name (file-namestring entry)))
+                                    (when (matches-pattern name pattern)
+                                      (push (namestring entry) matches)
+                                      (incf match-count))))
+                                (dolist (subdir (uiop:subdirectories dir))
+                                  (scan-directory subdir)))))
+                      (scan-directory base-dir))
+                    ;; Store results
+                    (setf (gethash files-var env) (nreverse matches))
+                    (when count-var
+                      (setf (gethash count-var env) match-count))
+                    (when verbose
+                      (format t "  Effect: FIND ~S in ~S -> ~A files~%" pattern base-dir match-count)))
+                (error (e)
+                  (setf (gethash files-var env) '())
+                  (when count-var
+                    (setf (gethash count-var env) 0))
+                  (when verbose
+                    (format t "  Effect: FIND failed: ~A~%" e))))
+              (when verbose
+                (format t "  Effect: FIND (invalid syntax)~%")))))
+       
+       ;; GREP: Search file contents for pattern
+       ;; Syntax: GREP "pattern" IN "file" INTO matches
+       ;; Syntax: GREP "pattern" IN files INTO results (where files is a list)
+       ;; Syntax: GREP "pattern" IN "file" INTO matches WITH COUNT count
+       ((starts-with (string-upcase trimmed) "GREP ")
+        (let* ((rest (trim (subseq trimmed 5)))
+               (rest-upper (string-upcase rest))
+               ;; Extract the pattern (quoted string)
+               (pattern-end (position #\" rest :start 1))
+               (pattern (if pattern-end
+                           (subseq rest 1 pattern-end)
+                           nil))
+               (after-pattern (if pattern-end (trim (subseq rest (1+ pattern-end))) ""))
+               (after-pattern-upper (string-upcase after-pattern))
+               ;; Find IN, INTO, WITH COUNT positions
+               (in-pos (search " IN " after-pattern-upper))
+               (into-pos-space (search " INTO " after-pattern-upper))
+               (into-pos-start (when (starts-with after-pattern-upper "INTO ") 0))
+               (into-pos (or into-pos-space into-pos-start))
+               (count-pos (search " WITH COUNT " after-pattern-upper))
+               ;; Extract file/variable
+               (file-or-var (when (and in-pos into-pos)
+                             (let* ((start (+ in-pos 4))
+                                    (end into-pos)
+                                    (str (trim (subseq after-pattern start end))))
+                               (if (and (> (length str) 1)
+                                       (char= (char str 0) #\")
+                                       (char= (char str (1- (length str))) #\"))
+                                   (subseq str 1 (1- (length str)))
+                                   str))))
+               ;; Extract variable names
+               (matches-var (when into-pos
+                             (let ((start (if (zerop into-pos) 5 (+ into-pos 6)))
+                                   (end (or count-pos (length after-pattern))))
+                               (trim (subseq after-pattern start end)))))
+               (count-var (when count-pos
+                           (trim (subseq after-pattern (+ count-pos 12))))))
+          (if (and pattern file-or-var matches-var)
+              (handler-case
+                  (let* ((regex (cl-ppcre:create-scanner pattern))
+                         (all-matches '())
+                         (total-count 0))
+                    ;; Check if file-or-var is a variable containing a list
+                    (let ((file-list (gethash file-or-var env)))
+                      (cond
+                        ;; It's a list variable
+                        ((listp file-list)
+                         (dolist (file file-list)
+                           (when (and file (probe-file file))
+                             (with-open-file (in file :direction :input 
+                                                 :if-does-not-exist nil)
+                               (when in
+                                 (loop for line = (read-line in nil)
+                                       for line-num from 1
+                                       while line
+                                       when (cl-ppcre:scan regex line)
+                                       do (push (list :file file :line line-num :text line)
+                                               all-matches)
+                                          (incf total-count)))))))
+                        ;; It's a file path
+                        (t
+                         (when (probe-file file-or-var)
+                           (with-open-file (in file-or-var :direction :input
+                                              :if-does-not-exist nil)
+                             (when in
+                               (loop for line = (read-line in nil)
+                                     for line-num from 1
+                                     while line
+                                     when (cl-ppcre:scan regex line)
+                                     do (push (list :file file-or-var :line line-num :text line)
+                                             all-matches)
+                                        (incf total-count))))))))
+                    ;; Store results
+                    (setf (gethash matches-var env) (nreverse all-matches))
+                    (when count-var
+                      (setf (gethash count-var env) total-count))
+                    (when verbose
+                      (format t "  Effect: GREP ~S -> ~A matches~%" pattern total-count)))
+                (error (e)
+                  (setf (gethash matches-var env) '())
+                  (when count-var
+                    (setf (gethash count-var env) 0))
+                  (when verbose
+                    (format t "  Effect: GREP failed: ~A~%" e))))
+              (when verbose
+                (format t "  Effect: GREP (invalid syntax)~%")))))
+       
+       ;; SHELL: Execute shell commands with output capture
+       ;; Syntax: SHELL "command" INTO output WITH EXIT_CODE code
+       ;; Syntax: SHELL "command" INTO output WITH EXIT_CODE code AND ERROR error
+       ((starts-with (string-upcase trimmed) "SHELL ")
        (let* ((rest (trim (subseq trimmed 6)))
               (rest-upper (string-upcase rest))
               ;; Extract the command (quoted string)

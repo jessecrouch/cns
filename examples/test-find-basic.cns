@@ -1,0 +1,67 @@
+Story: Test FIND command for file discovery by pattern
+
+Given:
+  cns_files: List
+  num_cns: Number
+  file: String
+  lisp_files: List
+  num_lisp: Number
+  md_files: List
+  num_md: Number
+  test_files: List
+  num_tests: Number
+  json_files: List
+  num_json: Number
+
+Step 1 → Find all .cns files in examples
+  Because: testing basic FIND with pattern matching
+  Effect: PRINT "=== Test 1: Find all .cns files ==="
+  Effect: FIND "*.cns" IN "examples" INTO cns_files WITH COUNT num_cns
+  Effect: PRINT "Found " + num_cns + " .cns files"
+  Then: FOREACH file IN cns_files:
+          PRINT "  - " + file
+        END
+
+Step 2 → Find all .lisp files in src
+  Because: testing FIND in different directory
+  Effect: PRINT ""
+  Effect: PRINT "=== Test 2: Find all .lisp files ==="
+  Effect: FIND "*.lisp" IN "src" INTO lisp_files WITH COUNT num_lisp
+  Effect: PRINT "Found " + num_lisp + " .lisp files"
+  Then: FOREACH file IN lisp_files:
+          PRINT "  - " + file
+        END
+
+Step 3 → Find all markdown files
+  Because: testing FIND from current directory
+  Effect: PRINT ""
+  Effect: PRINT "=== Test 3: Find all .md files ==="
+  Effect: FIND "*.md" IN "." INTO md_files WITH COUNT num_md
+  Effect: PRINT "Found " + num_md + " markdown files"
+  Then: FOREACH file IN md_files:
+          PRINT "  - " + file
+        END
+
+Step 4 → Find files matching specific pattern
+  Because: testing FIND with complex wildcard
+  Effect: PRINT ""
+  Effect: PRINT "=== Test 4: Find test-*.cns files ==="
+  Effect: FIND "test-*.cns" IN "examples" INTO test_files WITH COUNT num_tests
+  Effect: PRINT "Found " + num_tests + " test files"
+  Then: FOREACH file IN test_files:
+          PRINT "  - " + file
+        END
+
+Step 5 → Find JSON files in dataset
+  Because: testing FIND in specific subdirectory
+  Effect: PRINT ""
+  Effect: PRINT "=== Test 5: Find JSON files in dataset ==="
+  Effect: FIND "*.json" IN "dataset" INTO json_files WITH COUNT num_json
+  Effect: PRINT "Found " + num_json + " JSON files"
+  Then: FOREACH file IN json_files:
+          PRINT "  - " + file
+        END
+  Effect: PRINT ""
+  Effect: PRINT "=== FIND command tests complete ==="
+
+End: FIND command successfully discovers files by pattern across directories

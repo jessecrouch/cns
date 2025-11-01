@@ -1,0 +1,89 @@
+Story: Test GREP command for content search with regex patterns
+
+Given:
+  matches: List
+  num_matches: Number
+  match: List
+  file: String
+  line_num: Number
+  text: String
+  functions: List
+  num_functions: Number
+  shown: Number
+  remaining: Number
+  lisp_files: List
+  todos: List
+  num_todos: Number
+  prints: List
+  num_prints: Number
+  versions: List
+  num_versions: Number
+
+Step 1 → Search for PROGRAM keyword
+  Because: testing basic GREP pattern matching
+  Effect: PRINT "=== Test 1: Search for PROGRAM keyword ==="
+          GREP "PROGRAM" IN "examples/test-grep-basic.cns" INTO matches WITH COUNT num_matches
+          PRINT "Found " + num_matches + " matches for 'PROGRAM'"
+  Then: FOREACH match IN matches:
+          SET file = match[0]
+          SET line_num = match[1]
+          SET text = match[2]
+          PRINT "  Line " + line_num + ": " + text
+        END
+
+Step 2 → Search for function definitions
+  Because: testing GREP with regex in large file
+  Effect: PRINT ""
+          PRINT "=== Test 2: Search for defun in cns.lisp ==="
+          GREP "\\(defun " IN "src/cns.lisp" INTO functions WITH COUNT num_functions
+          PRINT "Found " + num_functions + " function definitions"
+          SET shown = 0
+  Then: FOREACH match IN functions:
+          IF shown < 5:
+            SET line_num = match[1]
+            SET text = match[2]
+            PRINT "  Line " + line_num + ": " + text
+            SET shown = shown + 1
+          END
+        END
+        IF num_functions > 5:
+          SET remaining = num_functions - 5
+          PRINT "  ... and " + remaining + " more"
+        END
+
+Step 3 → Search across multiple files
+  Because: testing GREP with file list input
+  Effect: PRINT ""
+          PRINT "=== Test 3: Search for TODO comments ==="
+          FIND "*.lisp" IN "src" INTO lisp_files
+          GREP "TODO" IN lisp_files INTO todos WITH COUNT num_todos
+          PRINT "Found " + num_todos + " TODO comments"
+  Then: FOREACH match IN todos:
+          SET file = match[0]
+          SET line_num = match[1]
+          SET text = match[2]
+          PRINT "  " + file + ":" + line_num + " - " + text
+        END
+
+Step 4 → Search with anchored pattern
+  Because: testing GREP with line-start anchor
+  Effect: PRINT ""
+          PRINT "=== Test 4: Search for PRINT statements ==="
+          GREP "^\\s*PRINT " IN "examples/test-grep-basic.cns" INTO prints WITH COUNT num_prints
+          PRINT "Found " + num_prints + " PRINT statements in this file"
+
+Step 5 → Search for version patterns
+  Because: testing GREP with character classes
+  Effect: PRINT ""
+          PRINT "=== Test 5: Search for version patterns ==="
+          GREP "v[0-9]+\\.[0-9]+" IN "README.md" INTO versions WITH COUNT num_versions
+          PRINT "Found " + num_versions + " version references"
+  Then: FOREACH match IN versions:
+          SET line_num = match[1]
+          SET text = match[2]
+          PRINT "  Line " + line_num + ": " + text
+        END
+        PRINT ""
+        PRINT "=== GREP command tests complete ==="
+
+End: GREP command successfully searches file contents with regex patterns

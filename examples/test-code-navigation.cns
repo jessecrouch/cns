@@ -1,0 +1,151 @@
+Story: Comprehensive code navigation and analysis workflow using FIND and GREP
+
+Given:
+  lisp_files: List
+  num_lisp: Number
+  cns_files: List
+  num_cns: Number
+  test_files: List
+  num_tests: Number
+  functions: List
+  num_functions: Number
+  handlers: List
+  num_handlers: Number
+  programs: List
+  num_programs: Number
+  http_files: List
+  num_http: Number
+  file: String
+  server_cmds: List
+  num_server: Number
+  git_files: List
+  num_git: Number
+  git_cmds: List
+  num_git_cmds: Number
+  foreach_uses: List
+  num_foreach: Number
+  file_ops: List
+  num_file_ops: Number
+  json_uses: List
+  num_json: Number
+  shown: Number
+  match: List
+  line_num: Number
+  text: String
+
+Step 1 → Discover project structure
+  Because: analyzing codebase organization
+  Effect: PRINT "================================================"
+          PRINT "Code Navigation & Analysis Workflow Demo"
+          PRINT "================================================"
+          PRINT ""
+          PRINT "=== Phase 1: Project Discovery ==="
+          PRINT ""
+          PRINT "1. Finding all Lisp source files..."
+          FIND "*.lisp" IN "src" INTO lisp_files WITH COUNT num_lisp
+          PRINT "   Found " + num_lisp + " Lisp files"
+          PRINT "2. Finding all CNS example files..."
+          FIND "*.cns" IN "examples" INTO cns_files WITH COUNT num_cns
+          PRINT "   Found " + num_cns + " CNS example files"
+          PRINT "3. Finding test files..."
+          FIND "test-*.cns" IN "examples" INTO test_files WITH COUNT num_tests
+          PRINT "   Found " + num_tests + " test files"
+          PRINT ""
+
+Step 2 → Search for specific patterns
+  Because: finding code patterns and definitions
+  Effect: PRINT "=== Phase 2: Pattern Search ==="
+          PRINT ""
+          PRINT "1. Searching for function definitions..."
+          GREP "\\(defun " IN lisp_files INTO functions WITH COUNT num_functions
+          PRINT "   Found " + num_functions + " function definitions"
+          PRINT "2. Searching for effect handlers..."
+          GREP "starts-with.*trimmed" IN lisp_files INTO handlers WITH COUNT num_handlers
+          PRINT "   Found " + num_handlers + " effect handler patterns"
+          PRINT "3. Searching for PROGRAM declarations in examples..."
+          GREP "^PROGRAM " IN cns_files INTO programs WITH COUNT num_programs
+          PRINT "   Found " + num_programs + " program declarations"
+          PRINT ""
+
+Step 3 → Analyze HTTP examples
+  Because: detailed analysis of specific feature usage
+  Effect: PRINT "=== Phase 3: Detailed Analysis ==="
+          PRINT ""
+          PRINT "1. Analyzing HTTP-related examples..."
+          FIND "*http*.cns" IN "examples" INTO http_files WITH COUNT num_http
+          PRINT "   Found " + num_http + " HTTP examples:"
+  Then: FOREACH file IN http_files:
+          PRINT "   - " + file
+          GREP "SERVER " IN file INTO server_cmds WITH COUNT num_server
+          PRINT "     Contains " + num_server + " SERVER commands"
+        END
+
+Step 4 → Analyze Git examples
+  Because: analyzing git feature coverage
+  Effect: PRINT ""
+          PRINT "2. Analyzing Git-related examples..."
+          FIND "*git*.cns" IN "examples" INTO git_files WITH COUNT num_git
+          PRINT "   Found " + num_git + " Git examples:"
+  Then: FOREACH file IN git_files:
+          PRINT "   - " + file
+          GREP "^\\s*GIT " IN file INTO git_cmds WITH COUNT num_git_cmds
+          PRINT "     Contains " + num_git_cmds + " GIT commands"
+        END
+
+Step 5 → Cross-reference analysis
+  Because: understanding feature adoption across examples
+  Effect: PRINT ""
+          PRINT "=== Phase 4: Cross-Reference Analysis ==="
+          PRINT ""
+          PRINT "1. Finding examples using FOREACH..."
+          GREP "^FOREACH " IN cns_files INTO foreach_uses WITH COUNT num_foreach
+          PRINT "   FOREACH used in " + num_foreach + " locations"
+          PRINT "2. Finding examples using FILE operations..."
+          GREP "FILE (READ|WRITE)" IN cns_files INTO file_ops WITH COUNT num_file_ops
+          PRINT "   FILE operations in " + num_file_ops + " locations"
+          PRINT "3. Finding examples using JSON..."
+          GREP "JSON " IN cns_files INTO json_uses WITH COUNT num_json
+          PRINT "   JSON used in " + num_json + " locations"
+          PRINT ""
+
+Step 6 → Generate summary report
+  Because: providing overview of project metrics
+  Effect: PRINT "=== Phase 5: Summary Report ==="
+          PRINT ""
+          PRINT "Project Statistics:"
+          PRINT "  Source files:     " + num_lisp
+          PRINT "  Example files:    " + num_cns
+          PRINT "  Test files:       " + num_tests
+          PRINT "  Functions:        " + num_functions
+          PRINT "  Effect handlers:  " + num_handlers
+          PRINT ""
+          PRINT "Feature Usage:"
+          PRINT "  HTTP examples:    " + num_http
+          PRINT "  Git examples:     " + num_git
+          PRINT "  FOREACH usage:    " + num_foreach
+          PRINT "  FILE operations:  " + num_file_ops
+          PRINT "  JSON usage:       " + num_json
+          PRINT ""
+
+Step 7 → Display code samples
+  Because: showing actual code examples from search results
+  Effect: PRINT "=== Phase 6: Code Samples ==="
+          PRINT ""
+          PRINT "Sample function definitions (first 5):"
+          SET shown = 0
+  Then: FOREACH match IN functions:
+          IF shown < 5:
+            SET file = match[0]
+            SET line_num = match[1]
+            SET text = match[2]
+            PRINT "  " + file + ":" + line_num
+            PRINT "    " + text
+            SET shown = shown + 1
+          END
+        END
+        PRINT ""
+        PRINT "================================================"
+        PRINT "Code Navigation Demo Complete"
+        PRINT "================================================"
+
+End: Code navigation workflow demonstrates FIND and GREP for project analysis
