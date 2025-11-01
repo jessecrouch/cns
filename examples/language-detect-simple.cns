@@ -1,0 +1,36 @@
+Story: Detect Programming Language from Repository
+Given:
+  RepoPath: String = "test-repos/rust-example"
+  Language: String = "unknown"
+  BuildCmd: String = ""
+  TestCmd: String = ""
+  CheckResult: String = ""
+  ExitCode: Number = 0
+
+Step 1 → Check for Rust
+  Because: Rust projects have Cargo.toml
+  Effect: SHELL "test -f test-repos/rust-example/Cargo.toml && echo rust || echo notfound" INTO CheckResult WITH EXIT_CODE ExitCode
+
+Step 2 → If CheckResult = "rust"
+  Then: Language becomes "rust"
+  Then: BuildCmd becomes "cargo build"
+  Then: TestCmd becomes "cargo test"
+
+Step 3 → Check for Go if not found
+  Because: Go projects have go.mod
+  If: Language = "unknown"
+    Effect: SHELL "test -f test-repos/rust-example/go.mod && echo go || echo notfound" INTO CheckResult WITH EXIT_CODE ExitCode
+
+Step 4 → If CheckResult = "go"
+  Then: Language becomes "go"
+  Then: BuildCmd becomes "go build ./..."
+  Then: TestCmd becomes "go test ./..."
+
+Step 5 → Display results
+  Because: Show detected language and commands
+  Effect: Print "=== Language Detection Results ==="
+  Effect: Print "Language: {Language}"
+  Effect: Print "Build: {BuildCmd}"
+  Effect: Print "Test: {TestCmd}"
+
+End: Language
