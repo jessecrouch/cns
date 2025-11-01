@@ -66,7 +66,7 @@ cd cns-starter
 **Phase B - Web Backend Ready** (2-3 weeks)
 - ✅ Enhanced JSON (nested objects, arrays, dot notation) - 100% complete
 - ✅ Regex pattern matching (MATCHES, EXTRACT with groups) - complete
-- 🚧 Date/time operations
+- ✅ Date/time operations (NOW, TIMESTAMP, FORMAT TIME, arithmetic) - complete
 - 🚧 Database support (SQLite, PostgreSQL)
 
 **Phase C - Benchmark Proven** (2-3 months)
@@ -263,6 +263,7 @@ cd cns
 - Boolean: `AND`, `OR`, `NOT`
 - String: `CONTAINS`, `STARTS WITH`, `SPLIT`
 - Regex: `MATCHES`, `EXTRACT` (requires cl-ppcre)
+- Date/Time: `NOW()`, `TIMESTAMP()`, `FORMAT TIME`, `ADD DAYS/HOURS/MINUTES`
 
 ### Syntax Examples
 
@@ -309,6 +310,29 @@ Then: phone becomes EXTRACT "\\d{3}-\\d{3}-\\d{4}" FROM text
 # Extract capture groups
 Then: date becomes EXTRACT "\\[(\\d{4}-\\d{2}-\\d{2})" GROUP 1 FROM log_line
 Then: time becomes EXTRACT "\\[\\d{4}-\\d{2}-\\d{2} (\\d{2}:\\d{2}:\\d{2})\\]" GROUP 1 FROM log_line
+```
+
+**Date/time operations:**
+```cns
+# Get current time (universal time - seconds since 1900-01-01)
+Then: now becomes NOW()
+
+# Get formatted timestamp (ISO 8601)
+Then: timestamp becomes TIMESTAMP()
+
+# Format time with custom format
+Then: date_str becomes FORMAT TIME now WITH "YYYY-MM-DD"
+Then: time_str becomes FORMAT TIME now WITH "HH:mm:SS"
+Then: full_str becomes FORMAT TIME now WITH "YYYY-MM-DD HH:mm:SS"
+
+# Time arithmetic
+Then: tomorrow becomes ADD DAYS now BY 1
+Then: next_hour becomes ADD HOURS now BY 1
+Then: in_30_mins becomes ADD MINUTES now BY 30
+
+# Time comparisons (universal time is just an integer)
+If: event_time > now
+  Then: is_future becomes true
 ```
 
 **Control flow:**

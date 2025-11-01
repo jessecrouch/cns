@@ -57,6 +57,18 @@
   "Check if string is empty after trim."
   (zerop (length (trim str))))
 
+(defun replace-all (string old new)
+  "Replace all occurrences of OLD with NEW in STRING."
+  (let ((pos (search old string)))
+    (if pos
+        (replace-all 
+         (concatenate 'string
+                     (subseq string 0 pos)
+                     new
+                     (subseq string (+ pos (length old))))
+         old new)
+        string)))
+
 (defun parse-json-value (json-str key)
   "Simple JSON parser to extract a value by key (LEGACY - use parse-json-full for new code).
    Handles: strings, numbers, booleans, null
@@ -1299,6 +1311,17 @@ World' and ' rest'"
                      env-val
                      (or default-val ""))))
               
+              ;; Date/Time: NOW() - returns current universal time
+              ((string= (string-upcase trimmed) "NOW()")
+               (get-universal-time))
+              
+              ;; Date/Time: TIMESTAMP() - returns ISO 8601 formatted current time
+              ((string= (string-upcase trimmed) "TIMESTAMP()")
+               (multiple-value-bind (sec min hr day mon yr)
+                   (decode-universal-time (get-universal-time))
+                 (format nil "~4,'0D-~2,'0D-~2,'0D ~2,'0D:~2,'0D:~2,'0D" 
+                        yr mon day hr min sec)))
+              
               ;; Function call: FuncName(arg1, arg2, ...) (check BEFORE variable lookup BUT NOT if it contains "becomes")
               ((and (not (search "becomes" trimmed))  ; Not a becomes statement
                     (multiple-value-bind (is-call func-name args-str)
@@ -1622,6 +1645,92 @@ World' and ' rest'"
                           nil))
                     ;; No BY clause - error
                     nil)))
+            
+             ;; Date/Time: FORMAT TIME value WITH "format"
+             ((starts-with (string-upcase trimmed) "FORMAT TIME ")
+              (let* ((rest (trim (subseq trimmed 12)))
+                     (with-pos (search " WITH " (string-upcase rest))))
+                (if with-pos
+                    (let* ((time-expr (trim (subseq rest 0 with-pos)))
+                           (format-expr (trim (subseq rest (+ with-pos 6))))
+                           (time-val (eval-expr time-expr env))
+                           (format-str (eval-expr format-expr env)))
+                      (if (and (numberp time-val) (stringp format-str))
+                          (multiple-value-bind (sec min hr day mon yr dow dst tz)
+                              (decode-universal-time time-val)
+                            (declare (ignore dow dst tz))
+                            ;; Simple format string replacement
+                            (let ((result format-str))
+                              (setf result (replace-all result "YYYY" (format nil "~4,'0D" yr)))
+                              (setf result (replace-all result "MM" (format nil "~2,'0D" mon)))
+                              (setf result (replace-all result "DD" (format nil "~2,'0D" day)))
+                              (setf result (replace-all result "HH" (format nil "~2,'0D" hr)))
+                              (setf result (replace-all result "mm" (format nil "~2,'0D" min)))
+                              (setf result (replace-all result "SS" (format nil "~2,'0D" sec)))
+                              result))
+                          ""))
+                    "")))
+            
+             ;; Date/Time: ADD DAYS time BY n (or ADD_DAYS for backward compat)
+             ((or (starts-with (string-upcase trimmed) "ADD DAYS ")
+                  (starts-with (string-upcase trimmed) "ADD_DAYS("))
+              (let* ((is-func-style (starts-with (string-upcase trimmed) "ADD_DAYS("))
+                     (rest (if is-func-style
+                              (let ((close-paren (position #\) trimmed :from-end t)))
+                                (if close-paren
+                                    (subseq trimmed 9 close-paren)
+                                    (subseq trimmed 9)))
+                              (trim (subseq trimmed 9))))
+                     (by-pos (search " BY " (string-upcase rest)))
+                     (comma-pos (if is-func-style (position #\, rest) nil)))
+                (cond
+                  ;; Function style: ADD_DAYS(time, n)
+                  ((and is-func-style comma-pos)
+                   (let* ((time-expr (trim (subseq rest 0 comma-pos)))
+                          (days-expr (trim (subseq rest (1+ comma-pos))))
+                          (time-val (eval-expr time-expr env))
+                          (days-val (eval-expr days-expr env)))
+                     (if (and (numberp time-val) (numberp days-val))
+                         (+ time-val (* days-val 86400)) ; 86400 seconds per day
+                         time-val)))
+                  ;; Operator style: ADD DAYS time BY n
+                  (by-pos
+                   (let* ((time-expr (trim (subseq rest 0 by-pos)))
+                          (days-expr (trim (subseq rest (+ by-pos 4))))
+                          (time-val (eval-expr time-expr env))
+                          (days-val (eval-expr days-expr env)))
+                     (if (and (numberp time-val) (numberp days-val))
+                         (+ time-val (* days-val 86400))
+                         time-val)))
+                  (t 0))))
+            
+             ;; Date/Time: ADD HOURS time BY n
+             ((starts-with (string-upcase trimmed) "ADD HOURS ")
+              (let* ((rest (trim (subseq trimmed 10)))
+                     (by-pos (search " BY " (string-upcase rest))))
+                (if by-pos
+                    (let* ((time-expr (trim (subseq rest 0 by-pos)))
+                           (hours-expr (trim (subseq rest (+ by-pos 4))))
+                           (time-val (eval-expr time-expr env))
+                           (hours-val (eval-expr hours-expr env)))
+                      (if (and (numberp time-val) (numberp hours-val))
+                          (+ time-val (* hours-val 3600)) ; 3600 seconds per hour
+                          time-val))
+                    0)))
+            
+             ;; Date/Time: ADD MINUTES time BY n
+             ((starts-with (string-upcase trimmed) "ADD MINUTES ")
+              (let* ((rest (trim (subseq trimmed 12)))
+                     (by-pos (search " BY " (string-upcase rest))))
+                (if by-pos
+                    (let* ((time-expr (trim (subseq rest 0 by-pos)))
+                           (mins-expr (trim (subseq rest (+ by-pos 4))))
+                           (time-val (eval-expr time-expr env))
+                           (mins-val (eval-expr mins-expr env)))
+                      (if (and (numberp time-val) (numberp mins-val))
+                          (+ time-val (* mins-val 60)) ; 60 seconds per minute
+                          time-val))
+                    0)))
             
              ;; Arithmetic: result * n
             ((search "*" trimmed)

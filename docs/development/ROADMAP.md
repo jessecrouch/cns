@@ -159,20 +159,29 @@ Then: date becomes EXTRACT "\\[(\\d{4}-\\d{2}-\\d{2})" GROUP 1 FROM log_line
 ```
 **Delivered**: MATCHES operator, EXTRACT operator with GROUP support, graceful fallback when cl-ppcre unavailable
 
-#### 5. Date/Time Operations (1 day)
+#### 5. Date/Time Operations ✅ COMPLETED (Day 1)
 **Why**: Timestamps, scheduling, log parsing
-**Effort**: Wrap `get-universal-time`, `decode-universal-time`
+**Effort**: Wrapped Common Lisp built-in time functions (zero dependencies)
 **Syntax**:
 ```cns
-Given:
-  now: Time = CURRENT_TIME
-  tomorrow: Time = ADD_DAYS(now, 1)
-  timestamp: String = FORMAT_TIME(now, "YYYY-MM-DD HH:MM:SS")
-  
-Then: parsed becomes PARSE_TIME("2025-10-31 14:30:00", "YYYY-MM-DD HH:MM:SS")
+# Get current time
+Then: now becomes NOW()
+Then: timestamp becomes TIMESTAMP()
+
+# Format time
+Then: date_str becomes FORMAT TIME now WITH "YYYY-MM-DD"
+Then: time_str becomes FORMAT TIME now WITH "HH:mm:SS"
+
+# Time arithmetic
+Then: tomorrow becomes ADD DAYS now BY 1
+Then: next_hour becomes ADD HOURS now BY 1
+Then: in_30_mins becomes ADD MINUTES now BY 30
+
+# Time comparisons
 If: event_time > now
   Then: is_future becomes true
 ```
+**Delivered**: NOW(), TIMESTAMP(), FORMAT TIME, ADD DAYS/HOURS/MINUTES, time comparisons (uses universal time - seconds since 1900)
 
 #### 6. String Helpers (1 day)
 **Why**: Common operations missing from current implementation

@@ -1,0 +1,13 @@
+Story: "Test NOW"
+Purpose: "Test"
+Context: "Test"
+
+Given:
+  result: Integer = 0
+
+Step 1 → Get time
+  Because: Test
+  Then: result becomes NOW()
+
+End: Return result
+     Because: Done

@@ -122,6 +122,22 @@ Use the CNS runner from the project root:
 - Quick validation test
 - Demonstrates: Core regex operators
 
+### Date/Time Examples (v1.2.0+)
+
+**test-datetime-simple.cns** - Basic date/time operations
+- NOW() - current universal time
+- TIMESTAMP() - ISO 8601 formatted time
+- FORMAT TIME - custom time formatting
+- ADD DAYS - date arithmetic
+- Demonstrates: Core date/time features
+
+**test-datetime.cns** - Comprehensive date/time test
+- Time arithmetic (days, hours, minutes)
+- Custom time formatting
+- Time comparisons
+- Multiple format strings
+- Demonstrates: All date/time capabilities
+
 ## Understanding CNS Structure
 
 Each example follows the CNS narrative structure:

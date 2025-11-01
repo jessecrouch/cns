@@ -1,0 +1,94 @@
+Story: "Date and Time Operations Test"
+Purpose: "Test NOW, TIMESTAMP, FORMAT TIME, and time arithmetic"
+Context: "Demonstration of date/time features in CNS v1.2.0"
+
+Given:
+  current_time: Integer = 0
+  formatted_time: String = ""
+  tomorrow: Integer = 0
+  next_hour: Integer = 0
+  in_30_mins: Integer = 0
+  date_only: String = ""
+  time_only: String = ""
+  tomorrow_str: String = ""
+  next_hour_str: String = ""
+  future_str: String = ""
+  is_future: Integer = 0
+
+Step 1 → Get current time as universal time
+  Because: NOW() returns seconds since 1900-01-01
+  Then: current_time becomes NOW()
+
+Step 2 → Get formatted timestamp
+  Because: TIMESTAMP() returns ISO 8601 format
+  Then: formatted_time becomes TIMESTAMP()
+
+Step 3 → Display current time
+  Because: Show the timestamp to user
+  Then: PRINT formatted_time
+   
+Step 4 → Format time with custom format
+  Because: Extract just the date portion
+  Then: date_only becomes FORMAT TIME current_time WITH "YYYY-MM-DD"
+
+Step 5 → Display date
+  Because: Show formatted date
+  Then: PRINT date_only
+   
+Step 6 → Format time as time only
+  Because: Extract just the time portion
+  Then: time_only becomes FORMAT TIME current_time WITH "HH:mm:SS"
+
+Step 7 → Display time
+  Because: Show formatted time
+  Then: PRINT time_only
+   
+Step 8 → Calculate tomorrow
+  Because: Add 24 hours to current time
+  Then: tomorrow becomes ADD DAYS current_time BY 1
+
+Step 9 → Format tomorrow
+  Because: Show tomorrow's timestamp
+  Then: tomorrow_str becomes FORMAT TIME tomorrow WITH "YYYY-MM-DD HH:mm:SS"
+    
+Step 10 → Display tomorrow
+  Because: Show calculated future time
+  Then: PRINT tomorrow_str
+    
+Step 11 → Calculate next hour
+  Because: Add 60 minutes to current time
+  Then: next_hour becomes ADD HOURS current_time BY 1
+
+Step 12 → Display next hour
+  Because: Format the next hour time
+  Then: next_hour_str becomes FORMAT TIME next_hour WITH "YYYY-MM-DD HH:mm:SS"
+    
+Step 13 → Show next hour
+  Because: Display future time
+  Then: PRINT next_hour_str
+    
+Step 14 → Calculate 30 minutes from now
+  Because: Add 30 minutes to current time
+  Then: in_30_mins becomes ADD MINUTES current_time BY 30
+
+Step 15 → Display 30 minutes future
+  Because: Format the future time
+  Then: future_str becomes FORMAT TIME in_30_mins WITH "HH:mm:SS"
+    
+Step 16 → Show future time
+  Because: Display calculated time
+  Then: PRINT future_str
+    
+Step 17 → Test time comparison (future time is greater)
+  Because: Tomorrow's time value should be greater than now
+  If: tomorrow > current_time
+    Then: is_future becomes 1
+  Otherwise:
+    Then: is_future becomes 0
+    
+Step 18 → Display comparison result
+  Because: Demonstrate time comparisons work
+  Then: PRINT is_future
+
+End: Return "All date/time tests completed"
+     Because: Demonstrated all date/time operations
