@@ -1,5 +1,22 @@
 # CNS Development Checklist
 
+## CNSC-First Policy (v1.1.0+)
+
+**ALL NEW EXAMPLES MUST BE WRITTEN IN CNSC FORMAT FIRST.**
+
+**Mandatory Guidelines:**
+- Examples >30 lines: `.cnsc` required, `.cns` optional
+- Examples <30 lines: Use judgment (prefer `.cnsc` for consistency)
+- Agent code: `.cnsc` only
+- Test cases: `.cnsc` for better coverage
+- Documentation snippets: Show `.cnsc` syntax prominently
+
+**Why:** 62% token reduction = more examples in context, better LLM performance, cheaper API calls
+
+**See:** [CNSC-COMPACT.md](../guides/CNSC-COMPACT.md) and [ROADMAP.md](./ROADMAP.md) CNSC-First section
+
+---
+
 ## Feature Evaluation Framework
 
 Before adding ANY feature to CNS, it must pass this evaluation checklist. CNS is designed to be the **best language for LLMs to semi-autonomously code with** - every decision must align with that goal.

@@ -6,27 +6,67 @@
 ;;; Load socket support
 (require 'sb-bsd-sockets)
 
+;;; Load Quicklisp if available
+(handler-case
+    (progn
+      (load (merge-pathnames "quicklisp/setup.lisp" (user-homedir-pathname)))
+      (format t "Quicklisp loaded successfully~%"))
+  (error ()
+    nil))  ; Silently continue if Quicklisp not available
+
 ;;; Load SSL support (optional - gracefully degrades to HTTP-only if not available)
 (defvar *https-enabled* nil)
 (handler-case
     (progn
-      (require 'cl+ssl)
-      (setf *https-enabled* t))
+      (if (find-package :quicklisp)
+          (progn
+            (funcall (intern "QUICKLOAD" :ql) :cl+ssl :silent t)
+            (funcall (intern "QUICKLOAD" :ql) :flexi-streams :silent t))
+          (progn
+            (require 'cl+ssl)
+            (require 'flexi-streams)))
+      (setf *https-enabled* t)
+      (format t "HTTPS support enabled (cl+ssl + flexi-streams loaded)~%"))
   (error (e)
     (format *error-output* "HTTPS support unavailable (cl+ssl not found): ~A~%~
-                            Install with: (ql:quickload :cl+ssl)~%~
+                            Install with: (ql:quickload :cl+ssl) (ql:quickload :flexi-streams)~%~
                             Falling back to HTTP-only mode.~%" e)))
 
 ;;; Load regex support (optional - gracefully degrades if not available)
 (defvar *regex-enabled* nil)
 (handler-case
     (progn
-      (require 'cl-ppcre)
-      (setf *regex-enabled* t))
+      (if (find-package :quicklisp)
+          (funcall (intern "QUICKLOAD" :ql) :cl-ppcre :silent t)
+          (require 'cl-ppcre))
+      (setf *regex-enabled* t)
+      (format t "Regex support enabled (cl-ppcre loaded)~%"))
   (error (e)
     (format *error-output* "Regex support unavailable (cl-ppcre not found): ~A~%~
                             Install with: (ql:quickload :cl-ppcre)~%~
                             MATCHES and EXTRACT operators will be unavailable.~%" e)))
+
+;;; Load database support (optional - uses sqlite3 CLI tool)
+(defvar *db-enabled* nil)
+(defvar *db-connections* (make-hash-table :test #'equal)
+  "Hash table mapping connection names to database file paths")
+
+(handler-case
+    (progn
+      ;; Check if sqlite3 command is available by trying to run it
+      (let ((process (sb-ext:run-program "/usr/bin/sqlite3" '("--version")
+                                        :output :stream
+                                        :error :stream
+                                        :wait t
+                                        :search t)))
+        (when process
+          (let ((exit-code (sb-ext:process-exit-code process)))
+            (when (and exit-code (zerop exit-code))
+              (setf *db-enabled* t))))))
+  (error (e)
+    (format *error-output* "Database support unavailable (sqlite3 not found): ~A~%~
+                            Install: sudo apt-get install sqlite3~%~
+                            DB operations will be no-ops.~%" e)))
 
 ;;; ============================================================================
 ;;; Helper Functions
@@ -657,20 +697,24 @@ World' and ' rest'"
                                                   (sb-bsd-sockets:host-ent-address host-ent)
                                                   port))
                  
-                 ;; Create stream for reading/writing (with SSL if HTTPS)
-                 (let ((stream (if (and (string= protocol "https") *https-enabled*)
-                                   ;; HTTPS: wrap socket with SSL stream
-                                   (funcall (find-symbol "MAKE-SSL-CLIENT-STREAM" "CL+SSL")
-                                            (sb-bsd-sockets:socket-make-stream socket
-                                                                               :input t
-                                                                               :output t
-                                                                               :element-type '(unsigned-byte 8))
-                                            :hostname host)
-                                   ;; HTTP: use plain socket stream
-                                   (sb-bsd-sockets:socket-make-stream socket
-                                                                      :input t
-                                                                      :output t
-                                                                      :element-type 'character))))
+                  ;; Create stream for reading/writing (with SSL if HTTPS)
+                  (let ((stream (if (and (string= protocol "https") *https-enabled*)
+                                    ;; HTTPS: wrap socket with SSL stream and flexi-stream for character I/O
+                                    (let* ((binary-stream (sb-bsd-sockets:socket-make-stream socket
+                                                                                :input t
+                                                                                :output t
+                                                                                :element-type '(unsigned-byte 8)))
+                                           (ssl-stream (funcall (find-symbol "MAKE-SSL-CLIENT-STREAM" "CL+SSL")
+                                                               binary-stream
+                                                               :hostname host)))
+                                      (funcall (find-symbol "MAKE-FLEXI-STREAM" "FLEXI-STREAMS")
+                                               ssl-stream
+                                               :external-format :utf-8))
+                                    ;; HTTP: use plain socket stream
+                                    (sb-bsd-sockets:socket-make-stream socket
+                                                                       :input t
+                                                                       :output t
+                                                                       :element-type 'character))))
                    ;; Build HTTP request
                    (format stream "~A ~A HTTP/1.1~C~C" method path #\Return #\Newline)
                    (format stream "Host: ~A~C~C" host #\Return #\Newline)
@@ -732,13 +776,76 @@ World' and ' rest'"
                                            while ch
                                            do (write-char ch out))))))
                        
-                       (values status-code (nreverse response-headers) response-body)))))
+                        (values status-code (nreverse response-headers) response-body)))))
             ;; Always close socket
             (close-socket socket)))
       (error (e)
         (format *error-output* "HTTP request error: ~A~%" e)
         (values 0 nil (format nil "ERROR: ~A" e))))))
 
+;;; ============================================================================
+;;; Database Helper Functions (SQLite via CLI)
+;;; ============================================================================
+
+(defun db-connect (db-name filepath)
+  "Register a database connection."
+  (when *db-enabled*
+    (setf (gethash db-name *db-connections*) filepath)
+    filepath))
+
+(defun db-execute (db-name sql)
+  "Execute SQL statement (INSERT, UPDATE, DELETE, CREATE, etc.) - no results returned."
+  (unless *db-enabled*
+    (return-from db-execute nil))
+  
+  (let ((filepath (gethash db-name *db-connections*)))
+    (unless filepath
+      (error "Database connection '~A' not found. Use DB CONNECT first." db-name))
+    
+    ;; Execute SQL using sqlite3 CLI with sb-ext:run-program
+    (handler-case
+        (let ((process (sb-ext:run-program "sqlite3" 
+                                          (list filepath sql)
+                                          :output :stream
+                                          :error :stream
+                                          :wait t
+                                          :search t)))
+          (when process
+            (sb-ext:process-exit-code process)))
+      (error (e)
+        (format *error-output* "Database execute error: ~A~%" e)
+        nil))))
+
+(defun db-query (db-name sql)
+  "Execute SQL query (SELECT) and return results as raw string (line format).
+   Each row is separated by newline, format: column = value"
+  (unless *db-enabled*
+    (return-from db-query ""))
+  
+  (let ((filepath (gethash db-name *db-connections*)))
+    (unless filepath
+      (error "Database connection '~A' not found. Use DB CONNECT first." db-name))
+    
+    ;; Query with -line mode for easier parsing
+    (handler-case
+        (let ((process (sb-ext:run-program "sqlite3" 
+                                          (list "-line" filepath sql)
+                                          :output :stream
+                                          :error :stream
+                                          :wait t
+                                          :search t)))
+          (when process
+            (with-output-to-string (result)
+              (let ((stream (sb-ext:process-output process)))
+                (loop for line = (read-line stream nil nil)
+                      while line
+                      do (format result "~A~%" line))))))
+      (error (e)
+        (format *error-output* "Database query error: ~A~%" e)
+        ""))))
+
+;;; ============================================================================
+;;; CNSC: CNS Compact Format Support
 ;;; ============================================================================
 ;;; CNSC (Compact) Preprocessor
 ;;; ============================================================================
@@ -1290,7 +1397,28 @@ World' and ' rest'"
                     (char= (char trimmed (1- (length trimmed))) #\")
                     ;; Make sure there's no unescaped quote in the middle (which would mean it's "str" = "str")
                     (not (position #\" trimmed :start 1 :end (1- (length trimmed)))))
-               (subseq trimmed 1 (1- (length trimmed))))
+               (let ((raw-str (subseq trimmed 1 (1- (length trimmed)))))
+                 ;; Process escape sequences: \\n -> \n, \\t -> \t, \\r -> \r, \\\\ -> \\
+                 (let ((result (make-array 0 :element-type 'character :adjustable t :fill-pointer 0))
+                       (i 0))
+                   (loop while (< i (length raw-str))
+                         do (if (and (< (+ i 1) (length raw-str))
+                                    (char= (char raw-str i) #\\))
+                                (let ((next-char (char raw-str (1+ i))))
+                                  (case next-char
+                                    (#\n (vector-push-extend #\Newline result))
+                                    (#\t (vector-push-extend #\Tab result))
+                                    (#\r (vector-push-extend #\Return result))
+                                    (#\\ (vector-push-extend #\\ result))
+                                    (t (progn
+                                         ;; For any other escape like \d, \s, etc., keep single backslash
+                                         (vector-push-extend #\\ result)
+                                         (vector-push-extend next-char result))))
+                                  (incf i 2))
+                                (progn
+                                  (vector-push-extend (char raw-str i) result)
+                                  (incf i))))
+                   (coerce result 'string))))
               
               ;; Environment variable: ENV("VAR_NAME") or ENV("VAR_NAME", "default") (MUST come before function call!)
               ((starts-with (string-upcase trimmed) "ENV(")
@@ -2218,15 +2346,104 @@ World' and ' rest'"
                    (when verbose
                      (format t "  Effect: HTTP POST completed (status ~D, ~A bytes)~%" 
                              status (length response-body))))
-               (error (e)
-                 (setf (gethash target-var env) "")
-                 (when verbose
-                   (format t "  Effect: HTTP POST failed: ~A~%" e))))))))
-      
-      ;; Socket: Network write
-      ((starts-with (string-upcase trimmed) "NETWORK WRITE")
-       (when verbose
-         (format t "  Effect: Network write (simulated)~%")))
+                (error (e)
+                  (setf (gethash target-var env) "")
+                  (when verbose
+                    (format t "  Effect: HTTP POST failed: ~A~%" e))))))))
+       
+        ;; Database: DB CONNECT TO "filepath" AS db_name
+        ((starts-with (string-upcase trimmed) "DB CONNECT")
+         (let* ((rest (trim (subseq trimmed 10)))
+                (rest-upper (string-upcase rest))
+                ;; Handle both " TO " and "TO " at start
+                (to-pos (or (and (starts-with rest-upper "TO ") 0)
+                           (search " TO " rest-upper)))
+                (as-pos (search " AS " rest-upper)))
+           (when (and (numberp to-pos) as-pos)
+             (let* ((to-skip (if (= to-pos 0) 3 4))  ; "TO " vs " TO "
+                    (filepath-expr (trim (subseq rest (+ to-pos to-skip) as-pos)))
+                    (db-name (trim (subseq rest (+ as-pos 4))))
+                    ;; Handle string literals directly without eval-expr to avoid parsing SQL operators
+                    (filepath (if (and (> (length filepath-expr) 1)
+                                      (char= (char filepath-expr 0) #\")
+                                      (char= (char filepath-expr (1- (length filepath-expr))) #\"))
+                                 (subseq filepath-expr 1 (1- (length filepath-expr)))
+                                 (eval-expr filepath-expr env))))
+               
+               (when *db-enabled*
+                 (db-connect db-name filepath)
+                 (format t "  Effect: Connected to database ~A at ~A~%" db-name filepath))
+               (unless *db-enabled*
+                 (format t "  Effect: DB CONNECT skipped (sqlite3 not available)~%"))))))
+       
+        ;; Database: DB EXECUTE "SQL" AS db_name
+        ((starts-with (string-upcase trimmed) "DB EXECUTE")
+         (let* ((rest (trim (subseq trimmed 10)))
+                (rest-upper (string-upcase rest)))
+           ;; Find the end of the SQL string first (closing quote)
+           (when (and (> (length rest) 0) (char= (char rest 0) #\"))
+             (let ((sql-end (position #\" rest :start 1)))
+               (when sql-end
+                 ;; Now look for AS after the SQL string (use uppercase for search)
+                 (let* ((after-sql-upper (subseq rest-upper (1+ sql-end)))
+                        (after-sql (subseq rest (1+ sql-end)))
+                        (as-pos (or (and (starts-with (trim after-sql-upper) "AS ") 0)
+                                   (search " AS " after-sql-upper))))
+                   (when (numberp as-pos)
+                     (let* ((sql (subseq rest 1 sql-end))  ; Extract SQL without quotes
+                            (as-skip (if (= as-pos 0) 3 4))
+                            (db-name (trim (subseq after-sql (+ as-pos as-skip)))))
+                       
+                       (when *db-enabled*
+                          (handler-case
+                              (progn
+                                (db-execute db-name sql)
+                                (when verbose
+                                  (format t "  Effect: Executed SQL on ~A~%" db-name)))
+                            (error (e)
+                              (when verbose
+                                (format t "  Effect: DB EXECUTE failed: ~A~%" e)))))
+                        (unless *db-enabled*
+                          (when verbose
+                            (format t "  Effect: DB EXECUTE skipped (sqlite3 not available)~%")))))))))))
+       
+         ;; Database: DB QUERY "SQL" AS db_name INTO var
+         ((starts-with (string-upcase trimmed) "DB QUERY")
+          (let* ((rest (trim (subseq trimmed 8)))
+                 (rest-upper (string-upcase rest)))
+            ;; Find the end of the SQL string first (closing quote)
+            (when (and (> (length rest) 0) (char= (char rest 0) #\"))
+              (let ((sql-end (position #\" rest :start 1)))
+                (when sql-end
+                  ;; Now look for AS and INTO after the SQL string (use uppercase for search)
+                  (let* ((after-sql-upper (subseq rest-upper (1+ sql-end)))
+                         (after-sql (subseq rest (1+ sql-end)))
+                         (as-pos (search " AS " after-sql-upper))
+                         (into-pos (search " INTO " after-sql-upper)))
+                    (when (and as-pos into-pos)
+                      (let* ((sql (subseq rest 1 sql-end))  ; Extract SQL without quotes
+                             (db-name (trim (subseq after-sql (+ as-pos 4) into-pos)))
+                             (target-var (trim (subseq after-sql (+ into-pos 6)))))
+                       
+                        (when *db-enabled*
+                          (handler-case
+                              (let ((result (db-query db-name sql)))
+                                (setf (gethash target-var env) result)
+                                (when verbose
+                                  (format t "  Effect: Queried database ~A, stored in ~A~%" db-name target-var)))
+                            (error (e)
+                              (setf (gethash target-var env) "")
+                              (when verbose
+                                (format t "  Effect: DB QUERY failed: ~A~%" e)))))
+                        (unless *db-enabled*
+                          (setf (gethash target-var env) "")
+                          (when verbose
+                            (format t "  Effect: DB QUERY skipped (sqlite3 not available)~%")))))))))))
+       
+        ;; Socket: Network write
+       ((starts-with (string-upcase trimmed) "NETWORK WRITE")
+        (when verbose
+          (format t "  Effect: Network write (simulated)~%")))
       
        ;; Socket: Send response (REAL implementation)
        ((starts-with (string-upcase trimmed) "SEND ")

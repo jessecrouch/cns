@@ -53,21 +53,29 @@ cd cns-starter
 - **Built-in JSON parser** - Parse nested objects, arrays with dot notation
 - **37% smaller code** - For API development compared to Python
 
-### Production Ready (v1.1.0)
-- ✅ HTTP/HTTPS client (GET/POST) - secure APIs ready
-- ✅ Environment variables - `ENV("API_KEY", "default")`
-- ✅ File I/O, TCP sockets
-- ✅ JSON parsing (nested, arrays, all types), string operations
-- ✅ Lists, maps, control flow
-- ✅ Functions with recursion
+### Production Ready (v1.3.0)
+- ✅ **HTTP/HTTPS client** - Full SSL/TLS support with cl+ssl + flexi-streams
+- ✅ **Database operations** - SQLite (CONNECT, EXECUTE, QUERY) with complex SQL
+- ✅ **Environment variables** - `ENV("API_KEY", "default")` with fallbacks
+- ✅ **Regex pattern matching** - MATCHES, EXTRACT with capture groups (fully operational)
+- ✅ **Date/time operations** - NOW, TIMESTAMP, FORMAT TIME, arithmetic
+- ✅ **File I/O** - Read, write, append with full paths
+- ✅ **TCP sockets** - Server implementation with real connections
+- ✅ **JSON parsing** - Nested objects, arrays, dot notation, all types
+- ✅ **String operations** - Split, contains, starts-with, escape sequences
+- ✅ **Lists & maps** - Add, remove, length, where, iteration
+- ✅ **Control flow** - If/Otherwise, repeat from, go to
+- ✅ **Functions** - Recursion, parameters, return values
 
 ### Coming Soon
 
-**Phase B - Web Backend Ready** (2-3 weeks)
+**Phase B - Web Backend Ready** (1-2 weeks)
 - ✅ Enhanced JSON (nested objects, arrays, dot notation) - 100% complete
-- ✅ Regex pattern matching (MATCHES, EXTRACT with groups) - complete
-- ✅ Date/time operations (NOW, TIMESTAMP, FORMAT TIME, arithmetic) - complete
-- 🚧 Database support (SQLite, PostgreSQL)
+- ✅ Regex pattern matching (MATCHES, EXTRACT with groups) - 100% complete
+- ✅ Date/time operations (NOW, TIMESTAMP, FORMAT TIME, arithmetic) - 100% complete
+- ✅ Database support (SQLite) - 100% complete
+- 🚧 String helpers (TRIM, UPPERCASE, LOWERCASE, REPLACE, JOIN)
+- 🚧 CSV support (read/write)
 
 **Phase C - Benchmark Proven** (2-3 months)
 - 🎯 SWE-Bench agent (Top 10-15 target)
