@@ -180,72 +180,119 @@
 **Phase B Status:** 100% complete ✅  
 **Completed:** Nov 1, 2025
 
-## 📈 Phase C Progress - Benchmark Track
+## 📈 Phase C Progress - Benchmark Track (50% Complete)
 
-### Priority 1: SYSTEM INTEGRATION (65% complete)
+### Priority 1: SYSTEM INTEGRATION ✅ COMPLETE
 1. ✅ Shell Execution (v1.5.0 - SHELL command with I/O capture)
 2. ✅ Git Operations (v1.5.0 - STATUS, DIFF, CHECKOUT, ADD, COMMIT, CLONE)
-3. 🔄 Advanced Diff Generation (in progress - for patch files)
-4. 🔄 Git Branch Management (planned)
+3. ✅ Advanced Git (v1.6.0 - BRANCH management, unified DIFF, LOG, MERGE)
+4. ✅ Code Search (v1.7.0 - FIND file discovery, GREP content search)
 
-### Priority 2: SWE-BENCH AGENT (0% complete)
-5. 🔜 Issue Analysis (planned - parse GitHub issues)
-6. 🔜 Code Search & Navigation (planned)
-7. 🔜 Patch Generation (planned - create fixes)
-8. 🔜 Test Execution & Verification (planned)
+### Priority 2: MULTI-LANGUAGE AGENT (In Progress - v1.8.0)
 
-**Phase C Status:** 30% complete  
-**ETA:** Top 10-15 SWE-Bench by end of November
+**Strategic Pivot: Dual Benchmark Attack**
+
+Instead of Python-only SWE-bench, targeting BOTH:
+- **SWE-bench Verified** (500 Python tasks) - Target: 70%+ (beat 65% SOTA)
+- **SWE-bench Multilingual** (300 tasks, 9 languages) - Target: 60%+ (beat 43% baseline)
+
+**Why Multi-Language:**
+- Current agents fail on non-Python (hardcoded AST parsing)
+- CNS is language-agnostic by design (SHELL, FIND, GREP)
+- Bigger differentiator: 40% improvement vs 7% improvement
+- Proves narrative programming works universally
+
+**Installed Toolchains:**
+- ✅ Rust 1.91 (58% baseline - low-hanging fruit)
+- ✅ Go 1.25 (31% baseline - biggest opportunity)
+- ✅ Java 11 (53% baseline - validation)
+- ✅ GCC 11.4 (28% baseline - hardest challenge)
+- ✅ Python 3.10+ (65% SOTA - baseline comparison)
+- ✅ Node 12+ (35% baseline)
+
+**v1.8.0 Components:**
+5. 🔄 Language Adapter Framework (detect language, extract build/test commands)
+6. 🔄 Universal Test Runner (abstract over pytest, cargo test, go test, etc.)
+7. 🔄 Multi-Language Agent (works across all installed toolchains)
+8. 🔄 Validation Suite (test on 50 tasks across 5 languages)
+
+**Phase C Status:** 50% complete  
+**ETA:** v1.8.0 in 5-7 days, v2.0.0 benchmark submission in 3-4 weeks
 
 ---
 
 ## 🎯 Next Steps
 
-### Immediate (Next Session)
+### Immediate (Next Session - v1.8.0 Launch)
 
-**Option A: Continue Phase C - Advanced Git**
-- Advanced diff generation (unified diff format for patches)
-- Git branch management (create, delete, merge)
-- Conflict detection and resolution
-- ~2-3 days work
-- **Result:** Complete git toolkit for SWE-Bench
+**Chosen Path: Multi-Language Agent with Language Adapters**
 
-**Option B: Start SWE-Bench Agent v0.1**
-- Issue parsing (extract problem description)
-- Code search (find relevant files)
-- Basic patch generation workflow
-- ~2-3 days work
-- **Result:** Minimal viable agent
+**Week 1 Plan (5-7 days):**
 
-**Option C: Polish & Test Current Features**
-- More shell/git examples
-- Error handling improvements
-- Performance optimization
-- ~1-2 days work
-- **Result:** Robust foundation
+**Days 1-2: Language Adapter Framework**
+- File: `examples/language-adapter.cnsc` (~150 lines)
+- Detect language from project files (Cargo.toml, go.mod, package.json, etc.)
+- Extract build/test commands from CI configs (.github/workflows)
+- Introspect toolchain capabilities (cargo --help, go help test)
+- Store knowledge in reusable Map structure
 
-**Recommendation:** Option A (advanced git), then Option B (agent v0.1)
+**Days 3-4: Universal Test Runner + Agent**
+- File: `examples/test-runner.cnsc` (~100 lines)
+- Abstract over different test frameworks (pytest, cargo test, go test, npm test)
+- Parse test output for failures (language-agnostic patterns)
+- File: `examples/swe-bench-agent.cnsc` (~200 lines)
+- Integrate language adapter + test runner
+- Complete multi-step workflow (parse issue → find files → test → patch)
 
-### Short Term (Next 2 Weeks)
+**Days 5-7: Multi-Language Validation**
+- Test on 10 Rust tasks (highest baseline: 58%)
+- Test on 10 Go tasks (lowest baseline: 31% - biggest opportunity)
+- Test on 10 Python tasks (baseline comparison: 65%)
+- Collect metrics, analyze failures
+- **Target:** 50-60% success rate across languages
 
-1. **Complete Advanced Git** - 2-3 days
-2. **Build SWE-Bench Agent v0.1** - 2-3 days
-3. **Test on 10-20 issues** - 1-2 days
-4. **Iterate based on results** - ongoing
-5. **Run full SWE-Bench Lite** - 1-2 days
+**Why This Approach:**
+- Biggest competitive differentiator (multi-language vs Python-only)
+- Proves CNS design advantage (language-agnostic orchestration)
+- Larger addressable market (SWE-bench Multilingual is growing)
+- Shows off FIND/GREP/SHELL working together
 
-**Target:** Working SWE-Bench agent by Nov 10-15
+### Short Term (Next 2-3 Weeks)
 
-### Medium Term (Next Month)
+**Week 1: v1.8.0 - Language Adapters + Multi-Language Agent**
+- Days 1-2: Language adapter framework
+- Days 3-4: Universal test runner + agent integration  
+- Days 5-7: Validation on 30 tasks (Rust, Go, Python)
+- **Deliverable:** Working multi-language agent
 
-**Phase C.5: Benchmark Domination**
-- Run full SWE-Bench Lite (300 issues)
-- Target: 50-60% pass rate
-- Submit to leaderboard
-- Analyze failures, improve agent
-- Iterate towards 65-70% (Top 10-15)
+**Week 2: v1.9.0 - Optimization and Scale**
+- Run on 50 tasks across all languages
+- Build failure pattern knowledge base
+- Add retry strategies and error recovery
+- Language-specific optimizations
+- **Target:** 55-60% success rate
 
-**Result:** Industry validation of narrative programming
+**Week 3: Full Benchmark Runs**
+- SWE-bench Multilingual: All 300 tasks
+- SWE-bench Verified: 100+ Python tasks
+- Collect comprehensive metrics
+- **Target:** 60% Multilingual, 65-70% Verified
+
+### Medium Term (Week 4 - v2.0.0 Launch)
+
+**Dual Benchmark Submission:**
+- Official submissions to both leaderboards
+- Technical blog post: "How Narrative Programming Beats AST-Based Agents"
+- Demo video showing multi-language capabilities
+- HN/Reddit/Twitter launch
+
+**Success Metrics:**
+- Beat 65% SOTA on Verified → Top 10-15
+- Beat 43% baseline on Multilingual by 40% → Top 5-10
+- Combined: Industry validation of narrative programming
+- Bonus: <$100 total cost vs $200-10k commercial agents
+
+**Result:** First language designed for LLMs proves superior on real-world software engineering
 
 ---
 

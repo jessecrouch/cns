@@ -82,15 +82,24 @@ cd cns-starter
 - ✅ String helpers (TRIM, UPPERCASE, LOWERCASE, REPLACE, JOIN, LENGTH_OF)
 - ✅ CSV support (read/write with headers)
 
-**Phase C - Benchmark Track** (40% COMPLETE) 🚀
+**Phase C - Benchmark Track** (50% COMPLETE) 🚀
 - ✅ Shell execution (SHELL command with output capture)
 - ✅ Basic git operations (status, diff, checkout, add, commit, clone)
 - ✅ Advanced git operations (branch management, unified diffs, commit log, merge)
-- 🔄 Code search and navigation (FIND, GREP commands)
-- 🔄 Complete SWE-Bench agent implementation
-- 🎯 Top 10-15 SWE-Bench leaderboard target
+- ✅ Code search and navigation (FIND, GREP commands) - v1.7.0
+- 🔄 Language adapters (multi-language build/test detection) - v1.8.0 in progress
+- 🔄 SWE-Bench agent (works across Python, Rust, Go, Java, C++, TypeScript)
+- 🎯 **Dual benchmark target:**
+  - SWE-bench Verified: 70%+ (beat 65% SOTA)
+  - SWE-bench Multilingual: 60%+ (beat 43% baseline by 40%)
 
-**Result**: First indie project to crack Top 15 on SWE-Bench using narrative programming
+**Result**: First narrative language to beat procedural agents on multi-language software engineering
+
+**Why CNS Wins at Multi-Language:**
+- **No AST dependency** - Other agents fail on non-Python because they hardcode Python parsing
+- **Language-agnostic tools** - SHELL, FIND, GREP work on any codebase
+- **Self-learning** - Extracts build/test commands from CI configs
+- **Compact context** - CNSC format = more room for understanding code
 
 **[See full roadmap →](docs/development/ROADMAP.md)** · **[Benchmark strategy →](docs/development/BENCHMARK-STRATEGY.md)**
 
@@ -431,10 +440,13 @@ End: Return result
 **LLM Validation:** 100% success rate (10/10 tests)  
 
 ### Roadmap
-- **v1.7.0 (Current):** FIND/GREP for code navigation and search
-- **v1.8.0 (Next):** SWE-Bench agent v0.1 → automated issue resolution
-- **v2.0.0 (6 weeks):** CLI tools, file ops, crypto → 70% coverage
-- **v3.0.0+ (3-6 months):** Full ecosystem, packages → 85% coverage
+- **v1.7.0 (Current):** FIND/GREP for code navigation and search ✅
+- **v1.8.0 (Week 1):** Language adapters + multi-language SWE-bench agent
+- **v1.9.0 (Week 2-3):** Scale to 300 tasks, optimize success rates
+- **v2.0.0 (Week 4):** **Dual benchmark submission:**
+  - SWE-bench Verified (Python): Target 70%+ (beat 65% SOTA)
+  - SWE-bench Multilingual (9 languages): Target 60%+ (beat 43% baseline)
+- **v2.5+ (Months 2-3):** CLI tools, file ops, crypto → 80% coverage
 
 **[See detailed roadmap →](docs/development/ROADMAP.md)**
 

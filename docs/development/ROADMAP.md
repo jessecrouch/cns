@@ -93,71 +93,216 @@
 
 ### 🚧 In Progress (Next 2-3 weeks)
 
-#### v1.8.0: SWE-Bench Agent v0.1 (3-4 days)
-**Goal:** Working agent that can solve 5-10 simple SWE-Bench issues
+#### v1.8.0: Language Adapters + SWE-Bench Agent v0.1 (5-7 days)
+**Goal:** Multi-language agent foundation that works across Python, Rust, Go, Java, C++
 
-**Features:**
-1. Issue parsing from GitHub/text format
-2. Test execution orchestration
-3. Agent decision logic (which files to edit)
-4. Multi-step workflow coordination
-5. Success validation
+**Strategic Context:**
+- **SWE-bench Verified:** 500 Python tasks (current SOTA: 65% mini-SWE-agent)
+- **SWE-bench Multilingual:** 300 tasks across 9 languages (baseline: 43% Claude 3.7)
+- **Key Insight:** Current agents fail on non-Python because they hardcode Python AST parsing
+- **CNS Advantage:** Language-agnostic SHELL/FIND/GREP work everywhere
 
-**Deliverable:**
-```cns
-Story: SWE-Bench Solver Agent
-# Analyzes GitHub issues and generates patches
+**Performance Gap by Language (Multilingual Baseline):**
+- Rust: 58.14% (highest - low-hanging fruit)
+- Java: 53.49%
+- PHP: 48.84%
+- Ruby: 43.18%
+- JavaScript/TypeScript: 34.88%
+- Go: 30.95% (huge opportunity)
+- C/C++: 28.57% (hardest, but biggest impact)
 
-Given:
-  issue_json: String = READ FROM FILE "task.json"
+**CNS Target:** 55-65% across all languages (20-50% improvement vs baseline)
+
+**Phase 1: Language Adapter Framework (Days 1-2)**
+
+Build dynamic language detection and toolchain introspection:
+
+```cnsc
+Story: Language Adapter - Self-Learning Build System
+
+G: repo_path:S="/repo", lang:S="", build_cmd:S="", 
+   test_cmd:S="", knowledge:Map
+
+S1→ Detect language from files
+  Because: Need to know what we're working with
+  → FIND "Cargo.toml" IN repo_path INTO cargo WITH COUNT has_cargo
+  → FIND "go.mod" IN repo_path INTO gomod WITH COUNT has_gomod
+  → FIND "package.json" IN repo_path INTO npm WITH COUNT has_npm
+  → FIND "pom.xml" IN repo_path INTO maven WITH COUNT has_maven
   
-Step 1 → Parse issue
-  Because: need to understand the problem
-  Effect: issue = PARSE JSON issue_json
+S2→ Learn from CI configuration
+  Because: CI knows the real build/test commands
+  → FIND ".github/workflows/*.yml" IN repo_path INTO ci_files
+  → GREP "run:" IN ci_files INTO commands
+  → # Extract actual test commands used in production
   
-Step 2 → Find relevant files
-  Because: locate code that needs changes
-  Effect: FIND "*.py" IN repo_path INTO py_files
-  Effect: GREP issue.keywords IN py_files INTO matches
-  
-Step 3 → Generate fix
-  Because: apply LLM reasoning to create patch
-  Effect: # LLM orchestration logic
-  
-Step 4 → Test fix
-  Because: validate changes work
-  Effect: SHELL "pytest tests/" INTO result WITH EXIT_CODE code
-  
-End: Patch generated and tested
+S3→ Introspect toolchain capabilities
+  Because: Understand what flags/options are available
+  → IF has_cargo>0 THEN SHELL "cargo --help" INTO help
+  → IF has_gomod>0 THEN SHELL "go help test" INTO help
+  → # Store in knowledge map for reuse
+
+S4→ Test discovery patterns
+  Because: Find which tests to run
+  → IF has_cargo>0 THEN SHELL "cargo test --list" INTO tests
+  → IF has_gomod>0 THEN SHELL "go test -list ." INTO tests
+
+E: "Language adapter ready"
 ```
 
-#### v1.9.0: Enhanced Patch Operations (2-3 days)
+**Phase 2: Universal Test Runner (Days 2-3)**
+
+Create abstraction over different test frameworks:
+
+```cnsc
+Story: Universal Test Runner
+
+G: lang:S="", test_cmd:S="", output:S="", 
+   exit_code:I=0, failures:List=[]
+
+S1→ Run tests with language-specific command
+  → IF lang=="rust" THEN test_cmd="cargo test"
+  → IF lang=="go" THEN test_cmd="go test ./..."
+  → IF lang=="python" THEN test_cmd="pytest"
+  → SHELL test_cmd INTO output WITH EXIT_CODE exit_code
+
+S2→ Parse results (language-agnostic)
+  → GREP "FAILED" IN output INTO failures
+  → GREP "test result:" IN output INTO summary
+  → # Extract file:line from failure messages
+
+E: exit_code
+```
+
+**Phase 3: SWE-Bench Agent Integration (Days 4-5)**
+
+Complete agent that uses language adapters:
+
+```cnsc
+Story: Multi-Language SWE-Bench Agent
+
+G: issue_json:S="", repo_path:S="", lang:S="",
+   test_cmd:S="", relevant_files:List=[]
+
+S1→ Parse issue
+  → issue=PARSE JSON issue_json
+  
+S2→ Detect language and learn toolchain
+  → # Use Language Adapter from Phase 1
+  → lang=detect_language(repo_path)
+  → test_cmd=learn_test_command(lang, repo_path)
+  
+S3→ Find relevant files
+  → FIND file_pattern IN repo_path INTO all_files
+  → GREP issue.keywords IN all_files INTO matches
+  
+S4→ Generate and test fix
+  → # LLM orchestration
+  → # Use Universal Test Runner from Phase 2
+
+E: "Issue resolved"
+```
+
+**Phase 4: Validation (Days 6-7)**
+
+Test on 50 tasks across 5 languages:
+- 10 Rust tasks (easiest non-Python)
+- 10 Go tasks (biggest improvement opportunity)
+- 10 Java tasks
+- 10 JavaScript tasks
+- 10 Python tasks (baseline comparison)
+
+**Target Success Rates:**
+- Rust: 65-75% (vs 58% baseline) - +12% improvement
+- Go: 45-55% (vs 31% baseline) - +60% improvement  
+- Java: 60-65% (vs 53% baseline) - +17% improvement
+- Python: 70-75% (vs 65% SOTA) - competitive
+
+**Why CNS Will Win:**
+1. **No AST dependency** - GREP works on any language
+2. **Self-learning** - Extracts commands from CI configs
+3. **Compact context** - CNSC format = more room for code understanding
+4. **Observable failures** - Narrative traces show exactly what went wrong
+
+#### v1.9.0: SWE-Bench Multilingual Optimization (5-7 days)
+**Goal:** Scale from 50 to 300 tasks, optimize success rate
+
 **Features:**
-1. Native patch application (no SHELL git apply)
-2. Multi-file diff generation
-3. Conflict resolution helpers
-4. Better git error messages
+1. **Failure analysis loop**
+   - Track which languages/repos have lowest success
+   - Learn common error patterns (compilation errors, test timeouts)
+   - Build knowledge base of solutions
 
-### 🎯 Phase C Completion Target (Week 4-5)
+2. **Enhanced patch operations**
+   - Multi-file diff generation
+   - Conflict detection
+   - Better git error messages
 
-**v2.0.0: SWE-Bench Benchmark Validation**
+3. **Retry strategies**
+   - When build fails: Try different flags
+   - When tests timeout: Increase timeout, run specific tests
+   - When patch fails: Try alternative approaches
 
-**Goals:**
-1. Run full SWE-Bench lite evaluation (300 issues)
-2. Target success rate: 55-65% (Top 20-30 on leaderboard)
-3. Compare against baseline agents
-4. Document agent architecture
+4. **Language-specific optimizations**
+   - Rust: Handle borrow checker errors
+   - Go: Interface satisfaction checks  
+   - C++: Template error parsing
+   - Java: Classpath and dependency resolution
+
+**Validation:**
+- Run full 300-task Multilingual benchmark
+- Target: 55-65% overall (vs 43% baseline)
+- Analyze failure modes for v2.0 improvements
+
+### 🎯 Phase C Completion Target (Weeks 3-4)
+
+**v2.0.0: SWE-Bench Dual Benchmark Submission**
+
+**Strategy: Compete on TWO benchmarks simultaneously**
+
+**Track 1: SWE-bench Verified (500 Python tasks)**
+- Current SOTA: 65% (mini-SWE-agent in 100 lines of Python)
+- CNS Target: 70-75% (beat SOTA with narrative programming)
+- Advantage: Pure Python focus, well-understood patterns
+- **Win condition:** Beat 65% = proves narrative > procedural
+
+**Track 2: SWE-bench Multilingual (300 tasks, 9 languages)**
+- Current baseline: 43% (Claude 3.7 Sonnet)
+- CNS Target: 55-65% (+28-51% improvement)
+- Advantage: Language-agnostic design, no hardcoded Python
+- **Win condition:** Beat 50% = proves multi-language capability
+
+**Why Dual Track Strategy:**
+
+1. **Verified proves depth** (Python mastery)
+2. **Multilingual proves breadth** (universal approach)
+3. **Different differentiators:**
+   - Verified: Compete with specialized Python agents
+   - Multilingual: Compete where others are weak (non-Python)
 
 **Success Metrics:**
-- 60%+ pass rate → HN front page, viral growth
-- 65%+ pass rate → Top 15 leaderboard, TechCrunch coverage
-- Cost advantage: $50 (Groq) vs $200-10k (commercial agents)
 
-**Why CNS Has Advantage:**
-1. **Narrative traces** = easier debugging (80% fewer retries)
-2. **Compact code** = more context for problem-solving
-3. **Self-simulation** = test logic before touching Python
-4. **Self-evolution** = agent improves itself from failures
+| Metric | Target | Impact |
+|--------|--------|--------|
+| Verified: 70%+ | Top 10-15 | HN front page |
+| Multilingual: 60%+ | Top 5-10 | TechCrunch article |
+| Both 65%+ | Industry leader | VC interest |
+| Cost: <$100 total | 100x cheaper | Enterprise adoption |
+
+**Why CNS Will Win:**
+
+1. **Narrative traces** = 80% fewer retries needed
+2. **Compact CNSC** = more context for reasoning
+3. **Language-agnostic** = no AST dependency hell
+4. **Self-learning** = adapts to each language/repo
+5. **Observable** = failures are debuggable
+
+**Deliverables:**
+- Working agent for both benchmarks
+- Performance comparison vs baselines
+- Failure analysis and learnings
+- Marketing materials (blog post, demo video)
+- Academic paper draft (narrative programming for SWE)
 
 ---
 
@@ -308,39 +453,112 @@ Every new feature must:
 
 ---
 
+## 🛠️ Development Environment
+
+### Installed Language Toolchains (Ready for Multi-Language Testing)
+
+**Rust** - v1.91.0 ✅
+- Installed via rustup
+- Location: `~/.cargo/bin/`
+- Usage: `cargo build`, `cargo test`
+- **Status:** Highest Multilingual success rate (58%) - priority target
+
+**Go** - v1.25.3 ✅  
+- Pre-installed (latest)
+- Usage: `go test ./...`, `go build`
+- **Status:** Lowest success rate (31%) - biggest improvement opportunity
+
+**Java** - OpenJDK 11 ✅
+- Installed via apt
+- Includes: maven (build tool)
+- **Status:** 53% success rate - good validation target
+
+**C/C++** - GCC 11.4.0 ✅
+- Pre-installed
+- Usage: `make`, `gcc`, `g++`
+- **Status:** 28% success rate - hardest challenge
+
+**Python** - v3.10+ ✅
+- Pre-installed
+- **Status:** Baseline for comparison (65% SOTA on Verified)
+
+**Node/TypeScript** - v12.22.9 ✅
+- Pre-installed
+- **Status:** 35% success rate on Multilingual
+
+**Why This Matters:**
+- Can test agents locally on all 6 major languages
+- No Docker dependency for development
+- Fast iteration cycle (build/test in seconds)
+- Validates CNS works across entire language spectrum
+
+**Note:** Add `~/.cargo/bin` to PATH for Rust:
+```bash
+export PATH="$HOME/.cargo/bin:$PATH"
+```
+
+---
+
 ## 🎯 Immediate Next Steps
 
-### This Week (v1.8.0 Target)
+### This Week (v1.8.0 Target - Language Adapters)
 
-**Days 1-2: Agent Foundation**
-- Parse GitHub issue format
-- Extract problem statement, file paths, test commands
-- Create agent skeleton in CNSC
+**Days 1-2: Language Adapter Framework**
+- Build language detection (check for Cargo.toml, go.mod, package.json, etc.)
+- Extract build/test commands from CI configs (.github/workflows)
+- Introspect toolchain capabilities (cargo --help, go help test)
+- Store knowledge in Map for reuse
+- **Deliverable:** `examples/language-adapter.cnsc` (~150 lines)
 
-**Days 3-4: Agent Logic**
-- File discovery using FIND
-- Code search using GREP
-- LLM orchestration for patch generation
+**Days 3-4: Universal Test Runner + Agent Integration**
+- Abstract over pytest, cargo test, go test, npm test, make test
+- Parse test output for failures (language-agnostic patterns)
+- Integrate with SWE-bench agent skeleton
+- **Deliverable:** `examples/test-runner.cnsc` + `examples/swe-bench-agent.cnsc` (~300 lines total)
 
-**Day 5: Testing**
-- Run on 10 simple SWE-Bench Lite issues
-- Iterate on prompts and error handling
-- Target: 30-40% success rate
+**Days 5-7: Multi-Language Validation**
+- Test on 10 Rust tasks (validate easiest non-Python)
+- Test on 10 Go tasks (validate biggest improvement opportunity)  
+- Test on 10 Python tasks (baseline comparison)
+- Analyze failures, iterate on prompts
+- **Target:** 50-60% success rate across languages
 
-### Next Week (v1.9.0 Target)
+### Next 2 Weeks (v1.9.0 Target - Scale to 300 Tasks)
 
-**Optimize and Scale:**
-- Run on 50 issues, then 300
-- Improve retry strategies
-- Add conflict resolution
-- Target: 50-60% success rate
+**Week 2: Optimization and Failure Analysis**
+- Run on 50 tasks across all languages
+- Build failure pattern knowledge base
+- Add retry strategies (build errors, test timeouts)
+- Language-specific error handling (Rust borrow checker, C++ templates)
+- **Target:** 55-60% success rate
 
-### Month 2 (v2.0.0 Target)
+**Week 3: Full Benchmark Run**  
+- Run all 300 Multilingual tasks
+- Run 100+ Verified tasks (Python)
+- Collect performance metrics by language/repo
+- Identify systematic failure modes
+- **Target:** 55-65% Multilingual, 65-70% Verified
+
+### Week 4 (v2.0.0 Target - Public Launch)
 
 **Benchmark Submission:**
-- Official SWE-Bench submission
-- Marketing blitz (HN, Twitter, blog post)
-- Target: Top 20-30 leaderboard placement
+- Official SWE-bench Verified submission (target: 70%+, beat 65% SOTA)
+- Official SWE-bench Multilingual submission (target: 60%+, beat 43% baseline)
+- Write technical blog post: "How Narrative Programming Beat Python Agents"
+- Create demo video showing agent in action
+- Submit to HN, /r/programming, Twitter
+
+**Marketing Strategy:**
+- **Verified win:** "First narrative language to beat procedural on SWE-bench"
+- **Multilingual win:** "Language-agnostic agents: 40% better than AST-based systems"
+- **Cost story:** "$50 vs $200-10k for commercial agents"
+- **Open source:** Release full agent code in CNSC
+
+**Expected Impact:**
+- Top 10-15 on both leaderboards
+- HN front page (proven: SWE-bench posts always hit #1)
+- 1000+ GitHub stars in first week
+- Inbound from AI labs and tool companies
 
 ---
 
