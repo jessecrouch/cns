@@ -1774,6 +1774,103 @@ World' and ' rest'"
                     ;; No BY clause - error
                     nil)))
             
+             ;; String operation: TRIM text
+             ((starts-with (string-upcase trimmed) "TRIM ")
+              (let* ((rest (trim (subseq trimmed 5)))
+                     (str-val (eval-expr rest env)))
+                (if (stringp str-val)
+                    (trim str-val)
+                    "")))
+            
+             ;; String operation: UPPERCASE text
+             ((starts-with (string-upcase trimmed) "UPPERCASE ")
+              (let* ((rest (trim (subseq trimmed 10)))
+                     (str-val (eval-expr rest env)))
+                (if (stringp str-val)
+                    (string-upcase str-val)
+                    "")))
+            
+             ;; String operation: LOWERCASE text
+             ((starts-with (string-upcase trimmed) "LOWERCASE ")
+              (let* ((rest (trim (subseq trimmed 10)))
+                     (str-val (eval-expr rest env)))
+                (if (stringp str-val)
+                    (string-downcase str-val)
+                    "")))
+            
+             ;; String operation: REPLACE "search" WITH "replacement" IN text
+             ((starts-with (string-upcase trimmed) "REPLACE ")
+              (let* ((rest (trim (subseq trimmed 8)))
+                     (with-pos (search " WITH " (string-upcase rest)))
+                     (in-pos (search " IN " (string-upcase rest))))
+                (if (and with-pos in-pos)
+                    (let* ((search-expr (trim (subseq rest 0 with-pos)))
+                           (replace-expr (trim (subseq rest (+ with-pos 6) in-pos)))
+                           (text-expr (trim (subseq rest (+ in-pos 4))))
+                           (search-val (eval-expr search-expr env))
+                           (replace-val (eval-expr replace-expr env))
+                           (text-val (eval-expr text-expr env)))
+                      (if (and (stringp search-val) (stringp replace-val) (stringp text-val))
+                          (replace-all text-val search-val replace-val)
+                          ""))
+                    "")))
+            
+             ;; String operation: JOIN list WITH "delimiter"
+             ((starts-with (string-upcase trimmed) "JOIN ")
+              (let* ((rest (trim (subseq trimmed 5)))
+                     (with-pos (search " WITH " (string-upcase rest))))
+                (if with-pos
+                    (let* ((list-expr (trim (subseq rest 0 with-pos)))
+                           (delim-expr (trim (subseq rest (+ with-pos 6))))
+                           (list-val (eval-expr list-expr env))
+                           (delim-val (eval-expr delim-expr env)))
+                      (if (and (listp list-val) (stringp delim-val))
+                          (with-output-to-string (s)
+                            (loop for item in list-val
+                                  for first = t then nil
+                                  unless first do (write-string delim-val s)
+                                  do (princ item s)))
+                          ""))
+                    "")))
+            
+             ;; String operation: LENGTH_OF text
+             ((starts-with (string-upcase trimmed) "LENGTH_OF ")
+              (let* ((rest (trim (subseq trimmed 10)))
+                     (val (eval-expr rest env)))
+                (cond
+                  ((stringp val) (length val))
+                  ((listp val) (length val))
+                  (t 0))))
+            
+             ;; CSV operation: CSV READ "filepath"
+             ;; Returns list of maps, where each map has header keys
+             ((starts-with (string-upcase trimmed) "CSV READ ")
+              (let* ((rest (trim (subseq trimmed 9)))
+                     (filepath (eval-expr rest env)))
+                (when (stringp filepath)
+                  (handler-case
+                      (with-open-file (stream filepath :direction :input :if-does-not-exist nil)
+                        (if stream
+                            (let ((header-line (read-line stream nil nil))
+                                  (rows '()))
+                              (when header-line
+                                (let ((headers (mapcar #'trim (split-string header-line #\,))))
+                                  ;; Read each data row
+                                  (loop for line = (read-line stream nil nil)
+                                        while line
+                                        do (let* ((values (mapcar #'trim (split-string line #\,)))
+                                                  (row (make-hash-table :test #'equal)))
+                                             ;; Create map from headers to values
+                                             (loop for header in headers
+                                                   for value in values
+                                                   do (setf (gethash header row) value))
+                                             (push row rows)))
+                                  (nreverse rows))))
+                            '()))
+                    (error (e)
+                      (format *error-output* "CSV READ error: ~A~%" e)
+                      '())))))
+            
              ;; Date/Time: FORMAT TIME value WITH "format"
              ((starts-with (string-upcase trimmed) "FORMAT TIME ")
               (let* ((rest (trim (subseq trimmed 12)))
@@ -2435,10 +2532,43 @@ World' and ' rest'"
                               (setf (gethash target-var env) "")
                               (when verbose
                                 (format t "  Effect: DB QUERY failed: ~A~%" e)))))
-                        (unless *db-enabled*
+                          (unless *db-enabled*
                           (setf (gethash target-var env) "")
                           (when verbose
                             (format t "  Effect: DB QUERY skipped (sqlite3 not available)~%")))))))))))
+       
+        ;; CSV WRITE: CSV WRITE data TO "filepath" WITH HEADERS headers
+        ((starts-with (string-upcase trimmed) "CSV WRITE ")
+         (let* ((rest (trim (subseq trimmed 10)))
+                (to-pos (search " TO " (string-upcase rest)))
+                (with-pos (search " WITH HEADERS " (string-upcase rest))))
+           (when (and to-pos with-pos)
+             (let* ((data-expr (trim (subseq rest 0 to-pos)))
+                    (file-expr (trim (subseq rest (+ to-pos 4) with-pos)))
+                    (headers-expr (trim (subseq rest (+ with-pos 14))))
+                    (data (eval-expr data-expr env))
+                    (filepath (eval-expr file-expr env))
+                    (headers (eval-expr headers-expr env)))
+               (when (and (listp data) (stringp filepath) (listp headers))
+                 (handler-case
+                     (with-open-file (stream filepath :direction :output 
+                                           :if-exists :supersede 
+                                           :if-does-not-exist :create)
+                       ;; Write header row
+                       (format stream "~{~A~^,~}~%" headers)
+                       ;; Write data rows
+                       (dolist (row data)
+                         (if (hash-table-p row)
+                             ;; Map/hash-table: extract values in header order
+                             (let ((values (mapcar (lambda (h) (gethash h row "")) headers)))
+                               (format stream "~{~A~^,~}~%" values))
+                             ;; List: write directly
+                             (format stream "~{~A~^,~}~%" row)))
+                       (when verbose
+                         (format t "  Effect: Wrote ~D rows to CSV file ~A~%" (length data) filepath)))
+                   (error (e)
+                     (when verbose
+                       (format t "  Effect: CSV WRITE failed: ~A~%" e)))))))))
        
         ;; Socket: Network write
        ((starts-with (string-upcase trimmed) "NETWORK WRITE")
@@ -2693,12 +2823,18 @@ World' and ' rest'"
                   (type (caddr var))
                   (val (cadddr var)))
                ;; Parse value intelligently:
-              ;; - If val is already a plain string (from extract-quoted-string), use it directly
+              ;; - If val is a list literal [x, y, z], evaluate it
+              ;; - If val is a quoted string, use it directly
               ;; - Otherwise evaluate it as an expression
               (setf (gethash name env) 
                     (if val 
                         (if (stringp val)
-                            val  ; Already a string from extract-quoted-string
+                            ;; Check if it's a list literal
+                            (if (and (> (length val) 1)
+                                     (char= (char val 0) #\[)
+                                     (char= (char val (1- (length val))) #\]))
+                                (eval-expr val env)  ; Parse list literal
+                                val)  ; Already a string from extract-quoted-string
                             (eval-expr val env))  ; Number or expression
                         nil))
               (when verbose

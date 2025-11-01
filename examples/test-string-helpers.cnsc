@@ -1,0 +1,25 @@
+G: text = "  Hello World  "
+G: list = ["apple", "banana", "cherry"]
+G: messy = "the quick brown fox"
+
+S1→ cleaned = TRIM text
+S2→ upper = UPPERCASE cleaned
+S3→ lower = LOWERCASE cleaned
+S4→ replaced = REPLACE "World" WITH "CNS" IN cleaned
+S5→ joined = JOIN list WITH ", "
+S6→ length1 = LENGTH_OF cleaned
+S7→ length2 = LENGTH_OF list
+
+S8→ PRINT "Original: '" + text + "'"
+S9→ PRINT "Trimmed: '" + cleaned + "'"
+S10→ PRINT "Uppercase: " + upper
+S11→ PRINT "Lowercase: " + lower
+S12→ PRINT "Replaced: " + replaced
+S13→ PRINT "Joined: " + joined
+S14→ PRINT "String length: " + STR length1
+S15→ PRINT "List length: " + STR length2
+
+S16→ combined = UPPERCASE (TRIM "  spaces  ")
+S17→ PRINT "Combined ops: " + combined
+
+E:

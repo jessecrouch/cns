@@ -1,0 +1,32 @@
+Story: Test CSV Operations
+
+Given:
+  headers: List = ["name", "age", "city"]
+  data: List = []
+  output_file: String = "test-output.csv"
+
+Step 1 → Create sample data
+  Because: building test data as list of lists
+  Then: row1 becomes ["Alice", "30", "NYC"]
+  Then: row2 becomes ["Bob", "25", "LA"]
+  Then: row3 becomes ["Charlie", "35", "Chicago"]
+  Effect: ADD row1 TO LIST data
+  Effect: ADD row2 TO LIST data
+  Effect: ADD row3 TO LIST data
+
+Step 2 → Write CSV file
+  Because: testing CSV WRITE functionality
+  Effect: CSV WRITE data TO output_file WITH HEADERS headers
+
+Step 3 → Read CSV file back
+  Because: testing CSV READ functionality
+  Then: loaded_data becomes CSV READ output_file
+
+Step 4 → Display results
+  Because: verify data was written and read correctly
+  Then: count becomes LENGTH_OF loaded_data
+  Then: PRINT count
+
+End:
+Return: count
+Because: computation complete

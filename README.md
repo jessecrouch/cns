@@ -53,9 +53,11 @@ cd cns-starter
 - **Built-in JSON parser** - Parse nested objects, arrays with dot notation
 - **37% smaller code** - For API development compared to Python
 
-### Production Ready (v1.3.0)
+### Production Ready (v1.4.0)
 - ✅ **HTTP/HTTPS client** - Full SSL/TLS support with cl+ssl + flexi-streams
 - ✅ **Database operations** - SQLite (CONNECT, EXECUTE, QUERY) with complex SQL
+- ✅ **CSV file support** - Read/write with headers, list of maps
+- ✅ **String helpers** - TRIM, UPPERCASE, LOWERCASE, REPLACE, JOIN, LENGTH_OF
 - ✅ **Environment variables** - `ENV("API_KEY", "default")` with fallbacks
 - ✅ **Regex pattern matching** - MATCHES, EXTRACT with capture groups (fully operational)
 - ✅ **Date/time operations** - NOW, TIMESTAMP, FORMAT TIME, arithmetic
@@ -67,15 +69,15 @@ cd cns-starter
 - ✅ **Control flow** - If/Otherwise, repeat from, go to
 - ✅ **Functions** - Recursion, parameters, return values
 
-### Coming Soon
+### Phase B Complete! 🎉
 
-**Phase B - Web Backend Ready** (1-2 weeks)
-- ✅ Enhanced JSON (nested objects, arrays, dot notation) - 100% complete
-- ✅ Regex pattern matching (MATCHES, EXTRACT with groups) - 100% complete
-- ✅ Date/time operations (NOW, TIMESTAMP, FORMAT TIME, arithmetic) - 100% complete
-- ✅ Database support (SQLite) - 100% complete
-- 🚧 String helpers (TRIM, UPPERCASE, LOWERCASE, REPLACE, JOIN)
-- 🚧 CSV support (read/write)
+**Phase B - Web Backend Ready** (100% COMPLETE)
+- ✅ Enhanced JSON (nested objects, arrays, dot notation)
+- ✅ Regex pattern matching (MATCHES, EXTRACT with groups)
+- ✅ Date/time operations (NOW, TIMESTAMP, FORMAT TIME, arithmetic)
+- ✅ Database support (SQLite CONNECT, EXECUTE, QUERY)
+- ✅ String helpers (TRIM, UPPERCASE, LOWERCASE, REPLACE, JOIN, LENGTH_OF)
+- ✅ CSV support (read/write with headers)
 
 **Phase C - Benchmark Proven** (2-3 months)
 - 🎯 SWE-Bench agent (Top 10-15 target)

@@ -1,0 +1,28 @@
+Story: Generate and Process CSV Report
+
+Given:
+  headers: List = ["product", "quantity", "price"]
+  sales: List = []
+  filename: String = "sales-report.csv"
+  total: Integer = 0
+
+Step 1 → Build sales data
+  Because: creating sample sales records
+  Effect: ADD ["Laptop", "5", "1200"] TO LIST sales
+  Effect: ADD ["Mouse", "20", "25"] TO LIST sales
+  Effect: ADD ["Keyboard", "15", "75"] TO LIST sales
+
+Step 2 → Write CSV report
+  Because: saving sales data to file
+  Effect: CSV WRITE sales TO filename WITH HEADERS headers
+  Effect: PRINT "Sales report written to file"
+
+Step 3 → Read and verify
+  Because: loading data back from CSV
+  Then: loaded becomes CSV READ filename
+  Then: count becomes LENGTH_OF loaded
+  Effect: PRINT "Loaded {count} records from CSV"
+
+End:
+Return: count
+Because: report processing complete

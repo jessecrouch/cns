@@ -1,0 +1,50 @@
+Story: Test String Helper Functions
+
+Given:
+  text: String = "  Hello World  "
+  messy: String = "the quick brown fox"
+  fruits: List = ["apple", "banana", "cherry"]
+
+Step 1 → Test TRIM
+  Because: testing TRIM removes leading/trailing whitespace
+  Then: cleaned becomes TRIM text
+  Then: PRINT cleaned
+  
+Step 2 → Test UPPERCASE
+  Because: testing UPPERCASE
+  Then: upper becomes UPPERCASE cleaned
+  Then: PRINT upper
+
+Step 3 → Test LOWERCASE
+  Because: testing LOWERCASE
+  Then: lower becomes LOWERCASE cleaned
+  Then: PRINT lower
+
+Step 4 → Test REPLACE
+  Because: testing REPLACE
+  Then: replaced becomes REPLACE "World" WITH "CNS" IN cleaned
+  Then: PRINT replaced
+
+Step 5 → Test JOIN
+  Because: testing JOIN combines list elements
+  Then: joined becomes JOIN fruits WITH ", "
+  Then: PRINT joined
+
+Step 6 → Test LENGTH_OF string
+  Because: testing LENGTH_OF with string
+  Then: len1 becomes LENGTH_OF cleaned
+  Then: PRINT len1
+
+Step 7 → Test LENGTH_OF list
+  Because: testing LENGTH_OF with list
+  Then: len2 becomes LENGTH_OF fruits
+  Then: PRINT len2
+
+Step 8 → Test multi-word replace
+  Because: testing REPLACE with multi-word strings
+  Then: result becomes REPLACE "quick brown" WITH "slow red" IN messy
+  Then: PRINT result
+
+End:
+Return: cleaned
+Because: computation complete

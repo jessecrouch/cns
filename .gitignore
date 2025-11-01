@@ -51,3 +51,4 @@ tests/llm-tests/generated/
 
 # Build artifacts (starter packages)
 build/
+*.csv
