@@ -2153,8 +2153,9 @@ World' and ' rest'"
              ;; First try to evaluate as expression (handles + concatenation)
              (result (handler-case
                         (let ((val (eval-expr msg env)))
+                          ;; If it's a string, apply variable substitution
                           (if (stringp val)
-                              val
+                              (substitute-vars val env)
                               (format nil "~A" val)))
                       (error ()
                         ;; Fallback to simple substitution for backward compatibility
