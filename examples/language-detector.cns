@@ -1,0 +1,184 @@
+Story: Modular Language Detector for Multi-Language Repositories
+# Follows CNS agent architecture: atomic components, SHELL orchestration, JSON output
+# Returns: JSON with {language, build_cmd, test_cmd}
+
+---
+
+Story: DetectRust (function)
+Given:
+  repo_path: String
+  result: String = ""
+
+Step 1 → Check for Cargo.toml
+  Because: Rust projects always have Cargo.toml
+  Effect: SHELL "test -f {repo_path}/Cargo.toml && echo rust || echo ''" INTO result WITH EXIT_CODE code
+
+End: result
+
+---
+
+Story: DetectGo (function)
+Given:
+  repo_path: String
+  result: String = ""
+
+Step 1 → Check for go.mod
+  Because: Go modules use go.mod
+  Effect: SHELL "test -f {repo_path}/go.mod && echo go || echo ''" INTO result WITH EXIT_CODE code
+
+End: result
+
+---
+
+Story: DetectJavaScript (function)
+Given:
+  repo_path: String
+  result: String = ""
+
+Step 1 → Check for package.json
+  Because: Node.js projects use package.json
+  Effect: SHELL "test -f {repo_path}/package.json && echo javascript || echo ''" INTO result WITH EXIT_CODE code
+
+End: result
+
+---
+
+Story: DetectPython (function)
+Given:
+  repo_path: String
+  result: String = ""
+
+Step 1 → Check for setup.py or pyproject.toml
+  Because: Python projects have setup.py or pyproject.toml
+  Effect: SHELL "test -f {repo_path}/setup.py -o -f {repo_path}/pyproject.toml && echo python || echo ''" INTO result WITH EXIT_CODE code
+
+End: result
+
+---
+
+Story: DetectJava (function)
+Given:
+  repo_path: String
+  result: String = ""
+
+Step 1 → Check for pom.xml or build.gradle
+  Because: Java projects use Maven or Gradle
+  Effect: SHELL "test -f {repo_path}/pom.xml -o -f {repo_path}/build.gradle && echo java || echo ''" INTO result WITH EXIT_CODE code
+
+End: result
+
+---
+
+Story: GetTestCommand (function)
+Given:
+  language: String
+  test_cmd: String = ""
+
+Step 1 → Map language to test command
+  Because: Each language has specific test tooling
+  If: language = "rust"
+    Then: test_cmd becomes "cargo test --color=never"
+  If: language = "go"
+    Then: test_cmd becomes "go test ./..."
+  If: language = "javascript"
+    Then: test_cmd becomes "npm test"
+  If: language = "python"
+    Then: test_cmd becomes "pytest -v"
+  If: language = "java"
+    Then: test_cmd becomes "mvn test"
+
+End: test_cmd
+
+---
+
+Story: GetBuildCommand (function)
+Given:
+  language: String
+  build_cmd: String = ""
+
+Step 1 → Map language to build command
+  Because: Each language has specific build tooling
+  If: language = "rust"
+    Then: build_cmd becomes "cargo build"
+  If: language = "go"
+    Then: build_cmd becomes "go build ./..."
+  If: language = "javascript"
+    Then: build_cmd becomes "npm run build"
+  If: language = "python"
+    Then: build_cmd becomes "pip install -e ."
+  If: language = "java"
+    Then: build_cmd becomes "mvn compile"
+
+End: build_cmd
+
+---
+
+Story: DetectLanguage (function)
+# Main entry point: orchestrates detection and returns JSON
+Given:
+  repo_path: String
+  language: String = ""
+  test_cmd: String = ""
+  build_cmd: String = ""
+  json_result: String = ""
+
+Step 1 → Try Rust detection
+  Then: language becomes DetectRust(repo_path)
+
+Step 2 → Try Go if not found
+  If: language = ""
+    Then: language becomes DetectGo(repo_path)
+
+Step 3 → Try JavaScript if not found
+  If: language = ""
+    Then: language becomes DetectJavaScript(repo_path)
+
+Step 4 → Try Python if not found
+  If: language = ""
+    Then: language becomes DetectPython(repo_path)
+
+Step 5 → Try Java if not found
+  If: language = ""
+    Then: language becomes DetectJava(repo_path)
+
+Step 6 → Get test command
+  If: language = ""
+    Then: language becomes "unknown"
+  Otherwise:
+    Then: test_cmd becomes GetTestCommand(language)
+    Then: build_cmd becomes GetBuildCommand(language)
+
+Step 7 → Build JSON result
+  Because: Return structured data for next stage
+  Then: json_result becomes "{\"language\":\"" + language + "\",\"test_cmd\":\"" + test_cmd + "\",\"build_cmd\":\"" + build_cmd + "\"}"
+
+End: json_result
+
+---
+
+Story: Main
+# Demo: Detect language in test repository
+Given:
+  repo: String = "test-repos/rust-example"
+  result: String = ""
+  language: String = ""
+  test_cmd: String = ""
+
+Step 1 → Detect language
+  Because: Demonstrate language detection
+  Then: result becomes DetectLanguage(repo)
+  Effect: Print "=== Language Detection Result ==="
+  Effect: Print "{result}"
+
+Step 2 → Parse result (for display)
+  Because: Extract individual fields
+  Then: language becomes PARSE JSON result GET "language"
+  Then: test_cmd becomes PARSE JSON result GET "test_cmd"
+  
+Step 3 → Display parsed values
+  Because: Show human-readable output
+  Effect: Print ""
+  Effect: Print "Language: {language}"
+  Effect: Print "Test command: {test_cmd}"
+
+End: result
