@@ -1,0 +1,86 @@
+Story: SWE-bench Multi-Language Agent
+# Automated bug-fixing agent for SWE-bench Multilingual benchmark
+# Supports: Rust, Go, Python, Java, JavaScript, C/C++
+# Workflow: Detect language → Find code → Run tests → Generate patch
+
+Given:
+  RepoPath: String = "test-repos/rust-example"
+  IssueDescription: String = "Fix compilation error in main function"
+  Language: String = "unknown"
+  TestCommand: String = ""
+  SearchPattern: String = ""
+  MatchedFiles: String = ""
+  FileCount: Number = 0
+  TestOutput: String = ""
+  ExitCode: Number = 0
+  PatchGenerated: Boolean = FALSE
+
+Step 1 → Detect repository language
+  Because: Need to know what language we're working with
+  Effect: SHELL "test -f test-repos/rust-example/Cargo.toml && echo rust || echo unknown" INTO Language WITH EXIT_CODE ExitCode
+
+Step 2 → Set language-specific test command
+  Because: Each language has different test tooling
+  If: Language = "rust"
+    Then: TestCommand becomes "cargo test --color=never"
+  If: Language = "go"
+    Then: TestCommand becomes "go test ./..."
+  If: Language = "python"
+    Then: TestCommand becomes "pytest -v"
+  If: Language = "java"
+    Then: TestCommand becomes "mvn test"
+  If: Language = "javascript"
+    Then: TestCommand becomes "npm test"
+
+Step 3 → Find relevant code files
+  Because: Need to locate files related to the issue
+  If: Language = "rust"
+    Effect: FIND "*.rs" IN "test-repos/rust-example/src" INTO MatchedFiles WITH COUNT FileCount
+
+Step 4 → Run baseline tests
+  Because: Understand current test failures before fixing
+  Effect: Print "=== Running Baseline Tests ==="
+  Effect: SHELL "cd test-repos/rust-example && cargo test --color=never" INTO TestOutput WITH EXIT_CODE ExitCode
+
+Step 5 → Analyze test results
+  Because: Determine if tests pass or fail
+  Effect: Print "=== Test Analysis ==="
+  If: ExitCode = 0
+    Effect: Print "Status: All tests passing (no fix needed)"
+  Otherwise:
+    Effect: Print "Status: Tests failing (fix required)"
+
+Step 6 → Search for error patterns
+  Because: Find specific code causing failures
+  If: Language = "rust"
+    Effect: GREP "fn main" IN MatchedFiles INTO SearchPattern
+  If: Language = "go"
+    Effect: GREP "func main" IN MatchedFiles INTO SearchPattern
+  If: Language = "python"
+    Effect: GREP "def " IN MatchedFiles INTO SearchPattern
+
+Step 7 → Generate patch recommendation
+  Because: Provide actionable fix suggestion
+  Effect: Print "=== Patch Recommendation ==="
+  Effect: Print "Repository: {RepoPath}"
+  Effect: Print "Language: {Language}"
+  Effect: Print "Files found: {FileCount}"
+  Effect: Print "Test command: {TestCommand}"
+  Effect: Print "Exit code: {ExitCode}"
+  If: ExitCode = 0
+    Then: PatchGenerated becomes FALSE
+    Effect: Print "Result: No patch needed - tests pass"
+  Otherwise:
+    Then: PatchGenerated becomes TRUE
+    Effect: Print "Result: Patch generation needed"
+    Effect: Print "Next steps: Analyze test output and modify source files"
+
+Step 8 → Display summary
+  Because: Show complete workflow results
+  Effect: Print "=== Agent Summary ==="
+  Effect: Print "Language detected: {Language}"
+  Effect: Print "Test baseline: completed"
+  Effect: Print "Code search: completed"
+  Effect: Print "Patch status: {PatchGenerated}"
+
+End: PatchGenerated
