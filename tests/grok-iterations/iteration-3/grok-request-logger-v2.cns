@@ -1,0 +1,58 @@
+Story: This program creates a web server that logs incoming HTTP requests to a CSV file and provides an endpoint to view the request history.
+
+Given:
+  port: Integer = 8080
+  server_socket: Socket
+  timestamp: String
+  method: String
+  path: String
+  client: String
+  response: String
+  history: String
+
+Step 1 → Create server socket
+  Because: We need to listen for incoming connections
+  Effect: Create socket server_socket on port
+
+Step 2 → Accept connection
+  Because: We need to handle incoming client requests
+  Effect: Accept connection on server_socket
+
+Step 3 → Read request
+  Because: We need to process the incoming HTTP request
+  Effect: Network read
+  Then: method becomes REQUEST_METHOD
+  Then: path becomes REQUEST_PATH
+  Then: client becomes "client-1"  # Placeholder for client identification
+
+Step 4 → Log request
+  Because: We need to record all incoming requests except for the history endpoint
+  If: NOT (path = "/history")
+    Then: timestamp becomes TIMESTAMP()
+    Effect: Append "{timestamp},{method},{path},{client}" to requests.csv
+
+Step 5 → Handle main endpoint
+  Because: We need to respond to the main endpoint request
+  If: path = "/"
+    Then: response becomes "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nRequest Logger Server"
+    Effect: Send response to client
+    Then: go to Step 7
+
+Step 6 → Handle history endpoint
+  Because: We need to display the request history without logging this request
+  If: path = "/history"
+    Then: history becomes READ FROM FILE "requests.csv"
+    Then: response becomes "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\n" + history
+    Effect: Send response to client
+    Then: go to Step 7
+
+Step 7 → Close connection
+  Because: We need to close the current client connection
+  Effect: Close connection client_socket
+
+Step 8 → Continue serving
+  Because: We need to keep the server running to handle more requests
+  If: TRUE
+    Then: repeat from Step 2
+
+End: Return port

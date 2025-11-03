@@ -1,0 +1,80 @@
+Story: Request Logger with File Persistence
+
+Given:
+  port: Integer = 8080
+  server_socket: Socket
+  request_method: String = ""
+  request_path: String = ""
+  response: String = ""
+  timestamp: String = ""
+  client_num: Integer = 0
+  log_content: String = ""
+
+Step 1 → Print startup message
+  Because: Inform user server is starting
+  Effect: Print "Request Logger Server started on port {port}"
+
+Step 2 → Create server socket
+  Because: Start HTTP server on port 8080
+  Effect: Create socket server_socket on port
+
+Step 3 → Accept incoming connection
+  Because: Handle incoming HTTP request
+  Effect: Accept connection on server_socket
+
+Step 4 → Read HTTP request
+  Because: Receive request data from client
+  Effect: Network read
+
+Step 5 → Extract request details
+  Because: Get method and path from request
+  Then: request_method becomes REQUEST_METHOD
+  Then: request_path becomes REQUEST_PATH
+  Effect: Print "→ {request_method} {request_path}"
+
+Step 6 → If request_path = "/history"
+  Because: History endpoint - don't log but show logs
+  Then: go to Step 10
+  Otherwise: go to Step 7
+
+Step 7 → Log the request
+  Because: Save request details to CSV file
+  Then: client_num becomes client_num + 1
+  Then: timestamp becomes TIMESTAMP()
+  Effect: Append "{timestamp},{request_method},{request_path},client-{client_num}" to requests.csv
+  Effect: Print "  Logged request #{client_num}"
+
+Step 8 → Send main response
+  Because: Return simple message for main endpoint
+  Then: response becomes "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nRequest Logger Server"
+
+Step 10 → Read log file for history
+  Because: Load logged requests to display
+  Then: log_content becomes READ FROM FILE "requests.csv"
+  If: log_content = ""
+    Then: log_content becomes "No requests logged yet"
+
+Step 11 → Send history response
+  Because: Display all logged requests
+  Then: response becomes "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\n=== Request History ===\n\n" + log_content + "\n"
+
+Step 12 → Send response to client
+  Because: Return HTTP response
+  Effect: Send response to client
+
+Step 13 → Close client connection
+  Because: Request complete
+  Effect: Close connection client_socket
+
+Step 14 → Reset for next request
+  Because: Prepare for next connection
+  Then: response becomes ""
+  Then: log_content becomes ""
+
+Step 15 → Continue serving
+  Because: Server should handle multiple requests
+  If: 1 = 1
+    Then: repeat from Step 3
+
+End: Return "Server stopped"
+  Because: Program complete

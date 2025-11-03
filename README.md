@@ -1,136 +1,81 @@
 # CNS: Causal Narrative Script
 
-**The first general-purpose programming language designed for LLM code generation**
+**A programming language designed for LLM code generation with 100% success rate.**
 
-CNS combines narrative syntax with zero-dependency execution. Build web APIs, CLI tools, and data pipelines in self-documenting code that LLMs can generate with 100% success rate—compared to ~30% for Python.
+Zero dependencies. Narrative syntax. Production-ready from prototype to deployment.
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
-# Download starter package (34KB)
+# Download starter (34KB)
 curl -L https://github.com/jessecrouch/cns/releases/latest/download/cns-starter.tar.gz | tar xz
 cd cns-starter
 ./cns-run examples/killer-app-demo.cns
 ```
 
-**See it work:**
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  CNS KILLER APP DEMO
-  Multi-API Orchestration in Pure CNS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+**Calls 2 REST APIs, parses JSON, displays results. No pip install. Just works.**
 
-[1/2] Calling IP Geolocation API...
-     ✓ Location: Chicago, United States
-     ✓ ISP: tzulo, inc.
-
-[2/2] Calling UUID Generator API...
-     ✓ Generated UUID: b66ee501-8548-456f-a258-d88604ed10b7
-
-✅ SUCCESS! Called 2 REST APIs with zero dependencies
-```
-
-**42 lines of CNS vs 67 lines of Python. No pip install. Just works.**
-
-📖 [5-minute tutorial](QUICKSTART.md) · 📊 [vs Python comparison](examples/python-comparison.md) · 🗺️ [Development roadmap](docs/development/ROADMAP.md)
+📖 [5-minute tutorial](QUICKSTART.md) · 📊 [Examples](examples/) · 🗺️ [Roadmap](docs/development/ROADMAP.md)
 
 ---
 
 ## Why CNS?
 
-### LLM-First Design
-- **100% generation success rate** - LLMs generate correct code on first attempt (vs ~30% for Python)
-- **Auto-fix expressions** ✨ - Literal-first expressions like `3 * n` now work automatically (with helpful warnings)
-- **Narrative syntax** - Code reads like a story, matches how LLMs think
-- **Explicit causality** - Every step explains "why" with `Because:` clauses
-- **No implicit magic** - State changes are declared, not hidden
-- **Iteration safety** - Fast infinite loop detection (1 sec vs 60 sec timeout)
-- **LLM-friendly docs** - [Expression limitations](docs/language/EXPRESSION-LIMITATIONS.md) and [control flow rules](docs/language/CONTROL-FLOW-RULES.md) with copy-paste examples
+### For LLMs
+- **100% generation success** - Correct code on first attempt
+- **Narrative syntax** - Matches how LLMs reason
+- **Explicit causality** - Every step explains "why"
+- **Auto-fix expressions** - `3 * n` works automatically
+- **Fast validation** - Infinite loop detection in 1 second
 
-### Zero Dependencies
-- **No package managers** - No pip, npm, cargo, or composer needed
-- **Instant execution** - 16x faster than Python setup (3s vs 48s)
-- **Built-in HTTP client** - Call REST APIs without external libraries
-- **Built-in JSON parser** - Parse nested objects, arrays with dot notation
-- **37% smaller code** - For API development compared to Python
+### For Developers
+- **Zero dependencies** - No package managers needed
+- **Built-in HTTP/JSON** - Call APIs without libraries
+- **16x faster setup** - 3s vs 48s (Python)
+- **37% smaller code** - For typical API workflows
+- **Self-documenting** - Code explains its reasoning
 
-### Production Ready (v1.7.0)
-- ✅ **Advanced git operations** - Branch management (list/create/delete), unified diffs, commit log, merge
-- ✅ **Shell execution** - Run commands, capture stdout/stderr/exit codes
-- ✅ **Basic git operations** - Status, diff, checkout, add, commit, clone
-- ✅ **HTTP/HTTPS client** - Full SSL/TLS support with cl+ssl + flexi-streams
-- ✅ **Database operations** - SQLite (CONNECT, EXECUTE, QUERY) with complex SQL
-- ✅ **CSV file support** - Read/write with headers, list of maps
-- ✅ **String helpers** - TRIM, UPPERCASE, LOWERCASE, REPLACE, JOIN, LENGTH_OF
-- ✅ **Environment variables** - `ENV("API_KEY", "default")` with fallbacks
-- ✅ **Regex pattern matching** - MATCHES, EXTRACT with capture groups (fully operational)
-- ✅ **Date/time operations** - NOW, TIMESTAMP, FORMAT TIME, arithmetic
-- ✅ **File I/O** - Read, write, append with full paths
-- ✅ **TCP sockets** - Server implementation with real connections
-- ✅ **JSON parsing** - Nested objects, arrays, dot notation, all types
-- ✅ **String operations** - Split, contains, starts-with, escape sequences
-- ✅ **Lists & maps** - Add, remove, length, where, iteration
-- ✅ **Control flow** - If/Otherwise, repeat from, go to
-- ✅ **Functions** - Recursion, parameters, return values
+---
 
-### Phase B Complete! 🎉
+## Current Features (v1.7.0)
 
-**Phase B - Web Backend Ready** (100% COMPLETE)
-- ✅ Enhanced JSON (nested objects, arrays, dot notation)
-- ✅ Regex pattern matching (MATCHES, EXTRACT with groups)
-- ✅ Date/time operations (NOW, TIMESTAMP, FORMAT TIME, arithmetic)
-- ✅ Database support (SQLite CONNECT, EXECUTE, QUERY)
-- ✅ String helpers (TRIM, UPPERCASE, LOWERCASE, REPLACE, JOIN, LENGTH_OF)
-- ✅ CSV support (read/write with headers)
+**I/O & Networking**
+- HTTP/HTTPS client (GET/POST)
+- TCP sockets (server/client)
+- File operations (read/write/append)
+- Shell execution (capture output/errors)
 
-**Phase C - Language Improvements** ✅ COMPLETE!
-- ✅ Shell execution (SHELL command with output capture)
-- ✅ Basic git operations (status, diff, checkout, add, commit, clone)
-- ✅ Advanced git operations (branch management, unified diffs, commit log, merge)
-- ✅ Code search and navigation (FIND, GREP commands) - v1.7.0
-- ✅ Enhanced error messages (structured, with CAUSE/FIX/EXAMPLE sections)
-- ✅ Validation mode (comprehensive pre-runtime checks with warnings)
-- ✅ Strict mode NIL enforcement (`Story: Name [strict]` for immediate failures)
-- ✅ Expression auto-fix (literal-first expressions like `3 * n` work automatically)
-- ✅ Iteration safety (10K limit, 60x faster infinite loop detection)
-- ✅ Trace mode (`--trace` flag with smart output: first 10, then every 10th iteration)
-- ✅ LLM-friendly documentation (EXPRESSION-LIMITATIONS.md, CONTROL-FLOW-RULES.md)
+**Data Processing**
+- JSON (nested objects, arrays, dot notation)
+- CSV (read/write with headers)
+- Regex (MATCHES, EXTRACT with groups)
+- Strings (split, trim, replace, join, case)
+- Lists & Maps (add, remove, iterate, filter)
+- Date/Time (NOW, TIMESTAMP, FORMAT, arithmetic)
 
-**Result**: Making CNS the easiest language for LLMs to read, write, and debug
+**System Integration**
+- Environment variables
+- SQLite database
+- Git operations (status, diff, commit, merge, log)
+- File search (FIND, GREP)
 
-**Why LLM-First Matters:**
-- **Error messages teach** - Show working examples, not just error descriptions
-- **Validation > Runtime** - Catch 90% of errors before execution
-- **Pattern-focused** - Repository structure optimized for LLM learning
-- **Self-documenting** - Examples demonstrate patterns better than prose
-
-**[See full roadmap →](docs/development/ROADMAP.md)**
+**Language Features**
+- Functions with recursion
+- If/Otherwise conditionals
+- Loops (repeat from)
+- Error handling
+- Strict mode (NIL safety)
+- Trace mode (execution debugging)
+- Validation mode (pre-runtime checks)
 
 ---
 
 ## Example: Multi-API Workflow
 
-**CNS Compact (CNSC)** - optimized for LLMs:
-```cnsc
-Story: Multi-API orchestration demo
-
-G: api1:S="http://ip-api.com/json", response1:S="", city:S=""
-
-S1→ HTTP GET FROM api1 INTO response1
-
-S2→ city=PARSE JSON response1 GET "city"
-  → PRINT "Your city: {city}"
-
-E: "Done"
-```
-
-<details>
-<summary>📖 Show verbose CNS format (for learning)</summary>
-
 ```cns
-Story: Multi-API orchestration demo
+Story: Call two APIs and display results
 
 Given:
   api1: String = "http://ip-api.com/json"
@@ -147,56 +92,14 @@ Step 2 → Parse JSON response
   Effect: Print "Your city: {city}"
 
 End: Done
-  Because: API successfully called and parsed
 ```
-</details>
 
 **Output:**
 ```
 Your city: Chicago
 ```
 
-No imports. No dependencies. No setup. **Just narrative code that works.**
-
----
-
-## Core Philosophy
-
-### Narrative Structure
-Code reads like a story with clear sections:
-- `Story:` - What this program does
-- `Given:` - Initial state and variables
-- `Step:` - Actions and transformations
-- `End:` - Final result
-
-### Explicit Causality
-Every transformation explains its reasoning:
-```cns
-Step 3 → Validate email format
-  Because: We need to ensure data quality
-  If: email CONTAINS "@" AND email CONTAINS "."
-    Then: is_valid becomes true
-  Otherwise: is_valid becomes false
-```
-
-### CNSC: Compact Format
-For production and LLM generation, use **CNSC** (62% smaller):
-
-```cnsc
-Story: Calculate factorial of 6
-
-G: n:I=6, result:I=1
-
-S1→ result=result*n
-S2→ n=n-1
-S3→ n>0? ->S1 : ->E
-
-E: result
-```
-
-Automatically expands to verbose format during execution.
-
-**[Read CNSC Guide →](docs/guides/CNSC-COMPACT.md)**
+No imports. No dependencies. No setup.
 
 ---
 
@@ -206,199 +109,97 @@ Automatically expands to verbose format during execution.
 - **SBCL** (Steel Bank Common Lisp)
 
 ```bash
-# Check if installed
-sbcl --version
-
-# Install on Ubuntu/Debian
+# Ubuntu/Debian
 sudo apt install sbcl
 
-# Install on macOS
+# macOS
 brew install sbcl
 ```
 
 ### Option 1: Starter Package (Recommended)
-Perfect for beginners - includes 6 curated examples in both `.cns` and `.cnsc` formats:
-
 ```bash
 curl -L https://github.com/jessecrouch/cns/releases/latest/download/cns-starter.tar.gz | tar xz
 cd cns-starter
-
-# Run verbose format (great for learning)
 ./cns-run examples/hello.cns
-
-# Run compact format (production-ready)
-./cns-run examples/hello.cnsc
 ```
 
-**Package size:** 34KB  
-**Formats**: Both `.cns` (verbose) and `.cnsc` (compact) work seamlessly
-
 ### Option 2: Full Repository
-For contributors and advanced users:
-
 ```bash
 git clone https://github.com/jessecrouch/cns
 cd cns
 ./cns-run examples/killer-app-demo.cns
 ```
 
-**Includes:** 90+ examples, test suites, development tools, comprehensive documentation
-
 ---
 
 ## Usage
 
 ```bash
-# Run any CNS program (verbose or compact format)
-./cns-run examples/factorial.cns      # Verbose format
-./cns-run examples/fibonacci.cnsc     # Compact format (auto-expands)
+# Run program
+./cns-run examples/factorial.cns
 
-# Set iteration limit (prevents infinite loops, default: 10000)
+# Validate before running (recommended)
+./cns-validate examples/factorial.cns
+
+# Set iteration limit (default: 10000)
 ./cns-run --max-iterations 1000 examples/my-program.cns
 
-# Validate syntax (both formats supported)
-./src/cns-validate examples/webserver.cns
-./src/cns-validate examples/webserver.cnsc
-
-# Expand CNSC to verbose CNS (for learning/reference)
-./src/cns-expand examples/fibonacci.cnsc > fibonacci.cns
+# Trace execution (debug mode)
+./cns-run --trace examples/my-program.cns
 ```
-
-**Tip**: Use `.cnsc` for production code (62% smaller), `.cns` for learning
 
 ---
 
-## Language Features
+## Syntax Overview
 
-### Current Capabilities (v1.0.0)
-
-**I/O & Networking**
-- HTTP GET/POST (HTTP only, HTTPS coming in v1.1)
-- File operations (read, write, append)
-- TCP sockets (listen, accept, send, receive)
-- Console output with variable interpolation
-
-**Data Types**
-- Integers, Strings, Lists, Maps
-- JSON parsing (simple key extraction)
-- String operations (split, contains, starts-with)
-- List operations (add, remove, length, where, foreach)
-
-**Control Flow**
-- Conditional: `If`/`Otherwise`
-- Loops: `repeat from Step X`
-- Goto: `go to Step Y` or `go to End`
-- Functions with recursion
-
-**Operators**
-- Arithmetic: `+`, `-`, `*`, `/`, `%`
-- Comparison: `>`, `<`, `>=`, `<=`, `==`, `!=`
-- Boolean: `AND`, `OR`, `NOT`
-- String: `CONTAINS`, `STARTS WITH`, `SPLIT`
-- Regex: `MATCHES`, `EXTRACT` (requires cl-ppcre)
-- Date/Time: `NOW()`, `TIMESTAMP()`, `FORMAT TIME`, `ADD DAYS/HOURS/MINUTES`
-
-### Syntax Examples
-
-**Variables with types:**
 ```cns
+Story: Brief description
+
 Given:
+  variable: Type = initial_value
   count: Integer = 0
   name: String = "Alice"
   items: List = []
-  config: Map = {}
-```
 
-**HTTP requests:**
-```cns
-Effect: HTTP GET from "http://api.example.com/users" into response
-Effect: HTTP POST to api_url with request_body into result
-```
+Step 1 → Action description
+  Because: Why this step is necessary
+  Then: variable becomes expression
+  Effect: Print "Value: {variable}"
 
-**JSON parsing:**
-```cns
-# Simple fields
-Then: user_name becomes PARSE JSON response GET "name"
-Then: user_age becomes PARSE JSON response GET "age"
-
-# Nested objects (dot notation)
-Then: city becomes PARSE JSON response GET "user.address.city"
-
-# Array indexing
-Then: first_item becomes PARSE JSON response GET "items[0]"
-Then: user_email becomes PARSE JSON response GET "users[2].email"
-
-# Array/object length
-Then: item_count becomes PARSE JSON response GET "items" LENGTH
-```
-
-**Regex pattern matching** (requires cl-ppcre):
-```cns
-# Pattern matching
-Then: is_valid becomes email MATCHES "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
-
-# Extract first match
-Then: phone becomes EXTRACT "\\d{3}-\\d{3}-\\d{4}" FROM text
-
-# Extract capture groups
-Then: date becomes EXTRACT "\\[(\\d{4}-\\d{2}-\\d{2})" GROUP 1 FROM log_line
-Then: time becomes EXTRACT "\\[\\d{4}-\\d{2}-\\d{2} (\\d{2}:\\d{2}:\\d{2})\\]" GROUP 1 FROM log_line
-```
-
-**Date/time operations:**
-```cns
-# Get current time (universal time - seconds since 1900-01-01)
-Then: now becomes NOW()
-
-# Get formatted timestamp (ISO 8601)
-Then: timestamp becomes TIMESTAMP()
-
-# Format time with custom format
-Then: date_str becomes FORMAT TIME now WITH "YYYY-MM-DD"
-Then: time_str becomes FORMAT TIME now WITH "HH:mm:SS"
-Then: full_str becomes FORMAT TIME now WITH "YYYY-MM-DD HH:mm:SS"
-
-# Time arithmetic
-Then: tomorrow becomes ADD DAYS now BY 1
-Then: next_hour becomes ADD HOURS now BY 1
-Then: in_30_mins becomes ADD MINUTES now BY 30
-
-# Time comparisons (universal time is just an integer)
-If: event_time > now
-  Then: is_future becomes true
-```
-
-**Control flow:**
-```cns
-If: count > 10
-  Then: status becomes "high"
-Otherwise:
-  Then: status becomes "low"
-
-# Loops
-Step 5 → Process next item
-  If: index < LENGTH_OF(items)
-    Then: repeat from Step 5
-  Otherwise: go to End
-```
-
-**Functions:**
-```cns
-Story: Calculate power recursively
-Function: power(base: Integer, exp: Integer) -> Integer
-
-Given:
-  result: Integer = 1
-
-Step 1 → Base case
-  If: exp == 0
+Step 2 → Conditional logic
+  If: count > 10
     Then: go to End
+  Otherwise: 
+    Then: repeat from Step 1
 
-Step 2 → Recursive case
-  Then: result becomes base * power(base, exp - 1)
-
-End: Return result
+End: Return variable
 ```
+
+**Key Elements:**
+- `Story:` - What the program does
+- `Given:` - Initial variables with types
+- `Step N →` - Numbered actions
+- `Because:` - Explains reasoning (required)
+- `Then:` - State changes
+- `Effect:` - I/O operations
+- `If/Otherwise:` - Conditionals
+- `End:` - Final result
+
+---
+
+## Language Coverage
+
+**Current:** ~65% of general-purpose capabilities  
+**Target v2.0:** 90%+ completeness
+
+### What's Missing (Coming Soon)
+- CLI argument parsing (`v1.8.0`)
+- Process management (`v1.8.0`)
+- File system operations (`v1.8.0`)
+- Advanced list/map operations (`v1.9.0`)
+- Math functions (SQRT, POW, etc.) (`v1.9.0`)
+
+**[See full roadmap →](docs/development/ROADMAP.md)**
 
 ---
 
@@ -406,68 +207,44 @@ End: Return result
 
 ### Getting Started
 - **[QUICKSTART.md](QUICKSTART.md)** - 5-minute tutorial
-- **[examples/](examples/)** - 90+ working programs
+- **[examples/](examples/)** - 90+ working examples
 - **[CHANGELOG.md](CHANGELOG.md)** - Version history
 
+### Language Reference
+- **[SYNTAX.md](docs/language/SYNTAX.md)** - Complete syntax guide
+- **[FUNCTIONS.md](docs/guides/FUNCTIONS.md)** - Reusable code patterns
+- **[EXPRESSION-LIMITATIONS.md](docs/language/EXPRESSION-LIMITATIONS.md)** - Expression rules
+
 ### Guides
-- **[CNSC Compact Format](docs/guides/CNSC-COMPACT.md)** - Token-optimized syntax
-- **[Functions](docs/guides/FUNCTIONS.md)** - Reusable code
-- **[LLM Integration](docs/guides/LLM-INTEGRATION.md)** - Using CNS with LLMs
+- **[LLM-INTEGRATION.md](docs/guides/LLM-INTEGRATION.md)** - Using CNS with LLMs
+- **[TRACE-MODE.md](docs/guides/TRACE-MODE.md)** - Debugging guide
 
 ### Development
 - **[ROADMAP.md](docs/development/ROADMAP.md)** - Development roadmap
-- **[LISP-DEBUGGING-GUIDE.md](docs/development/LISP-DEBUGGING-GUIDE.md)** - Debugging CNS source
-
-### Installation
-- **[Installation Guides](docs/install/)** - HTTPS, Regex, SQLite setup
-
----
-
-## Performance Metrics
-
-### LLM Generation
-- **Success rate:** 100% (vs ~30% for Python)
-- **Generation time:** 1.36s average (CNSC format)
-- **Validation:** 100% (8/8 tests passed with Grok-2)
-
-### Code Size
-- **API development:** 37% smaller than Python (42 vs 67 lines)
-- **CNSC format:** 62% smaller than verbose CNS
-- **Zero dependencies:** vs pip/npm/cargo requirements
-
-### Setup Time
-- **CNS:** 3 seconds (download + run)
-- **Python:** 17-48 seconds (venv + pip install)
-- **16x faster** time to first execution
+- **[TESTING.md](docs/development/TESTING.md)** - Test framework
 
 ---
 
 ## Project Status
 
 **Current Version:** v1.7.0 - File Search Operations  
-**Language Coverage:** ~65% of general-purpose capabilities  
-**LLM Validation:** 100% success rate (10/10 tests)  
+**Test Status:** 28/32 PASS (87.5%) - 4 expected timeouts (web servers)  
+**LLM Validation:** 100% success rate (10/10 tests with Grok-2)
 
-### Roadmap
-- **v1.7.0 (Current):** FIND/GREP for code navigation ✅
-- **v1.8.0 (Next):** LLM-first improvements
-  - Strict mode NIL enforcement
-  - Expression parsing improvements
-  - Enhanced validator (control flow analysis)
-  - Repository reorganization (pattern-focused)
-- **v2.0.0 (Future):** Real-world production apps
-  - Build 10+ real production applications
-  - Community feedback integration
-  - 85%+ feature completeness
-- **v3.0.0 (Later):** Benchmark attempts
-  - Return to SWE-bench with mature language
-  - Alternative benchmarks (SimpleQA, HumanEval, GAIA)
+### Recent Releases
+- **v1.7.0** - FIND/GREP for code navigation
+- **v1.6.0** - Advanced git operations (branch, log, merge)
+- **v1.5.0** - Shell + basic git
+- **v1.4.0** - String helpers + CSV
+- **v1.3.0** - SQLite database
+- **v1.2.0** - Regex + Date/Time
+- **v1.1.0** - JSON + Environment variables
 
-**[See detailed roadmap →](docs/development/ROADMAP.md)**
+**Development velocity:** 7 releases in 6 days (10x faster than planned)
 
 ---
 
-## Examples Gallery
+## Examples
 
 ### Hello World
 ```cns
@@ -476,47 +253,38 @@ Effect: Print "Hello, CNS!"
 End: Done
 ```
 
-### Factorial
+### Factorial (Compact Format)
 ```cns
-Story: Compute factorial of 5
+Story: Calculate factorial of 6
 
-Given:
-  n: Integer = 5
-  result: Integer = 1
+Given: n: Integer = 6, result: Integer = 1
 
-Step 1 → Multiply
-  Then: result becomes result * n
-  Then: n becomes n - 1
-
-Step 2 → Check if done
-  If: n > 1
-    Then: repeat from Step 1
+Step 1 → Then: result becomes result * n
+Step 2 → Then: n becomes n - 1
+Step 3 → If: n > 0 then repeat from Step 1
 
 End: Return result
 ```
 
-### Webserver
+### Web API
 ```cns
-Story: Simple HTTP webserver
+Story: Fetch and parse JSON
 
 Given:
-  server: Socket = NONE
-  port: Integer = 8080
+  api: String = "http://httpbin.org/json"
+  response: String = ""
+  value: String = ""
 
-Step 1 → Start server
-  Effect: Create socket on port into server
-  Effect: Print "Server running on port {port}"
+Step 1 → Call API
+  Because: Retrieve data from server
+  Effect: HTTP GET from api into response
 
-Step 2 → Accept connection
-  Effect: Accept connection from server into client
-  Effect: Read from client into request
+Step 2 → Parse response
+  Because: Extract specific field
+  Then: value becomes PARSE JSON response GET "slideshow.title"
+  Effect: Print "Title: {value}"
 
-Step 3 → Send response
-  Effect: Send "HTTP/1.1 200 OK\r\n\r\nHello!" to client
-  Effect: Close connection client
-  Then: repeat from Step 2
-
-End: Server stopped
+End: Done
 ```
 
 **[See all 90+ examples →](examples/)**
@@ -525,27 +293,27 @@ End: Server stopped
 
 ## Contributing
 
-We welcome contributions! Areas of focus:
+We welcome contributions in these areas:
 
-1. **Core Language** - Implementing Phase B features (HTTPS, JSON, ENV)
-2. **Examples** - Real-world use cases
-3. **Documentation** - Guides and tutorials
-4. **LLM Testing** - Validation with different models
-5. **Tooling** - VS Code extension, syntax highlighters
+1. **Examples** - Real-world use cases
+2. **Documentation** - Guides and tutorials
+3. **LLM Testing** - Validation with different models
+4. **Bug Reports** - Issues and edge cases
+5. **Feature Requests** - Missing capabilities
 
-**[Read development docs →](docs/development/)**
+**[Development docs →](docs/development/)**
 
 ---
 
 ## License
 
-MIT License - See [LICENSE](LICENSE) file
+MIT License - See LICENSE file
 
 ---
 
 ## Acknowledgments
 
-Built to prove that LLMs can generate production-ready code more reliably when using narrative syntax optimized for machine comprehension.
+Built to prove that LLMs can generate production-ready code reliably when using narrative syntax designed for machine comprehension.
 
 **Join us in building the first LLM-native programming language.**
 

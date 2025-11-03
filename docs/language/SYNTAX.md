@@ -40,8 +40,7 @@ End: Return value
 6. [Effects](#effects)
 7. [Functions](#functions)
 8. [Error Handling](#error-handling)
-9. [CNSC Compact Format](#cnsc-compact-format)
-10. [Limitations & Workarounds](#limitations--workarounds)
+9. [Limitations & Workarounds](#limitations--workarounds)
 
 ---
 
@@ -662,73 +661,6 @@ End: Return result
 ```
 
 **Behavior:** If any step errors, jumps to `Error:` section.
-
----
-
-## CNSC Compact Format
-
-CNS Compact (CNSC) is a 62% smaller format for LLM efficiency.
-
-### Comparison
-
-**Verbose CNS (150 lines):**
-```cns
-Story: Calculate Factorial
-
-Given:
-  n: Integer = 5
-  result: Integer = 1
-
-Step 1 → Multiply
-  Because: Accumulate factorial
-  Then: result becomes result * n
-  Then: n becomes n - 1
-
-Step 2 → Check done
-  Because: Stop at 1
-  If: n > 1
-    Then: repeat from Step 1
-
-End: Return result
-```
-
-**Compact CNSC (60 lines):**
-```cnsc
-Story: Calculate Factorial
-
-G: n:I=5, result:I=1
-
-S1→ Multiply
-  Because: Accumulate factorial
-  → result = result * n
-  → n = n - 1
-
-S2→ Check done
-  Because: Stop at 1
-  If n>1: repeat from S1
-
-E: result
-```
-
-### CNSC Syntax Rules
-
-**Variable declarations:**
-- `G:` = Given
-- `var:I=5` = Integer
-- `var:S="text"` = String
-- `var:L=[]` = List
-
-**Steps:**
-- `S1→` = Step 1
-- `→` = Then
-- `=` instead of `becomes`
-
-**Control:**
-- `If condition:` = If condition
-- `Otherwise:` = Otherwise
-- `E:` = End
-
-**See:** `examples/*.cnsc` files for more examples.
 
 ---
 

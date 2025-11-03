@@ -21,7 +21,7 @@
 ### Target Use Cases
 1. ✅ **Web backends & REST APIs** (fully supported)
 2. ✅ **CLI tools & automation scripts** (90% complete)
-3. ✅ **Code analysis & SWE-Bench agents** (80% complete)
+3. ✅ **Code analysis & automation agents** (80% complete)
 4. 🚧 **Data pipelines & ETL** (in progress)
 5. 🚧 **General-purpose programming** (65% complete, ongoing)
 
@@ -79,236 +79,78 @@
 
 ---
 
-## 🚀 Active Development (Phase C - 50% Complete)
+## 🚀 Active Development (Phase C - 100% Complete)
 
-**Goal:** Enable SWE-Bench agents and advanced automation
+**Goal:** Enable automation agents and advanced tooling
 
 **Timeline:** 3-4 weeks total (started Nov 1)  
-**Status:** Phase C 50% complete as of v1.7.0
+**Status:** Phase C 100% complete as of v1.7.0 + LLM improvements
 
 ### ✅ Completed (Phase C)
-- v1.5.0: Shell execution + basic git operations (20%)
-- v1.6.0: Advanced git operations (branch, log, merge) (40%)
-- v1.7.0: File search (FIND) + content search (GREP) (50%)
+- v1.5.0: Shell execution + basic git operations
+- v1.6.0: Advanced git operations (branch, log, merge)
+- v1.7.0: File search (FIND) + content search (GREP)
+- LLM-First Improvements: Error messages, validation, strict mode, trace mode, documentation
 
-### 🚧 In Progress (Next 2-3 weeks)
+### 🚧 Next Steps (Phase D Planning)
 
-#### v1.8.0: Language Adapters + SWE-Bench Agent v0.1 (5-7 days)
-**Goal:** Multi-language agent foundation that works across Python, Rust, Go, Java, C++
-
-**Strategic Context:**
-- **SWE-bench Verified:** 500 Python tasks (current SOTA: 65% mini-SWE-agent)
-- **SWE-bench Multilingual:** 300 tasks across 9 languages (baseline: 43% Claude 3.7)
-- **Key Insight:** Current agents fail on non-Python because they hardcode Python AST parsing
-- **CNS Advantage:** Language-agnostic SHELL/FIND/GREP work everywhere
-
-**Performance Gap by Language (Multilingual Baseline):**
-- Rust: 58.14% (highest - low-hanging fruit)
-- Java: 53.49%
-- PHP: 48.84%
-- Ruby: 43.18%
-- JavaScript/TypeScript: 34.88%
-- Go: 30.95% (huge opportunity)
-- C/C++: 28.57% (hardest, but biggest impact)
-
-**CNS Target:** 55-65% across all languages (20-50% improvement vs baseline)
-
-**Phase 1: Language Adapter Framework (Days 1-2)**
-
-Build dynamic language detection and toolchain introspection:
-
-```cnsc
-Story: Language Adapter - Self-Learning Build System
-
-G: repo_path:S="/repo", lang:S="", build_cmd:S="", 
-   test_cmd:S="", knowledge:Map
-
-S1→ Detect language from files
-  Because: Need to know what we're working with
-  → FIND "Cargo.toml" IN repo_path INTO cargo WITH COUNT has_cargo
-  → FIND "go.mod" IN repo_path INTO gomod WITH COUNT has_gomod
-  → FIND "package.json" IN repo_path INTO npm WITH COUNT has_npm
-  → FIND "pom.xml" IN repo_path INTO maven WITH COUNT has_maven
-  
-S2→ Learn from CI configuration
-  Because: CI knows the real build/test commands
-  → FIND ".github/workflows/*.yml" IN repo_path INTO ci_files
-  → GREP "run:" IN ci_files INTO commands
-  → # Extract actual test commands used in production
-  
-S3→ Introspect toolchain capabilities
-  Because: Understand what flags/options are available
-  → IF has_cargo>0 THEN SHELL "cargo --help" INTO help
-  → IF has_gomod>0 THEN SHELL "go help test" INTO help
-  → # Store in knowledge map for reuse
-
-S4→ Test discovery patterns
-  Because: Find which tests to run
-  → IF has_cargo>0 THEN SHELL "cargo test --list" INTO tests
-  → IF has_gomod>0 THEN SHELL "go test -list ." INTO tests
-
-E: "Language adapter ready"
-```
-
-**Phase 2: Universal Test Runner (Days 2-3)**
-
-Create abstraction over different test frameworks:
-
-```cnsc
-Story: Universal Test Runner
-
-G: lang:S="", test_cmd:S="", output:S="", 
-   exit_code:I=0, failures:List=[]
-
-S1→ Run tests with language-specific command
-  → IF lang=="rust" THEN test_cmd="cargo test"
-  → IF lang=="go" THEN test_cmd="go test ./..."
-  → IF lang=="python" THEN test_cmd="pytest"
-  → SHELL test_cmd INTO output WITH EXIT_CODE exit_code
-
-S2→ Parse results (language-agnostic)
-  → GREP "FAILED" IN output INTO failures
-  → GREP "test result:" IN output INTO summary
-  → # Extract file:line from failure messages
-
-E: exit_code
-```
-
-**Phase 3: SWE-Bench Agent Integration (Days 4-5)**
-
-Complete agent that uses language adapters:
-
-```cnsc
-Story: Multi-Language SWE-Bench Agent
-
-G: issue_json:S="", repo_path:S="", lang:S="",
-   test_cmd:S="", relevant_files:List=[]
-
-S1→ Parse issue
-  → issue=PARSE JSON issue_json
-  
-S2→ Detect language and learn toolchain
-  → # Use Language Adapter from Phase 1
-  → lang=detect_language(repo_path)
-  → test_cmd=learn_test_command(lang, repo_path)
-  
-S3→ Find relevant files
-  → FIND file_pattern IN repo_path INTO all_files
-  → GREP issue.keywords IN all_files INTO matches
-  
-S4→ Generate and test fix
-  → # LLM orchestration
-  → # Use Universal Test Runner from Phase 2
-
-E: "Issue resolved"
-```
-
-**Phase 4: Validation (Days 6-7)**
-
-Test on 50 tasks across 5 languages:
-- 10 Rust tasks (easiest non-Python)
-- 10 Go tasks (biggest improvement opportunity)
-- 10 Java tasks
-- 10 JavaScript tasks
-- 10 Python tasks (baseline comparison)
-
-**Target Success Rates:**
-- Rust: 65-75% (vs 58% baseline) - +12% improvement
-- Go: 45-55% (vs 31% baseline) - +60% improvement  
-- Java: 60-65% (vs 53% baseline) - +17% improvement
-- Python: 70-75% (vs 65% SOTA) - competitive
-
-**Why CNS Will Win:**
-1. **No AST dependency** - GREP works on any language
-2. **Self-learning** - Extracts commands from CI configs
-3. **Compact context** - CNSC format = more room for code understanding
-4. **Observable failures** - Narrative traces show exactly what went wrong
-
-#### v1.9.0: SWE-Bench Multilingual Optimization (5-7 days)
-**Goal:** Scale from 50 to 300 tasks, optimize success rate
+#### v1.8.0: CLI Arguments & Process Management (3-5 days)
+**Goal:** Complete command-line tool capabilities
 
 **Features:**
-1. **Failure analysis loop**
-   - Track which languages/repos have lowest success
-   - Learn common error patterns (compilation errors, test timeouts)
-   - Build knowledge base of solutions
+1. **Command-line arguments**
+   - Positional arguments: `ARGS[0]`, `ARGS[1]`
+   - Named arguments: `ARG("--port", "8080")`
+   - Flag detection: `HAS_FLAG("--verbose")`
 
-2. **Enhanced patch operations**
-   - Multi-file diff generation
-   - Conflict detection
-   - Better git error messages
+2. **Process management**
+   - Background jobs: `SHELL "command" BACKGROUND INTO pid`
+   - Process signals: `KILL pid WITH SIGTERM`
+   - Wait for completion: `WAIT FOR pid`
 
-3. **Retry strategies**
-   - When build fails: Try different flags
-   - When tests timeout: Increase timeout, run specific tests
-   - When patch fails: Try alternative approaches
+3. **File system operations**
+   - List files: `LIST FILES IN path INTO files`
+   - Delete: `DELETE FILE path`
+   - Rename: `RENAME FILE old_path TO new_path`
+   - Check existence: `FILE EXISTS path`
 
-4. **Language-specific optimizations**
-   - Rust: Handle borrow checker errors
-   - Go: Interface satisfaction checks  
-   - C++: Template error parsing
-   - Java: Classpath and dependency resolution
+**Use Cases:**
+- Production CLI tools
+- Build automation scripts
+- System administration tasks
+- Process orchestration
 
-**Validation:**
-- Run full 300-task Multilingual benchmark
-- Target: 55-65% overall (vs 43% baseline)
-- Analyze failure modes for v2.0 improvements
+#### v1.9.0: Data Processing Enhancement (3-5 days)
+**Goal:** Better data manipulation capabilities
 
-### 🎯 Phase C Completion Target (Weeks 3-4)
+**Features:**
+1. **Advanced list operations**
+   - Sort: `SORT items BY field`
+   - Reverse: `REVERSE items`
+   - Unique: `UNIQUE items`
+   - Slice: `SLICE items FROM 0 TO 10`
 
-**v2.0.0: SWE-Bench Dual Benchmark Submission**
+2. **Map operations**
+   - Keys: `KEYS OF config`
+   - Values: `VALUES OF config`
+   - Merge: `MERGE map1 WITH map2`
 
-**Strategy: Compete on TWO benchmarks simultaneously**
+3. **String operations**
+   - Padding: `PAD text TO 10 WITH " "`
+   - Strip: `STRIP "[]" FROM text`
+   - URL encode/decode: `URL_ENCODE text`
 
-**Track 1: SWE-bench Verified (500 Python tasks)**
-- Current SOTA: 65% (mini-SWE-agent in 100 lines of Python)
-- CNS Target: 70-75% (beat SOTA with narrative programming)
-- Advantage: Pure Python focus, well-understood patterns
-- **Win condition:** Beat 65% = proves narrative > procedural
-
-**Track 2: SWE-bench Multilingual (300 tasks, 9 languages)**
-- Current baseline: 43% (Claude 3.7 Sonnet)
-- CNS Target: 55-65% (+28-51% improvement)
-- Advantage: Language-agnostic design, no hardcoded Python
-- **Win condition:** Beat 50% = proves multi-language capability
-
-**Why Dual Track Strategy:**
-
-1. **Verified proves depth** (Python mastery)
-2. **Multilingual proves breadth** (universal approach)
-3. **Different differentiators:**
-   - Verified: Compete with specialized Python agents
-   - Multilingual: Compete where others are weak (non-Python)
-
-**Success Metrics:**
-
-| Metric | Target | Impact |
-|--------|--------|--------|
-| Verified: 70%+ | Top 10-15 | HN front page |
-| Multilingual: 60%+ | Top 5-10 | TechCrunch article |
-| Both 65%+ | Industry leader | VC interest |
-| Cost: <$100 total | 100x cheaper | Enterprise adoption |
-
-**Why CNS Will Win:**
-
-1. **Narrative traces** = 80% fewer retries needed
-2. **Compact CNSC** = more context for reasoning
-3. **Language-agnostic** = no AST dependency hell
-4. **Self-learning** = adapts to each language/repo
-5. **Observable** = failures are debuggable
-
-**Deliverables:**
-- Working agent for both benchmarks
-- Performance comparison vs baselines
-- Failure analysis and learnings
-- Marketing materials (blog post, demo video)
-- Academic paper draft (narrative programming for SWE)
+**Use Cases:**
+- Data transformation pipelines
+- Report generation
+- API data processing
+- Configuration management
 
 ---
 
-## 🌟 Phase D: Production Polish (v2.1-2.5)
+## 🌟 Phase D: Production Polish (v1.8-2.0)
 
-**Timeline:** 2-3 months (post-SWE-Bench)  
+**Timeline:** 2-3 months  
 **Coverage:** 65% → 80%
 
 ### Priority Features
@@ -374,6 +216,41 @@ Test on 50 tasks across 5 languages:
 3. Zero external dependencies = no integration hell
 4. Clear roadmap = no analysis paralysis
 5. LLM-assisted development (eating our own dog food)
+
+## 🎯 Phase E: Real-World Applications (v2.0-2.5)
+
+**Timeline:** 2-4 months  
+**Coverage:** 80% → 90%
+
+### Strategy: Build Production Apps
+
+Instead of benchmark competitions, focus on building 10+ real production applications to validate CNS in actual use cases:
+
+**Categories:**
+1. **Web Services** (3-4 apps)
+   - REST API with authentication
+   - WebSocket chat server
+   - Static file server with routing
+   - Webhook processor
+
+2. **CLI Tools** (3-4 apps)
+   - Log analyzer
+   - Configuration generator
+   - Deployment automation
+   - Code formatter/linter
+
+3. **Data Processing** (2-3 apps)
+   - ETL pipeline
+   - Report generator
+   - Data validator
+   - Metrics aggregator
+
+**Goals:**
+- Identify missing features through real usage
+- Build library of reusable patterns
+- Create production deployment guides
+- Gather community feedback
+- Validate 90% language coverage claim
 
 ---
 
@@ -455,42 +332,38 @@ Every new feature must:
 
 ## 🛠️ Development Environment
 
-### Installed Language Toolchains (Ready for Multi-Language Testing)
+### Installed Language Toolchains
 
 **Rust** - v1.91.0 ✅
 - Installed via rustup
 - Location: `~/.cargo/bin/`
 - Usage: `cargo build`, `cargo test`
-- **Status:** Highest Multilingual success rate (58%) - priority target
 
 **Go** - v1.25.3 ✅  
 - Pre-installed (latest)
 - Usage: `go test ./...`, `go build`
-- **Status:** Lowest success rate (31%) - biggest improvement opportunity
 
 **Java** - OpenJDK 11 ✅
 - Installed via apt
 - Includes: maven (build tool)
-- **Status:** 53% success rate - good validation target
 
 **C/C++** - GCC 11.4.0 ✅
 - Pre-installed
 - Usage: `make`, `gcc`, `g++`
-- **Status:** 28% success rate - hardest challenge
 
 **Python** - v3.10+ ✅
 - Pre-installed
-- **Status:** Baseline for comparison (65% SOTA on Verified)
+- Standard library available
 
 **Node/TypeScript** - v12.22.9 ✅
 - Pre-installed
-- **Status:** 35% success rate on Multilingual
+- npm package manager available
 
 **Why This Matters:**
-- Can test agents locally on all 6 major languages
-- No Docker dependency for development
+- Can test multi-language integrations locally
+- Shell command examples work across languages
 - Fast iteration cycle (build/test in seconds)
-- Validates CNS works across entire language spectrum
+- Validates CNS works with diverse toolchains
 
 **Note:** Add `~/.cargo/bin` to PATH for Rust:
 ```bash
@@ -501,64 +374,33 @@ export PATH="$HOME/.cargo/bin:$PATH"
 
 ## 🎯 Immediate Next Steps
 
-### This Week (v1.8.0 Target - Language Adapters)
+### This Week (v1.8.0 Planning)
 
-**Days 1-2: Language Adapter Framework**
-- Build language detection (check for Cargo.toml, go.mod, package.json, etc.)
-- Extract build/test commands from CI configs (.github/workflows)
-- Introspect toolchain capabilities (cargo --help, go help test)
-- Store knowledge in Map for reuse
-- **Deliverable:** `examples/language-adapter.cnsc` (~150 lines)
+**CLI Arguments & Process Management:**
+- Design command-line argument API
+- Implement argument parsing
+- Add process management primitives
+- Create comprehensive examples
+- **Target:** 3-5 days implementation
 
-**Days 3-4: Universal Test Runner + Agent Integration**
-- Abstract over pytest, cargo test, go test, npm test, make test
-- Parse test output for failures (language-agnostic patterns)
-- Integrate with SWE-bench agent skeleton
-- **Deliverable:** `examples/test-runner.cnsc` + `examples/swe-bench-agent.cnsc` (~300 lines total)
+### Next 2 Weeks (v1.9.0 Planning)
 
-**Days 5-7: Multi-Language Validation**
-- Test on 10 Rust tasks (validate easiest non-Python)
-- Test on 10 Go tasks (validate biggest improvement opportunity)  
-- Test on 10 Python tasks (baseline comparison)
-- Analyze failures, iterate on prompts
-- **Target:** 50-60% success rate across languages
+**Data Processing Enhancement:**
+- Advanced list operations (sort, reverse, unique, slice)
+- Map operations (keys, values, merge)
+- Enhanced string operations (pad, strip, URL encode)
+- **Target:** 3-5 days implementation
 
-### Next 2 Weeks (v1.9.0 Target - Scale to 300 Tasks)
+### Month 2-3 (v2.0.0 Planning)
 
-**Week 2: Optimization and Failure Analysis**
-- Run on 50 tasks across all languages
-- Build failure pattern knowledge base
-- Add retry strategies (build errors, test timeouts)
-- Language-specific error handling (Rust borrow checker, C++ templates)
-- **Target:** 55-60% success rate
-
-**Week 3: Full Benchmark Run**  
-- Run all 300 Multilingual tasks
-- Run 100+ Verified tasks (Python)
-- Collect performance metrics by language/repo
-- Identify systematic failure modes
-- **Target:** 55-65% Multilingual, 65-70% Verified
-
-### Week 4 (v2.0.0 Target - Public Launch)
-
-**Benchmark Submission:**
-- Official SWE-bench Verified submission (target: 70%+, beat 65% SOTA)
-- Official SWE-bench Multilingual submission (target: 60%+, beat 43% baseline)
-- Write technical blog post: "How Narrative Programming Beat Python Agents"
-- Create demo video showing agent in action
-- Submit to HN, /r/programming, Twitter
-
-**Marketing Strategy:**
-- **Verified win:** "First narrative language to beat procedural on SWE-bench"
-- **Multilingual win:** "Language-agnostic agents: 40% better than AST-based systems"
-- **Cost story:** "$50 vs $200-10k for commercial agents"
-- **Open source:** Release full agent code in CNSC
-
-**Expected Impact:**
-- Top 10-15 on both leaderboards
-- HN front page (proven: SWE-bench posts always hit #1)
-- 1000+ GitHub stars in first week
-- Inbound from AI labs and tool companies
+**Production Applications:**
+- Build 3-4 real web services
+- Build 3-4 production CLI tools
+- Build 2-3 data processing apps
+- Gather community feedback
+- Identify missing features
+- Create deployment guides
+- **Target:** 2-3 months of real-world validation
 
 ---
 
@@ -581,14 +423,14 @@ export PATH="$HOME/.cargo/bin:$PATH"
 
 ## 🎨 Long-Term Vision
 
-**Year 1 Goal:** SWE-Bench Top 10-15, 10k+ GitHub stars, production adoption
+**Year 1 Goal:** 90% language coverage, 10k+ GitHub stars, production adoption
 
-**Year 2 Goal:** 90% language coverage, enterprise use cases, training dataset
+**Year 2 Goal:** Enterprise use cases, training dataset, ecosystem growth
 
 **Year 3 Goal:** First general-purpose language where LLMs write better code than humans
 
 **The Narrative:**
-> "CNS isn't just readable code - it's code that thinks like humans and LLMs think. That's why it wins on benchmarks and beats enterprise AI at automated software engineering."
+> "CNS isn't just readable code - it's code that thinks like humans and LLMs think. By focusing on narrative clarity and zero dependencies, CNS enables reliable automated code generation at scale."
 
 ---
 

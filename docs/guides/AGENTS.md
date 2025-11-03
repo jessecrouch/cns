@@ -229,6 +229,73 @@ rm src/cns.lisp.backup-*
 2. Document expected behavior in comments
 3. Run `sbcl --load tests/regression-tests.lisp`
 
+### LLM Code Generation Testing (REQUIRED for template changes)
+
+**When to run LLM tests:**
+- After modifying prompt templates (`prompts/*.md`)
+- After changing language syntax or built-in functions
+- Before claiming "LLM-friendly" improvements
+- When adding new CNS features that LLMs need to learn
+
+**How to run LLM tests:**
+```bash
+# Use the automated LLM test harness
+python3 scripts/llm-tester.py \
+  --task "Write a CNS program that calculates factorial of 5" \
+  --template prompts/detailed-template.md \
+  --provider grok \
+  --retries 3
+
+# The script will:
+# 1. Generate CNS code using the LLM
+# 2. Validate the generated code
+# 3. Execute the code
+# 4. Save results to tests/llm-tests/results/
+# 5. Save generated code to tests/llm-tests/generated/
+```
+
+**Supported LLM providers:**
+- `grok` / `xai` - xAI Grok models (requires `GROK_API_KEY` in `.env`)
+- `openai` - OpenAI GPT models (requires `OPENAI_API_KEY` in `.env`)
+- `claude` / `anthropic` - Anthropic Claude (requires `ANTHROPIC_API_KEY` in `.env`)
+- `openrouter` - OpenRouter unified API (requires `OPENROUTER_API_KEY` in `.env`)
+
+**Environment setup:**
+```bash
+# Create .env file in project root
+echo "GROK_API_KEY=your-key-here" >> .env
+echo "OPENAI_API_KEY=your-key-here" >> .env
+echo "ANTHROPIC_API_KEY=your-key-here" >> .env
+
+# Install dependencies
+pip install requests
+```
+
+**Test scenarios to verify:**
+1. **Basic math** - Factorial, fibonacci, prime checking
+2. **File I/O** - Reading/writing files, CSV operations
+3. **HTTP servers** - Multi-route servers with request logging
+4. **Control flow** - If/Otherwise with goto/repeat
+5. **String operations** - SPLIT, JOIN, UPPERCASE, LOWERCASE, TRIM
+
+**Success criteria:**
+- ✅ Validation passes (0 errors)
+- ✅ Execution succeeds (correct output)
+- ✅ Uses correct built-in functions (TIMESTAMP not NOW)
+- ✅ No hallucinated syntax (no array indexing, no undefined functions)
+
+**Failure analysis:**
+If LLM tests fail, check:
+1. Is the function documented in the template's lookup table?
+2. Are there conflicting examples in the documentation?
+3. Does the template show explicit ✅/❌ examples?
+4. Is deprecated syntax (CNSC) still referenced anywhere?
+
+**Results location:**
+- Generated code: `tests/llm-tests/generated/`
+- Test results: `tests/llm-tests/results/` (JSON format)
+- Historical tests: `tests/grok-iterations/` (manual test archives)
+
 ### Test Coverage Strategy
 
 **Current coverage (as of 2025-11-02):**
@@ -629,6 +696,50 @@ git commit -m "Reduce repository bloat: <X>% size reduction
 - ❌ Commit backup files, logs, or temporary artifacts
 - ❌ Let repository grow without regular audits
 
+### Automated Cleanup Tool
+
+**Use the cleanup script for regular maintenance:**
+
+```bash
+# Preview what will be cleaned (safe, no changes)
+./scripts/cleanup-repo.sh --dry-run
+
+# Show repository size metrics only
+./scripts/cleanup-repo.sh --report
+
+# Execute cleanup automatically
+./scripts/cleanup-repo.sh --auto
+
+# Full cleanup with aggressive duplicate removal
+./scripts/cleanup-repo.sh --auto --aggressive
+```
+
+**What the script does:**
+
+1. **Archives old session docs** (>7 days) from `docs/development/` to `docs/archive/YYYY-MM/`
+2. **Moves test results** from root directory to `tests/results/`
+3. **Flags large files** (>100KB) for manual review
+4. **Reports metrics** before/after cleanup
+
+**Protected files (never archived):**
+- `LISP-DEBUGGING-GUIDE.md`
+- `TESTING.md`
+- `ROADMAP.md`
+- `README.md`
+- Active roadmaps/status files
+
+**When to run cleanup:**
+- ✅ Monthly (first of month)
+- ✅ Before major releases
+- ✅ When `docs/development/` exceeds 20 files
+- ✅ When repository exceeds 5MB
+- ✅ After completing multi-day feature work
+
+**Retention policy:**
+- **<7 days**: Keep in `docs/development/`
+- **7-90 days**: Archive to `docs/archive/YYYY-MM/`
+- **>90 days**: Review for deletion (if superseded)
+
 ---
 
 ## Best Practices Summary
@@ -652,11 +763,11 @@ git commit -m "Reduce repository bloat: <X>% size reduction
 5. Write descriptive commit message with test results
 
 ### Regular Maintenance
-1. Archive completed session docs monthly
+1. Run automated cleanup: `./scripts/cleanup-repo.sh --auto`
 2. Monitor repository size (`du -sh .`)
 3. Remove redundant examples/tests
 4. Compress verbose documentation
-5. Review `docs/archive/` for very old items
+5. Review `docs/archive/` for very old items (>90 days)
 
 ---
 
@@ -674,7 +785,10 @@ sbcl --non-interactive --load src/cns.lisp  # Syntax check
 ./cns-validate examples/new.cns             # Validate syntax
 ./tests/run-all-tests.sh                    # Regression tests
 
-# Measurement
+# Cleanup & Measurement
+./scripts/cleanup-repo.sh --report          # Repository metrics
+./scripts/cleanup-repo.sh --dry-run         # Preview cleanup
+./scripts/cleanup-repo.sh --auto            # Execute cleanup
 du -sh .                                    # Repository size
 find docs -name "*.md" | wc -l              # Doc count
 wc -l src/cns.lisp                          # Interpreter size
@@ -721,6 +835,6 @@ git log --oneline -10                       # Recent history
 
 ---
 
-*Last Updated: 2025-11-02*  
-*Status: Focused development system prompt*  
+*Last Updated: 2025-11-03*  
+*Status: Focused development system prompt with automated cleanup*  
 *Audience: AI agents developing CNS*

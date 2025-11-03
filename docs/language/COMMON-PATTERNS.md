@@ -438,7 +438,7 @@ End: Return response
 
 ### Pattern 1: Simple CRUD Workflow
 
-```cnsc
+```cns
 Story: User CRUD Operations
 
 G: db_path:S="/tmp/users.db"

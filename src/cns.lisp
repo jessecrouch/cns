@@ -1206,9 +1206,9 @@ World' and ' rest'"
            (let* ((end-content (trim (subseq trimmed 4)))
                   (return-value (if (and (> (length end-content) 0)
                                          (starts-with (string-upcase end-content) "RETURN"))
-                                    (trim (subseq end-content 6))
+                                    (trim (trim (subseq end-content 7)))  ; "RETURN " is 7 chars, double-trim to ensure
                                     (if (> (length end-content) 0)
-                                        end-content
+                                        (trim end-content)
                                         nil))))
              (push `(end (return ,return-value) (because "computation complete")) ast)))
           
@@ -1703,35 +1703,61 @@ World' and ' rest'"
                (< (eval-expr (trim (car parts)) env)
                   (eval-expr (trim (cadr parts)) env))))
             
-              ;; Comparison: n ≠ 1 (not equal)
+             ;; Comparison: n == 1 (double equals - MUST come before single =)
+               ;; Handles both numeric and boolean comparisons
+               ((search "==" trimmed)
+                (let* ((pos (search "==" trimmed))
+                       (left-val (eval-expr (trim (subseq trimmed 0 pos)) env))
+                       (right-val (eval-expr (trim (subseq trimmed (+ pos 2))) env)))
+                  ;; If both values are numbers, use numeric comparison
+                  ;; Otherwise use general equality (for booleans, strings, etc.)
+                  (if (and (numberp left-val) (numberp right-val))
+                      (= left-val right-val)
+                      (equal left-val right-val))))
+             
+             ;; Comparison: n != 1 (not equal with exclamation)
+               ;; Handles both numeric and boolean comparisons
+               ((search "!=" trimmed)
+                (let* ((pos (search "!=" trimmed))
+                       (left-val (eval-expr (trim (subseq trimmed 0 pos)) env))
+                       (right-val (eval-expr (trim (subseq trimmed (+ pos 2))) env)))
+                  ;; If both values are numbers, use numeric inequality
+                  ;; Otherwise use general inequality (for booleans, strings, etc.)
+                  (if (and (numberp left-val) (numberp right-val))
+                      (/= left-val right-val)
+                      (not (equal left-val right-val)))))
+             
+             ;; Comparison: n ≠ 1 (not equal)
+               ;; Handles both numeric and boolean comparisons
+               ((search "≠" trimmed)
+                (let* ((parts (split-string trimmed #\≠))
+                       (left-val (eval-expr (trim (car parts)) env))
+                       (right-val (eval-expr (trim (cadr parts)) env)))
+                  ;; If both values are numbers, use numeric inequality
+                  ;; Otherwise use general inequality (for booleans, strings, etc.)
+                  (if (and (numberp left-val) (numberp right-val))
+                      (/= left-val right-val)
+                      (not (equal left-val right-val)))))
+             
+              ;; Comparison: n = 1 (must come after ==, !=, ≠, ≤, ≥, <=, >=)
+              ;; Make sure = is not part of <=, >=, ==, "becomes", " AND ", or " OR "
               ;; Handles both numeric and boolean comparisons
-              ((search "≠" trimmed)
-               (let* ((parts (split-string trimmed #\≠))
+              ((and (position #\= trimmed)
+                    (not (search "==" trimmed))
+                    (not (search "!=" trimmed))
+                    (not (search "<=" trimmed))
+                    (not (search ">=" trimmed))
+                    (not (search "becomes" trimmed))
+                    (not (search " AND " (string-upcase trimmed)))
+                    (not (search " OR " (string-upcase trimmed))))
+               (let* ((parts (split-string trimmed #\=))
                       (left-val (eval-expr (trim (car parts)) env))
                       (right-val (eval-expr (trim (cadr parts)) env)))
-                 ;; If both values are numbers, use numeric inequality
-                 ;; Otherwise use general inequality (for booleans, strings, etc.)
+                 ;; If both values are numbers, use numeric comparison
+                 ;; Otherwise use general equality (for booleans, strings, etc.)
                  (if (and (numberp left-val) (numberp right-val))
-                     (/= left-val right-val)
-                     (not (equal left-val right-val)))))
-            
-             ;; Comparison: n = 1 (must come after ≠, ≤, ≥, <=, >=)
-             ;; Make sure = is not part of <=, >=, "becomes", " AND ", or " OR "
-             ;; Handles both numeric and boolean comparisons
-             ((and (position #\= trimmed)
-                   (not (search "<=" trimmed))
-                   (not (search ">=" trimmed))
-                   (not (search "becomes" trimmed))
-                   (not (search " AND " (string-upcase trimmed)))
-                   (not (search " OR " (string-upcase trimmed))))
-              (let* ((parts (split-string trimmed #\=))
-                     (left-val (eval-expr (trim (car parts)) env))
-                     (right-val (eval-expr (trim (cadr parts)) env)))
-                ;; If both values are numbers, use numeric comparison
-                ;; Otherwise use general equality (for booleans, strings, etc.)
-                (if (and (numberp left-val) (numberp right-val))
-                    (= left-val right-val)
-                    (equal left-val right-val))))
+                     (= left-val right-val)
+                     (equal left-val right-val))))
            
             ;; Boolean: NOT expression
             ((starts-with (string-upcase trimmed) "NOT ")
@@ -2780,27 +2806,36 @@ World' and ' rest'"
        ;; Socket: Send response (REAL implementation)
        ((starts-with (string-upcase trimmed) "SEND ")
         (let* ((rest (trim (subseq trimmed 5))))
-           ;; First, extract the quoted string if present
-           (multiple-value-bind (content after-content)
+           ;; First check if it's a quoted string or a variable
+           (multiple-value-bind (content after-content is-quoted)
                (if (and (> (length rest) 0) (char= (char rest 0) #\"))
-                   (extract-quoted-string rest)
-                   (values rest ""))
-            ;; Now find " TO " in the remaining part
-            (let* ((rest-after-quote (if (> (length after-content) 0)
-                                        after-content
-                                        rest))
-                   (to-pos (search " TO " (string-upcase rest-after-quote))))
+                   (multiple-value-bind (str rest-after) (extract-quoted-string rest)
+                     (values str rest-after t))
+                   (values nil rest nil))
+            ;; Now find " TO " to determine target
+            (let* ((rest-to-parse (if is-quoted after-content rest))
+                   (to-pos (search " TO " (string-upcase rest-to-parse))))
               (when to-pos
-                (let* ((target (trim (subseq rest-after-quote (+ to-pos 4))))
-                       (expanded (substitute-vars content env))
+                (let* ((content-part (if is-quoted 
+                                        content
+                                        (trim (subseq rest-to-parse 0 to-pos))))
+                       (target (trim (subseq rest-to-parse (+ to-pos 4))))
+                       ;; If not quoted, it's a variable name - look it up and apply interpolation
+                       (final-content (if is-quoted
+                                         (substitute-vars content-part env)
+                                         (let ((var-value (gethash content-part env)))
+                                           (if var-value
+                                               ;; Apply substitute-vars to handle {var} interpolation in the variable's value
+                                               (substitute-vars (format nil "~A" var-value) env)
+                                               content-part))))
                        (stream (gethash "client_stream" env)))
              (if stream
                  (handler-case
                      (progn
-                       (socket-send stream expanded)
+                       (socket-send stream final-content)
                        (when verbose
                          (format t "  Effect: Sent REAL data (~A bytes) to ~A~%" 
-                                 (length expanded) target)))
+                                 (length final-content) target)))
                    (error (e)
                      (when verbose
                        (format t "  Effect: Failed to send: ~A~%" e))))

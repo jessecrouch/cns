@@ -28,7 +28,7 @@ All notable changes to the CNS (Cause-and-Effect Narrative Script) language.
 - Examples: `test-find-basic.cns`, `test-grep-basic.cns`, `test-code-navigation.cns`
 
 ### Impact
-- Phase C 50% complete (SWE-Bench foundation)
+- Phase C 50% complete (automation foundation)
 - Native code navigation without SHELL dependencies
 - 80% of automated agent workflow implementable in pure CNS
 
@@ -49,7 +49,7 @@ All notable changes to the CNS (Cause-and-Effect Narrative Script) language.
 ### Impact
 - Phase C 40% complete
 - Complete git workflow for automated agents
-- Essential for SWE-Bench patch generation
+- Essential for patch generation and CI/CD automation
 
 ---
 
@@ -63,9 +63,9 @@ All notable changes to the CNS (Cause-and-Effect Narrative Script) language.
 - Examples: `test-shell.cns`, `test-git-basic.cns`, `test-git-workflow.cns`
 
 ### Impact
-- Phase C initiated (Benchmark Track)
+- Phase C initiated (Automation Track)
 - External tool integration enabled
-- Foundation for SWE-Bench agents
+- Foundation for automation agents
 
 ---
 

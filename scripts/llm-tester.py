@@ -2,6 +2,12 @@
 """
 LLM Test Harness for CNS Code Generation
 Tests language models' ability to generate valid CNS code
+
+Supports:
+- xAI Grok (grok-2-latest, grok-beta, etc.)
+- OpenAI (gpt-4, gpt-3.5-turbo, etc.) 
+- Anthropic Claude (claude-3-opus, claude-3-sonnet, etc.)
+- OpenRouter (any model via openrouter.ai)
 """
 
 import argparse
@@ -21,32 +27,37 @@ except ImportError:
     sys.exit(1)
 
 
-class GrokClient:
+class LLMClient:
+    """Base class for LLM API clients"""
+    
+    def __init__(self, api_key: str, model: str):
+        self.api_key = api_key
+        self.model = model
+        
+    def generate(self, prompt: str, system_prompt: Optional[str] = None, max_tokens: int = 2000, temperature: float = 0.7) -> str:
+        raise NotImplementedError()
+
+
+class GrokClient(LLMClient):
     """Client for xAI's Grok API"""
     
     def __init__(self, api_key: str, model: str = "grok-2-latest"):
-        self.api_key = api_key
-        self.model = model
+        super().__init__(api_key, model)
         self.base_url = "https://api.x.ai/v1"
         
-    def generate(self, prompt: str, max_tokens: int = 2000, temperature: float = 0.7) -> str:
-        """Generate code from prompt using Grok API"""
+    def generate(self, prompt: str, system_prompt: str = None, max_tokens: int = 2000, temperature: float = 0.7) -> str:
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
         }
         
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+        
         payload = {
-            "messages": [
-                {
-                    "role": "system",
-                    "content": "You are a CNS code generator. Generate ONLY valid CNS code. Do not include explanations, markdown formatting, or any text outside the CNS code block."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
+            "messages": messages,
             "model": self.model,
             "temperature": temperature,
             "max_tokens": max_tokens
@@ -66,13 +77,136 @@ class GrokClient:
         return result["choices"][0]["message"]["content"]
 
 
+class OpenAIClient(LLMClient):
+    """Client for OpenAI API"""
+    
+    def __init__(self, api_key: str, model: str = "gpt-4"):
+        super().__init__(api_key, model)
+        self.base_url = "https://api.openai.com/v1"
+        
+    def generate(self, prompt: str, system_prompt: Optional[str] = None, max_tokens: int = 2000, temperature: float = 0.7) -> str:
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+        
+        payload = {
+            "messages": messages,
+            "model": self.model,
+            "temperature": temperature,
+            "max_tokens": max_tokens
+        }
+        
+        response = requests.post(
+            f"{self.base_url}/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=60
+        )
+        
+        if response.status_code != 200:
+            raise Exception(f"API Error {response.status_code}: {response.text}")
+        
+        result = response.json()
+        return result["choices"][0]["message"]["content"]
+
+
+class ClaudeClient(LLMClient):
+    """Client for Anthropic Claude API"""
+    
+    def __init__(self, api_key: str, model: str = "claude-3-sonnet-20240229"):
+        super().__init__(api_key, model)
+        self.base_url = "https://api.anthropic.com/v1"
+        
+    def generate(self, prompt: str, system_prompt: Optional[str] = None, max_tokens: int = 2000, temperature: float = 0.7) -> str:
+        headers = {
+            "x-api-key": self.api_key,
+            "Content-Type": "application/json",
+            "anthropic-version": "2023-06-01"
+        }
+        
+        payload = {
+            "model": self.model,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "messages": [{"role": "user", "content": prompt}]
+        }
+        
+        if system_prompt:
+            payload["system"] = system_prompt
+        
+        response = requests.post(
+            f"{self.base_url}/messages",
+            headers=headers,
+            json=payload,
+            timeout=60
+        )
+        
+        if response.status_code != 200:
+            raise Exception(f"API Error {response.status_code}: {response.text}")
+        
+        result = response.json()
+        return result["content"][0]["text"]
+
+
+class OpenRouterClient(LLMClient):
+    """Client for OpenRouter (unified API for many models)"""
+    
+    def __init__(self, api_key: str, model: str):
+        super().__init__(api_key, model)
+        self.base_url = "https://openrouter.ai/api/v1"
+        
+    def generate(self, prompt: str, system_prompt: Optional[str] = None, max_tokens: int = 2000, temperature: float = 0.7) -> str:
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://github.com/jessecrouch/cns",
+            "X-Title": "CNS LLM Tester"
+        }
+        
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+        
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens
+        }
+        
+        response = requests.post(
+            f"{self.base_url}/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=60
+        )
+        
+        if response.status_code != 200:
+            raise Exception(f"API Error {response.status_code}: {response.text}")
+        
+        result = response.json()
+        return result["choices"][0]["message"]["content"]
+
+
 class CNSTester:
     """Tests CNS code generation and validation"""
     
     def __init__(self, project_root: Path):
         self.project_root = project_root
         self.validator_path = project_root / "src" / "cns-validate"
-        self.runner_path = project_root / "src" / "cns-run"
+        self.runner_path = project_root / "cns-run"
+        
+        # Try alternate locations if main ones don't exist
+        if not self.runner_path.exists():
+            self.runner_path = project_root / "src" / "cns-run"
+        
         self.results_dir = project_root / "tests" / "llm-tests" / "results"
         self.generated_dir = project_root / "tests" / "llm-tests" / "generated"
         
@@ -119,7 +253,7 @@ class CNSTester:
                 [str(self.validator_path), str(temp_file)],
                 capture_output=True,
                 text=True,
-                timeout=5
+                timeout=10
             )
             
             success = result.returncode == 0
@@ -134,6 +268,9 @@ class CNSTester:
     def execute_cns(self, code: str, timeout: int = 5) -> Tuple[bool, str]:
         """Execute CNS code using cns-run"""
         temp_file = self.generated_dir / "temp_execute.cns"
+        # Ensure file ends with newline (parser requires it)
+        if not code.endswith('\n'):
+            code += '\n'
         temp_file.write_text(code)
         
         try:
@@ -169,8 +306,25 @@ class CNSTester:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"{test_name}_iter{iteration}_{timestamp}.cns"
         filepath = self.generated_dir / filename
+        # Ensure file ends with newline (parser requires it)
+        if not code.endswith('\n'):
+            code += '\n'
         filepath.write_text(code)
         return filepath
+
+
+def create_llm_client(provider: str, api_key: str, model: str) -> LLMClient:
+    """Factory function to create appropriate LLM client"""
+    if provider == "grok" or provider == "xai":
+        return GrokClient(api_key, model)
+    elif provider == "openai":
+        return OpenAIClient(api_key, model)
+    elif provider == "claude" or provider == "anthropic":
+        return ClaudeClient(api_key, model)
+    elif provider == "openrouter":
+        return OpenRouterClient(api_key, model)
+    else:
+        raise ValueError(f"Unknown provider: {provider}")
 
 
 def load_prompt_template(template_path: Path, task: str) -> str:
@@ -182,10 +336,18 @@ def load_prompt_template(template_path: Path, task: str) -> str:
     return template.replace("{TASK}", task)
 
 
+def load_system_prompt(prompt_path: Path) -> Optional[str]:
+    """Load system prompt if it exists"""
+    if prompt_path.exists():
+        return prompt_path.read_text()
+    return None
+
+
 def run_test(
-    grok: GrokClient,
+    llm: LLMClient,
     tester: CNSTester,
     prompt: str,
+    system_prompt: Optional[str],
     test_name: str,
     max_retries: int = 3,
     verbose: bool = True
@@ -194,9 +356,10 @@ def run_test(
     
     result = {
         "test_name": test_name,
-        "model": grok.model,
+        "model": llm.model,
         "timestamp": datetime.now().isoformat(),
         "prompt": prompt,
+        "system_prompt": system_prompt,
         "attempts": [],
         "success": False,
         "total_attempts": 0
@@ -220,7 +383,7 @@ def run_test(
                 print("Generating code...")
             
             start_time = time.time()
-            llm_output = grok.generate(prompt)
+            llm_output = llm.generate(prompt, system_prompt=system_prompt)
             generation_time = time.time() - start_time
             
             attempt_data["generation_time"] = generation_time
@@ -320,12 +483,17 @@ def load_env_file(project_root: Path):
 
 def main():
     parser = argparse.ArgumentParser(description="Test LLMs on CNS code generation")
-    parser.add_argument("--task", required=True, help="Task description (e.g., 'factorial function')")
+    parser.add_argument("--task", required=True, help="Task description")
     parser.add_argument("--name", help="Test name (defaults to task)")
     parser.add_argument("--template", default="prompts/quick-template.md", help="Prompt template file")
-    parser.add_argument("--model", default="grok-2-latest", help="Grok model to use (grok-2-latest, grok-3, etc.)")
+    parser.add_argument("--system-prompt", default="prompts/cns-system-prompt.md", help="System prompt file")
+    parser.add_argument("--provider", default="grok", 
+                       choices=["grok", "xai", "openai", "claude", "anthropic", "openrouter"],
+                       help="LLM provider")
+    parser.add_argument("--model", help="Model to use (provider-specific)")
     parser.add_argument("--retries", type=int, default=3, help="Max retry attempts")
-    parser.add_argument("--api-key", help="xAI API key (or set GROK_API_KEY in .env file)")
+    parser.add_argument("--api-key", help="API key (or set in .env)")
+    parser.add_argument("--timeout", type=int, default=5, help="Execution timeout in seconds")
     parser.add_argument("--quiet", action="store_true", help="Minimal output")
     
     args = parser.parse_args()
@@ -334,45 +502,69 @@ def main():
     project_root = Path(__file__).parent.parent
     load_env_file(project_root)
     
-    # Get API key from args, GROK_API_KEY env var, or XAI_API_KEY env var
-    api_key = args.api_key or os.environ.get("GROK_API_KEY") or os.environ.get("XAI_API_KEY")
+    # Determine API key based on provider
+    api_key = args.api_key
     if not api_key:
-        print("ERROR: No API key provided.")
-        print("  Option 1: Add GROK_API_KEY=your-key to .env file")
-        print("  Option 2: Set GROK_API_KEY or XAI_API_KEY environment variable")
-        print("  Option 3: Use --api-key command line argument")
+        if args.provider in ["grok", "xai"]:
+            api_key = os.environ.get("GROK_API_KEY") or os.environ.get("XAI_API_KEY")
+        elif args.provider == "openai":
+            api_key = os.environ.get("OPENAI_API_KEY")
+        elif args.provider in ["claude", "anthropic"]:
+            api_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("CLAUDE_API_KEY")
+        elif args.provider == "openrouter":
+            api_key = os.environ.get("OPENROUTER_API_KEY")
+    
+    if not api_key:
+        print(f"ERROR: No API key provided for {args.provider}.")
+        print(f"  Option 1: Add to .env file")
+        print(f"  Option 2: Use --api-key command line argument")
         sys.exit(1)
     
-    # Setup
-    project_root = Path(__file__).parent.parent
-    load_env_file(project_root)
+    # Determine model
+    model = args.model
+    if not model:
+        defaults = {
+            "grok": "grok-2-latest",
+            "xai": "grok-2-latest",
+            "openai": "gpt-4",
+            "claude": "claude-3-sonnet-20240229",
+            "anthropic": "claude-3-sonnet-20240229",
+            "openrouter": "anthropic/claude-3-sonnet"
+        }
+        model = defaults.get(args.provider, "grok-2-latest")
+    
     test_name = args.name or args.task.replace(" ", "-").lower()
     
-    # Load prompt
+    # Load prompts
     template_path = project_root / args.template
+    system_prompt_path = project_root / args.system_prompt
+    
     try:
         prompt = load_prompt_template(template_path, args.task)
+        system_prompt = load_system_prompt(system_prompt_path)
     except FileNotFoundError as e:
         print(f"ERROR: {e}")
         sys.exit(1)
     
     # Initialize clients
-    grok = GrokClient(api_key, model=args.model)
+    llm = create_llm_client(args.provider, api_key, model)
     tester = CNSTester(project_root)
     
     print(f"\n{'='*60}")
     print(f"CNS LLM Test Harness")
     print(f"{'='*60}")
     print(f"Task: {args.task}")
-    print(f"Model: {args.model}")
+    print(f"Provider: {args.provider}")
+    print(f"Model: {model}")
     print(f"Max retries: {args.retries}")
     print(f"Template: {args.template}")
     
     # Run test
     result = run_test(
-        grok=grok,
+        llm=llm,
         tester=tester,
         prompt=prompt,
+        system_prompt=system_prompt,
         test_name=test_name,
         max_retries=args.retries,
         verbose=not args.quiet

@@ -187,21 +187,27 @@
       ;; Skip string literals  
       (when (and (> (length trimmed) 0)
                  (not (char= (char trimmed 0) #\")))
-        ;; Split by common operators and keywords
-        (let ((tokens (split-string-by-any trimmed '(#\Space #\+ #\- #\* #\/ #\= #\< #\> #\( #\)))))
-          (dolist (token tokens)
-            (let ((tok (trim token)))
-              (when (and (> (length tok) 0)
-                         ;; Not a number
-                         (not (digit-char-p (char tok 0)))
-                         (not (string-equal tok "-"))  ; Negative sign alone
-                         ;; Not an operator or keyword
-                         (not (member (string-upcase tok) '("BECOMES" "TO" "FROM" "AND" "OR" "IF" "THEN" "OTHERWISE" 
-                                                             "STEP" "END" "SET" "PRINT" "TRUE" "FALSE" "NIL" "T"
-                                                             "REPEAT" "GO" "RETURN" "EACH" "FOR")))
-                         ;; Not empty
-                         (> (length tok) 0))
-                (push tok vars))))))
+        ;; Skip control flow statements and built-in functions - they have their own validators
+        (when (not (or (search "go to" trimmed :test #'char-equal)
+                       (search "repeat from" trimmed :test #'char-equal)
+                       (search "return" trimmed :test #'char-equal)
+                       (search "READ FROM FILE" (string-upcase trimmed))))
+          ;; Split by common operators and keywords
+          (let ((tokens (split-string-by-any trimmed '(#\Space #\+ #\- #\* #\/ #\% #\= #\< #\> #\( #\) #\[ #\] #\, #\"))))
+            (dolist (token tokens)
+              (let ((tok (trim token)))
+                (when (and (> (length tok) 0)
+                           ;; Not a number
+                           (not (digit-char-p (char tok 0)))
+                           (not (string-equal tok "-"))  ; Negative sign alone
+                           ;; Not an operator or keyword
+                           (not (member (string-upcase tok) '("BECOMES" "TO" "FROM" "AND" "OR" "IF" "THEN" "OTHERWISE" 
+                                                               "STEP" "END" "SET" "PRINT" "TRUE" "FALSE" "NIL" "T"
+                                                               "REPEAT" "GO" "RETURN" "EACH" "FOR" "AT" "BY" "WITH"
+                                                               "SPLIT" "JOIN" "NOW" "ENV" "CONTAINS" "IN" "THE" "A" "AN")))
+                           ;; Not empty
+                           (> (length tok) 0))
+                  (push tok vars)))))))
       (remove-duplicates vars :test #'string-equal))))
 
 (defun validate-variable-declarations (ast)
@@ -209,7 +215,12 @@
   (let ((declared-vars '())
         (assigned-vars '())
         (errors '())
-        (step-num 0))
+        (step-num 0)
+        ;; Built-in CNS variables that don't need declaration
+        (builtin-vars '("REQUEST_METHOD" "REQUEST_PATH" "REQUEST_BODY" 
+                        "HTTP_STATUS" "HTTP_HEADERS" "QUERY_STRING"
+                        "CLIENT_IP" "SERVER_PORT" "TIMESTAMP"
+                        "ENV" "ARGS" "ARGC")))
     ;; Extract declared variables from Given
     (dolist (node ast)
       (when (and (listp node) (eql (car node) 'given))
@@ -221,57 +232,9 @@
     (dolist (node ast)
       (when (and (listp node) (eql (car node) 'step))
         (setf step-num (cadr node))
-        ;; Check action
-        (let ((action (cadr (assoc 'action (cddr node)))))
-          (when action
-            ;; Check if it's an assignment: "Set var to expr" or "var becomes expr"
-            (cond
-              ;; "Set var to expr" pattern
-              ((and (search "Set " action :test #'char-equal)
-                    (search " to " action :test #'char-equal))
-               (let* ((set-pos (search "Set " action :test #'char-equal))
-                      (to-pos (search " to " action :test #'char-equal))
-                      (var-name (trim (subseq action (+ set-pos 4) to-pos)))
-                      (expr (trim (subseq action (+ to-pos 4)))))
-                 ;; Track assignment
-                 (push var-name assigned-vars)
-                 ;; Check variables in expression
-                 (let ((vars (extract-variables-from-expr expr)))
-                   (dolist (var vars)
-                     (unless (or (member var declared-vars :test #'string-equal)
-                                (member var assigned-vars :test #'string-equal))
-                       (push (make-error :semantic :error
-                                        (format nil "Variable '~A' used before declaration in Step ~D" var step-num)
-                                        :context action)
-                             errors))))))
-              
-              ;; "var becomes expr" pattern
-              ((search "becomes" action :test #'char-equal)
-               (let* ((becomes-pos (search "becomes" action :test #'char-equal))
-                      (var-name (trim (subseq action 0 becomes-pos)))
-                      (expr (trim (subseq action (+ becomes-pos 7)))))
-                 ;; Track assignment
-                 (push var-name assigned-vars)
-                 ;; Check variables in expression
-                 (let ((vars (extract-variables-from-expr expr)))
-                   (dolist (var vars)
-                     (unless (or (member var declared-vars :test #'string-equal)
-                                (member var assigned-vars :test #'string-equal))
-                       (push (make-error :semantic :error
-                                        (format nil "Variable '~A' used before declaration in Step ~D" var step-num)
-                                        :context action)
-                             errors))))))
-              
-              ;; Not an assignment, check all variables
-              (t
-               (let ((vars (extract-variables-from-expr action)))
-                 (dolist (var vars)
-                   (unless (or (member var declared-vars :test #'string-equal)
-                              (member var assigned-vars :test #'string-equal))
-                     (push (make-error :semantic :error
-                                      (format nil "Variable '~A' used before declaration in Step ~D" var step-num)
-                                      :context action)
-                           errors))))))))
+        ;; SKIP action field - it's just a step description, not executable code
+        ;; The action field contains the step title like "Create server socket"
+        ;; which should not be validated for variable usage
         
         ;; Check Then clauses and track assignments
         (dolist (clause (cddr node))
@@ -290,7 +253,8 @@
                           (let ((vars (extract-variables-from-expr expr)))
                             (dolist (var vars)
                               (unless (or (member var declared-vars :test #'string-equal)
-                                         (member var assigned-vars :test #'string-equal))
+                                         (member var assigned-vars :test #'string-equal)
+                                         (member var builtin-vars :test #'string-equal))
                                 (push (make-error :semantic :error
                                                  (format nil "Variable '~A' used before declaration in Step ~D" var step-num)
                                                  :context then-str)
@@ -299,7 +263,8 @@
                     (let ((vars (extract-variables-from-expr then-str)))
                       (dolist (var vars)
                         (unless (or (member var declared-vars :test #'string-equal)
-                                   (member var assigned-vars :test #'string-equal))
+                                   (member var assigned-vars :test #'string-equal)
+                                   (member var builtin-vars :test #'string-equal))
                           (push (make-error :semantic :error
                                            (format nil "Variable '~A' used before declaration in Step ~D" var step-num)
                                            :context then-str)
@@ -397,37 +362,34 @@
 
 (defun validate-cns (code)
   "Perform comprehensive validation of CNS code.
-   Automatically detects and expands CNSC (compact) format.
    Returns (values is-valid error-list warning-list).
    is-valid is T if no errors (warnings are OK).
    error-list contains all errors.
    warning-list contains all warnings."
-  (let ((all-errors '())
-        (errors '())
-        (warnings '()))
-    
-    ;; Auto-expand CNSC to CNS if detected
-    (let ((expanded-code (if (is-cnsc-code code)
-                             (expand-cnsc-to-cns code)
-                             code)))
-    
-    ;; Structure validation (on expanded code)
-    (setf all-errors (append all-errors
-                             (validate-has-story expanded-code)
-                             (validate-has-given expanded-code)
-                             (validate-has-steps expanded-code)
-                             (validate-has-end expanded-code)
-                             (validate-has-because-clauses expanded-code)))
-    
-    ;; Syntax validation (on expanded code)
-    (setf all-errors (append all-errors
-                             (validate-step-arrows expanded-code)
-                             (validate-end-format expanded-code)
-                             (validate-indentation expanded-code)))
-    
-    ;; Try to parse - if it fails, return early
-    (handler-case
-        (let ((ast (parse-cns expanded-code)))
+   (let ((all-errors '())
+         (errors '())
+         (warnings '()))
+     
+     ;; Use code directly (no CNSC expansion in validator)
+     (let ((expanded-code code))
+     
+     ;; Structure validation
+     (setf all-errors (append all-errors
+                              (validate-has-story expanded-code)
+                              (validate-has-given expanded-code)
+                              (validate-has-steps expanded-code)
+                              (validate-has-end expanded-code)
+                              (validate-has-because-clauses expanded-code)))
+     
+     ;; Syntax validation
+     (setf all-errors (append all-errors
+                              (validate-step-arrows expanded-code)
+                              (validate-end-format expanded-code)
+                              (validate-indentation expanded-code)))
+     
+     ;; Try to parse - if it fails, return early
+     (handler-case
+         (let ((ast (parse-cns expanded-code)))
           ;; Semantic validation (on AST)
           (setf all-errors (append all-errors
                                    (validate-variable-declarations ast)

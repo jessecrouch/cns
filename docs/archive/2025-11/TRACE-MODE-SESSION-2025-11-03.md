@@ -604,4 +604,4 @@ Trace mode is **fully implemented and tested**. This completes the final item fr
 ---
 
 **Phase C Status:** ✅ 100% COMPLETE  
-**Next Milestone:** v1.8.0 - Language Adapters for SWE-Bench Multilingual
+**Next Milestone:** v1.8.0 - Language Adapters for automation benchmarks Multilingual

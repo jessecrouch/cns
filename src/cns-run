@@ -14,18 +14,10 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     echo "CNS Runner - Execute Causal Narrative Script programs"
     echo ""
     echo "Usage:"
-    echo "  ./cns-run <file.cns>                Run a verbose CNS file"
-    echo "  ./cns-run <file.cnsc>               Run a compact CNSC file (auto-expands)"
-    echo "  ./cns-run --max-iterations N file   Set max iterations (default: 10000)"
-    echo "  ./cns-run --trace file              Enable trace mode (execution visibility)"
-    echo "  ./cns-run --strict file             Enable strict mode (immediate NIL errors)"
-    echo "  ./cns-run --all                     Run all example files"
-    echo "  ./cns-run --list                    List available examples"
-    echo "  ./cns-run --repl                    Start interactive REPL"
-    echo "  ./cns-run --test                    Run test suite"
-    echo ""
-    echo "Flags can be combined: ./cns-run --trace --strict --max-iterations 1000 file.cns"
-    echo "Both .cns and .cnsc formats are supported seamlessly."
+    echo "  ./cns-run <file.cns>                Run a CNS file"
+    echo "  ./cns-run --max-iterations N file   Set iteration limit"
+    echo "  ./cns-run --trace file              Enable trace mode"
+    echo "  ./cns-run --help                    Show this help"
     echo ""
     exit 0
 fi
@@ -104,9 +96,7 @@ done
 
 if [ -z "$FILE_ARG" ]; then
     echo "Error: No file specified"
-    echo "Usage: ./cns-run <file.cns> or <file.cnsc>"
-    echo "       ./cns-run --max-iterations N <file.cns>"
-    echo "       ./cns-run --help for more options"
+    echo "Usage: ./cns-run <file.cns>"
     exit 1
 fi
 
@@ -127,23 +117,6 @@ if [ -n "$STRICT_MODE" ]; then
     SBCL_CMD+="(setf *strict-mode* t) "
 fi
 
-# Check if it's a CNSC file (compact format)
-if [[ "$FILE_ARG" == *.cnsc ]]; then
-    # Auto-expand CNSC to CNS, then execute
-    TEMP_CNS=$(mktemp /tmp/cns-expanded.XXXXXX.cns)
-    trap "rm -f $TEMP_CNS" EXIT
-    
-    "$CNS_EXPAND" "$FILE_ARG" > "$TEMP_CNS"
-    if [ $? -ne 0 ]; then
-        echo "Error: Failed to expand CNSC file '$FILE_ARG'"
-        exit 1
-    fi
-    
-    # Run the expanded CNS file
-    SBCL_CMD+="(load-cns-file \"$TEMP_CNS\"))"
-    sbcl --noinform --load "$CNS_LISP" --eval "$SBCL_CMD" --quit
-else
-    # Run the CNS file directly
-    SBCL_CMD+="(load-cns-file \"$FILE_ARG\"))"
-    sbcl --noinform --load "$CNS_LISP" --eval "$SBCL_CMD" --quit
-fi
+# Run the CNS file directly
+SBCL_CMD+="(load-cns-file \"$FILE_ARG\"))"
+sbcl --noinform --load "$CNS_LISP" --eval "$SBCL_CMD" --quit

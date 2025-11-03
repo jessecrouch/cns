@@ -1,0 +1,73 @@
+Story: A web server that logs HTTP requests to a CSV file and provides a history endpoint
+
+Given:
+  port: Integer = 8080
+  server_socket: Socket
+  request_data: String = ""
+  timestamp: Integer
+  method: String = ""
+  path: String = ""
+  client: String = ""
+  log_entry: String = ""
+  csv_file: String = "requests.csv"
+  history_data: String = ""
+
+Step 1 → Create server socket
+  Because: The server needs to listen for incoming connections
+  Effect: Create socket server_socket on port
+
+Step 2 → Accept connection
+  Because: The server must handle each new client request
+  Effect: Accept connection on server_socket
+
+Step 3 → Read request
+  Because: We need to capture the HTTP request data
+  Effect: Network read
+
+Step 4 → Parse request
+  Because: We need to extract relevant information from the request
+  Then: request_data becomes SPLIT request_data BY " "
+  Then: method becomes request_data at 0
+  Then: path becomes request_data at 1
+  Then: client becomes ENV("REMOTE_ADDR", "unknown")
+
+Step 5 → Check if path contains 'history'
+  Because: We should not log requests to the history endpoint
+  If: NOT path CONTAINS "history"
+    Then: go to Step 6
+  Otherwise:
+    Then: go to Step 7
+
+Step 6 → Log request to CSV
+  Because: We need to record all incoming requests except history requests
+  Then: timestamp becomes NOW()
+  Then: log_entry becomes JOIN [timestamp, method, path, client] WITH ","
+  Effect: Append log_entry to csv_file
+  Then: go to Step 7
+
+Step 7 → Handle main endpoint
+  Because: The main endpoint should respond with a message and log the request
+  If: path == "/"
+    Then: response becomes "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<html><body>Request Logger Server</body></html>"
+    Effect: Send response to client
+    Then: go to Step 10
+
+Step 8 → Handle history endpoint
+  Because: The history endpoint should display logged requests without logging itself
+  If: path == "/history"
+    Effect: Read from file csv_file into history_data
+    Then: response becomes "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\n{history_data}"
+    Effect: Send response to client
+    Then: go to Step 10
+
+Step 9 → Handle other paths
+  Because: We need to respond to unknown paths with a 404 error
+  Then: response becomes "HTTP/1.1 404 Not Found\r\nContent-Type: text/html\r\n\r\n<html><body>404 Not Found</body></html>"
+  Effect: Send response to client
+
+Step 10 → Prepare for next connection
+  Because: The server should continue to accept new connections
+  If: TRUE
+    Then: repeat from Step 2
+
+End: Return port

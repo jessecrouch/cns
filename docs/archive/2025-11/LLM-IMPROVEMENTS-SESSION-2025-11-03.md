@@ -300,7 +300,7 @@ The make-cns-error function provides a template for LLM-friendly errors:
 2. ✅ Update documentation - DONE
 3. ✅ Mark phases complete - DONE
 4. Commit changes with detailed message
-5. Move on to SWE-Bench work (v1.8.0 - Language Adapters)
+5. Move on to automation benchmarks work (v1.8.0 - Language Adapters)
 
 ### Future (Low Priority)
 1. **Trace Mode Integration**
@@ -339,7 +339,7 @@ The make-cns-error function provides a template for LLM-friendly errors:
 - ⚠️ Trace mode integration (50% done, low priority)
 - 🔄 Empirical LLM testing (ongoing)
 
-**Ready for:** SWE-Bench agent work (v1.8.0) - Language adapters for multi-language testing
+**Ready for:** automation benchmarks agent work (v1.8.0) - Language adapters for multi-language testing
 
 ---
 
@@ -348,4 +348,4 @@ The make-cns-error function provides a template for LLM-friendly errors:
 **Test Coverage:** 29/31 pass (93.5% excluding expected timeouts)  
 **Documentation:** 1,089 lines of LLM-focused guides  
 **Features:** 85% of LLM-first improvements complete  
-**Next Milestone:** v1.8.0 - Language Adapters for SWE-Bench Multilingual
+**Next Milestone:** v1.8.0 - Language Adapters for automation benchmarks Multilingual

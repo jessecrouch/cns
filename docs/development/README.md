@@ -100,10 +100,11 @@
 
 ## Archived Work
 
-**SWE-bench agent work** (paused, see docs/archive/SWEBENCH-EXPERIMENTS.md):
-- Determined LLMs need better CNS understanding first
+**Automation agent experiments** (paused, see docs/archive/):
+- Built language detection and automation prototypes
+- Determined CNS needed better LLM tooling first
 - Shifted focus to LLM-first improvements (Phase C)
-- Will resume after language maturity improves
+- Now complete with trace mode and validation
 
 **If/Otherwise fix** (completed, integrated into v1.7.0):
 - Both story and function interpreters now support If/Otherwise correctly
