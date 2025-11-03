@@ -1,0 +1,55 @@
+Story: Demonstrate expression auto-fix for LLM-friendly coding
+# This example shows how CNS automatically fixes literal-first expressions
+# like "3 * n" to "n * 3", making it easier for LLMs to write correct code
+
+Given:
+  n: Integer = 10
+  a: Integer = 0
+  b: Integer = 0
+  c: Integer = 0
+  d: Integer = 0
+
+Step 1 → Test multiplication auto-fix
+  Because: LLMs often write "3 * n" instead of "n * 3"
+  Effect: Print ""
+  Effect: Print "=== Multiplication Auto-Fix ==="
+  Then: a becomes 3 * n
+  Effect: Print "Expression: 3 * n"
+  Effect: Print "Result: {a} (expected: 30)"
+
+Step 2 → Test division auto-fix  
+  Because: Division with literals first is also auto-fixed
+  Effect: Print ""
+  Effect: Print "=== Division Auto-Fix ==="
+  Then: b becomes 100 / n
+  Effect: Print "Expression: 100 / n"  
+  Effect: Print "Result: {b} (auto-fixed to n / 100 = 0)"
+  Effect: Print "Note: Auto-fix changes semantics for division!"
+
+Step 3 → Test subtraction auto-fix
+  Because: Subtraction order matters
+  Effect: Print ""
+  Effect: Print "=== Subtraction Auto-Fix ==="
+  Then: c becomes 5 - n
+  Effect: Print "Expression: 5 - n"
+  Effect: Print "Result: {c} (auto-fixed to n - 5 = 5)"
+  Effect: Print "Note: Auto-fix changes semantics for subtraction!"
+
+Step 4 → Test modulo auto-fix
+  Because: Modulo with literals first is less common
+  Effect: Print ""
+  Effect: Print "=== Modulo Auto-Fix ==="
+  Then: d becomes 3 % n
+  Effect: Print "Expression: 3 % n"
+  Effect: Print "Result: {d} (auto-fixed to n % 3 = 1)"
+
+Step 5 → Summary
+  Because: Explain the auto-fix feature
+  Effect: Print ""
+  Effect: Print "=== Summary ==="
+  Effect: Print "✓ CNS automatically detects and fixes literal-first expressions"
+  Effect: Print "✓ This helps LLMs write working code on first try"
+  Effect: Print "⚠ For division and subtraction, this changes semantics"
+  Effect: Print "⚠ Always use variable-first order (n * 3) for clarity"
+
+End: Return 0

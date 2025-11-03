@@ -1472,6 +1472,54 @@ World' and ' rest'"
           result)))))
 
 ;;; ============================================================================
+;;; Expression Evaluator - Helper Functions
+;;; ============================================================================
+
+(defun is-literal (str)
+  "Check if a string represents a literal value (number or string literal).
+   Returns T for: '3', '-5', '\"hello\"'
+   Returns NIL for: 'n', 'count', 'x'"
+  (let ((trimmed (trim str)))
+    (cond
+      ;; Empty string is not a literal
+      ((zerop (length trimmed)) nil)
+      
+      ;; String literal: "..." or '...'
+      ((and (> (length trimmed) 1)
+            (or (and (char= (char trimmed 0) #\")
+                     (char= (char trimmed (1- (length trimmed))) #\"))
+                (and (char= (char trimmed 0) #\')
+                     (char= (char trimmed (1- (length trimmed))) #\'))))
+       t)
+      
+      ;; Number literal: starts with digit or negative sign
+      ((or (digit-char-p (char trimmed 0))
+           (and (char= (char trimmed 0) #\-)
+                (> (length trimmed) 1)
+                (digit-char-p (char trimmed 1))))
+       (handler-case
+           (progn (parse-integer trimmed) t)
+         (error () nil)))
+      
+      ;; Everything else is not a literal (variables, function calls, etc.)
+      (t nil))))
+
+(defun auto-fix-literal-first (expr operator)
+  "Auto-fix expressions with literal-first ordering.
+   If expr is 'literal OP variable', returns (values 'variable OP literal' T).
+   Otherwise returns (values expr NIL)."
+  (let ((parts (split-string expr (char operator 0))))
+    (if (and parts
+             (>= (length parts) 2))
+        (let ((left (trim (car parts)))
+              (right (trim (cadr parts))))
+          (if (and (is-literal left)
+                   (not (is-literal right)))
+              (values (format nil "~A ~A ~A" right operator left) t)
+              (values expr nil)))
+        (values expr nil))))
+
+;;; ============================================================================
 ;;; Expression Evaluator
 ;;; ============================================================================
 
@@ -1582,13 +1630,15 @@ World' and ' rest'"
                      (mapcar (lambda (item) (eval-expr (trim item) env)) items)))))
             
              ;; Try to parse as number (handles negative numbers)
+             ;; Only match if the ENTIRE string is a valid number
              ((and (> (length trimmed) 0)
                    (or (digit-char-p (char trimmed 0))
                        (and (char= (char trimmed 0) #\-)
-                            (> (length trimmed) 1))))
-              (handler-case
-                  (parse-integer trimmed)
-                (error () nil)))
+                            (> (length trimmed) 1)))
+                   (handler-case
+                       (progn (parse-integer trimmed) t)
+                     (error () nil)))
+              (parse-integer trimmed))
            
            ;; Comparison: n ≤ 1 (less than or equal, Unicode) - BEFORE < check
              ((search "≤" trimmed)
@@ -2061,17 +2111,27 @@ World' and ' rest'"
                           time-val))
                     0)))
             
-             ;; Arithmetic: result * n
+             ;; Arithmetic: result * n (with auto-fix for literal-first)
             ((search "*" trimmed)
-             (let ((parts (split-string trimmed #\*)))
-               (* (eval-expr (trim (car parts)) env)
-                  (eval-expr (trim (cadr parts)) env))))
+             (multiple-value-bind (fixed-expr was-fixed)
+                 (auto-fix-literal-first trimmed "*")
+               (when was-fixed
+                 (format *error-output* "~%⚠ Expression auto-fixed: '~A' → '~A'~%" trimmed fixed-expr)
+                 (format *error-output* "  Hint: Write variables before literals (e.g., 'n * 3' not '3 * n')~%"))
+               (let ((parts (split-string fixed-expr #\*)))
+                 (* (eval-expr (trim (car parts)) env)
+                    (eval-expr (trim (cadr parts)) env)))))
             
-            ;; Arithmetic: n - 1
+            ;; Arithmetic: n - 1 (with auto-fix for literal-first)
             ((search "-" trimmed)
-             (let ((parts (split-string trimmed #\-)))
-               (- (eval-expr (trim (car parts)) env)
-                  (eval-expr (trim (cadr parts)) env))))
+             (multiple-value-bind (fixed-expr was-fixed)
+                 (auto-fix-literal-first trimmed "-")
+               (when was-fixed
+                 (format *error-output* "~%⚠ Expression auto-fixed: '~A' → '~A'~%" trimmed fixed-expr)
+                 (format *error-output* "  Hint: Write variables before literals (e.g., 'n - 3' not '3 - n')~%"))
+               (let ((parts (split-string fixed-expr #\-)))
+                 (- (eval-expr (trim (car parts)) env)
+                    (eval-expr (trim (cadr parts)) env)))))
            
              ;; Addition/Concatenation: n + 1 or "hello" + "world" or "a" + b + "c"
              ((search "+" trimmed)
@@ -2088,17 +2148,27 @@ World' and ' rest'"
                                     (if (stringp v) v (format nil "~A" v)))
                                   values)))))
             
-            ;; Arithmetic: n / 2 (division)
+            ;; Arithmetic: n / 2 (division, with auto-fix for literal-first)
             ((search "/" trimmed)
-             (let ((parts (split-string trimmed #\/)))
-               (floor (/ (eval-expr (trim (car parts)) env)
-                         (eval-expr (trim (cadr parts)) env)))))
+             (multiple-value-bind (fixed-expr was-fixed)
+                 (auto-fix-literal-first trimmed "/")
+               (when was-fixed
+                 (format *error-output* "~%⚠ Expression auto-fixed: '~A' → '~A'~%" trimmed fixed-expr)
+                 (format *error-output* "  Hint: Write variables before literals (e.g., 'n / 2' not '2 / n')~%"))
+               (let ((parts (split-string fixed-expr #\/)))
+                 (floor (/ (eval-expr (trim (car parts)) env)
+                           (eval-expr (trim (cadr parts)) env))))))
             
-             ;; Arithmetic: n % 2 (modulo)
+             ;; Arithmetic: n % 2 (modulo, with auto-fix for literal-first)
              ((search "%" trimmed)
-              (let ((parts (split-string trimmed #\%)))
-                (mod (eval-expr (trim (car parts)) env)
-                     (eval-expr (trim (cadr parts)) env))))
+              (multiple-value-bind (fixed-expr was-fixed)
+                  (auto-fix-literal-first trimmed "%")
+                (when was-fixed
+                  (format *error-output* "~%⚠ Expression auto-fixed: '~A' → '~A'~%" trimmed fixed-expr)
+                  (format *error-output* "  Hint: Write variables before literals (e.g., 'n % 2' not '2 % n')~%"))
+                (let ((parts (split-string fixed-expr #\%)))
+                  (mod (eval-expr (trim (car parts)) env)
+                       (eval-expr (trim (cadr parts)) env)))))
             
              ;; Length operation: length of list or string
              ((starts-with (string-upcase trimmed) "LENGTH OF ")
