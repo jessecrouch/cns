@@ -1528,9 +1528,20 @@ World' and ' rest'"
       ;; Everything else is not a literal (variables, function calls, etc.)
       (t nil))))
 
-;; NOTE: auto-fix-literal-first function removed!
-;; No longer needed - operator checks now come BEFORE number literal parsing,
-;; so "3 * n" naturally parses as multiplication without needing auto-fix.
+(defun auto-fix-literal-first (expr operator)
+  "Auto-fix expressions with literal-first ordering.
+   If expr is 'literal OP variable', returns (values 'variable OP literal' T).
+   Otherwise returns (values expr NIL)."
+  (let ((parts (split-string expr (char operator 0))))
+    (if (and parts
+             (>= (length parts) 2))
+        (let ((left (trim (car parts)))
+              (right (trim (cadr parts))))
+          (if (and (is-literal left)
+                   (not (is-literal right)))
+              (values (format nil "~A ~A ~A" right operator left) t)
+              (values expr nil)))
+        (values expr nil))))
 
 ;;; ============================================================================
 ;;; Expression Evaluator
@@ -1706,65 +1717,20 @@ World' and ' rest'"
               (let ((result (eval-expr right-expr env)))
                 (setf (gethash var-name env) result))))
             
-             ;; MATH FUNCTIONS - Must come BEFORE arithmetic operators!
-             ;; Otherwise "ABS OF -100" gets parsed as "ABS OF" minus "100"
-             
-             ;; Math: SQRT OF n - square root
-             ((starts-with (string-upcase trimmed) "SQRT OF ")
-              (let* ((expr (trim (subseq trimmed 8)))
-                     (val (eval-expr expr env)))
-                (if (numberp val)
-                    (sqrt val)
-                    (error "SQRT requires a number"))))
-            
-             ;; Math: POW base TO exponent - power/exponentiation
-             ((and (search " TO " (string-upcase trimmed))
-                   (let* ((to-pos (search " TO " (string-upcase trimmed)))
-                          (before-to (trim (subseq trimmed 0 to-pos))))
-                     (starts-with (string-upcase before-to) "POW ")))
-              (let* ((to-pos (search " TO " (string-upcase trimmed)))
-                     (before-to (trim (subseq trimmed 0 to-pos)))
-                     (base-expr (trim (subseq before-to 4)))
-                     (exp-expr (trim (subseq trimmed (+ to-pos 4))))
-                     (base (eval-expr base-expr env))
-                     (exponent (eval-expr exp-expr env)))
-                (if (and (numberp base) (numberp exponent))
-                    (expt base exponent)
-                    (error "POW requires two numbers"))))
-            
-             ;; Math: ABS OF n - absolute value
-             ((starts-with (string-upcase trimmed) "ABS OF ")
-              (let* ((expr (trim (subseq trimmed 7)))
-                     (val (eval-expr expr env)))
-                (if (numberp val)
-                    (abs val)
-                    (error "ABS requires a number"))))
-            
-             ;; Math: ROUND n - round to nearest integer
-             ((starts-with (string-upcase trimmed) "ROUND ")
-              (let* ((expr (trim (subseq trimmed 6)))
-                     (val (eval-expr expr env)))
-                (if (numberp val)
-                    (round val)
-                    (error "ROUND requires a number"))))
-            
-             ;; Math: FLOOR n - round down
-             ((starts-with (string-upcase trimmed) "FLOOR ")
-              (let* ((expr (trim (subseq trimmed 6)))
-                     (val (eval-expr expr env)))
-                (if (numberp val)
-                    (floor val)
-                    (error "FLOOR requires a number"))))
-            
-             ;; Math: CEIL n - round up (ceiling)
-             ((starts-with (string-upcase trimmed) "CEIL ")
-              (let* ((expr (trim (subseq trimmed 5)))
-                     (val (eval-expr expr env)))
-                (if (numberp val)
-                    (ceiling val)
-                    (error "CEIL requires a number"))))
-            
-             ;; Math: MIN OF a AND b - minimum of two numbers
+             ;; Try to parse as number (handles integers and floats, including negative)
+             ;; Only match if the ENTIRE string is a valid number
+             ((and (> (length trimmed) 0)
+                   (or (digit-char-p (char trimmed 0))
+                       (and (char= (char trimmed 0) #\-)
+                            (> (length trimmed) 1)))
+                   (handler-case
+                       ;; Try parsing as float first (handles both int and float)
+                       (progn (read-from-string trimmed) t)
+                     (error () nil)))
+              ;; Use read-from-string to handle both integers and floats
+              (read-from-string trimmed))
+           
+             ;; Math: MIN OF a AND b - minimum of two numbers (BEFORE boolean AND check)
              ((and (starts-with (string-upcase trimmed) "MIN OF ")
                    (search " AND " (string-upcase trimmed)))
               (let* ((and-pos (search " AND " (string-upcase trimmed)))
@@ -1775,8 +1741,8 @@ World' and ' rest'"
                 (if (and (numberp first-val) (numberp second-val))
                     (min first-val second-val)
                     (error "MIN requires two numbers"))))
-            
-             ;; Math: MAX OF a AND b - maximum of two numbers
+           
+             ;; Math: MAX OF a AND b - maximum of two numbers (BEFORE boolean AND check)
              ((and (starts-with (string-upcase trimmed) "MAX OF ")
                    (search " AND " (string-upcase trimmed)))
               (let* ((and-pos (search " AND " (string-upcase trimmed)))
@@ -1787,97 +1753,6 @@ World' and ' rest'"
                 (if (and (numberp first-val) (numberp second-val))
                     (max first-val second-val)
                     (error "MAX requires two numbers"))))
-            
-             ;; Math: RANDOM FROM a TO b - random integer in range [a, b]
-             ((and (starts-with (string-upcase trimmed) "RANDOM FROM ")
-                   (search " TO " (string-upcase trimmed)))
-              (let* ((to-pos (search " TO " (string-upcase trimmed)))
-                     (from-expr (trim (subseq trimmed 12 to-pos)))
-                     (to-expr (trim (subseq trimmed (+ to-pos 4))))
-                     (from-val (eval-expr from-expr env))
-                     (to-val (eval-expr to-expr env)))
-                (if (and (integerp from-val) (integerp to-val))
-                    (+ from-val (random (1+ (- to-val from-val))))
-                    (error "RANDOM FROM requires two integers"))))
-            
-             ;; Math: RANDOM - random float between 0.0 and 1.0
-             ((string-equal trimmed "RANDOM")
-              (random 1.0))
-             
-             ;; ARITHMETIC OPERATORS - Must come BEFORE number literal check!
-             ;; This allows "3 * n" to be parsed as multiplication, not as "3" ignoring "* n"
-             
-             ;; Arithmetic: multiplication (n * 3 or 3 * n both work now!)
-            ((search "*" trimmed)
-             (let ((parts (split-string trimmed #\*)))
-               (* (eval-expr (trim (car parts)) env)
-                  (eval-expr (trim (cadr parts)) env))))
-            
-            ;; Arithmetic: subtraction (n - 1 or 10 - n both work!)
-            ;; BUT: Don't match negative numbers like "-42" (minus at start with no left operand)
-            ((and (search "-" trimmed)
-                  ;; Make sure there's something before the minus sign (not just whitespace)
-                  (let ((minus-pos (position #\- trimmed)))
-                    (and minus-pos
-                         (> minus-pos 0)
-                         ;; There's non-whitespace before the minus
-                         (> (length (trim (subseq trimmed 0 minus-pos))) 0))))
-             (let ((parts (split-string trimmed #\-)))
-               (- (eval-expr (trim (car parts)) env)
-                  (eval-expr (trim (cadr parts)) env))))
-           
-             ;; Addition/Concatenation: n + 1 or "hello" + "world" or "a" + b + "c"
-             ((search "+" trimmed)
-              (let* ((parts (split-string trimmed #\+))
-                     ;; Evaluate all parts
-                     (values (mapcar (lambda (p) (eval-expr (trim p) env)) parts)))
-                ;; Determine operation type by first two values
-                (if (and (numberp (car values)) (numberp (cadr values)))
-                    ;; All numeric: add them all
-                    (reduce #'+ values)
-                    ;; String concatenation: convert all to strings and concatenate
-                    (apply #'concatenate 'string
-                           (mapcar (lambda (v)
-                                    (if (stringp v) v (format nil "~A" v)))
-                                  values)))))
-            
-            ;; Arithmetic: division (n / 2 or 20 / n both work!)
-            ((search "/" trimmed)
-             (let ((parts (split-string trimmed #\/)))
-               (floor (/ (eval-expr (trim (car parts)) env)
-                         (eval-expr (trim (cadr parts)) env)))))
-            
-             ;; Arithmetic: modulo (n % 2 or 10 % n both work!)
-             ((search "%" trimmed)
-              (let ((parts (split-string trimmed #\%)))
-                (mod (eval-expr (trim (car parts)) env)
-                     (eval-expr (trim (cadr parts)) env))))
-            
-             ;; Try to parse as number (handles integers and floats, including negative)
-             ;; IMPORTANT: This must come AFTER operator checks!
-             ;; Only match if the ENTIRE string is a valid number (no operators)
-             ((and (> (length trimmed) 0)
-                   (or (digit-char-p (char trimmed 0))
-                       (and (char= (char trimmed 0) #\-)
-                            (> (length trimmed) 1)))
-                   ;; Make sure there are no operators in the string
-                   (not (search "*" trimmed))
-                   (not (search "/" trimmed))
-                   (not (search "+" trimmed))
-                   (not (search "%" trimmed))
-                   ;; Only allow - at the start (negative numbers)
-                   (not (position #\- trimmed :start 1))
-                   (handler-case
-                       ;; Validate that read-from-string consumes the ENTIRE string
-                       (multiple-value-bind (value position)
-                           (read-from-string trimmed)
-                         (and (numberp value) (= position (length trimmed))))
-                     (error () nil)))
-              ;; Use read-from-string to handle both integers and floats
-              (read-from-string trimmed))
-           
-             ;; NOTE: MIN OF, MAX OF, RANDOM FROM, RANDOM moved earlier (line ~1767)
-             ;; They must come BEFORE arithmetic operators to avoid conflicts
            
              ;; Boolean: a OR b (LOWEST PRECEDENCE - check before AND and comparisons)
              ((search " OR " (string-upcase trimmed))
@@ -2385,17 +2260,135 @@ World' and ' rest'"
                           time-val))
                      0)))
             
-             ;; NOTE: Math functions (SQRT, POW, ABS, ROUND, FLOOR, CEIL) moved earlier
-             ;; They are now at line ~1712, BEFORE arithmetic operators
-             ;; This prevents "ABS OF -100" from being parsed as subtraction
+             ;; Math: SQRT OF n - square root
+             ((starts-with (string-upcase trimmed) "SQRT OF ")
+              (let* ((expr (trim (subseq trimmed 8)))
+                     (val (eval-expr expr env)))
+                (if (numberp val)
+                    (sqrt val)
+                    (error "SQRT requires a number"))))
             
-             ;; NOTE: Math functions moved earlier in file (line ~1712):
-             ;; - SQRT, POW, ABS, ROUND, FLOOR, CEIL, MIN, MAX, RANDOM
-             ;; They must come BEFORE arithmetic operators to avoid parsing conflicts
-             
-             ;; NOTE: Arithmetic operators (*, -, +, /, %) have been moved BEFORE number literal check
-             ;; This is around line 1730, right after "becomes" and before number parsing
-             ;; This allows "3 * n" to parse correctly as multiplication instead of just "3"
+             ;; Math: POW base TO exponent - power/exponentiation
+             ((and (search " TO " (string-upcase trimmed))
+                   (let* ((to-pos (search " TO " (string-upcase trimmed)))
+                          (before-to (trim (subseq trimmed 0 to-pos))))
+                     (starts-with (string-upcase before-to) "POW ")))
+              (let* ((to-pos (search " TO " (string-upcase trimmed)))
+                     (before-to (trim (subseq trimmed 0 to-pos)))
+                     (base-expr (trim (subseq before-to 4)))
+                     (exp-expr (trim (subseq trimmed (+ to-pos 4))))
+                     (base (eval-expr base-expr env))
+                     (exponent (eval-expr exp-expr env)))
+                (if (and (numberp base) (numberp exponent))
+                    (expt base exponent)
+                    (error "POW requires two numbers"))))
+            
+             ;; Math: ABS OF n - absolute value
+             ((starts-with (string-upcase trimmed) "ABS OF ")
+              (let* ((expr (trim (subseq trimmed 7)))
+                     (val (eval-expr expr env)))
+                (if (numberp val)
+                    (abs val)
+                    (error "ABS requires a number"))))
+            
+             ;; Math: ROUND n - round to nearest integer
+             ((starts-with (string-upcase trimmed) "ROUND ")
+              (let* ((expr (trim (subseq trimmed 6)))
+                     (val (eval-expr expr env)))
+                (if (numberp val)
+                    (round val)
+                    (error "ROUND requires a number"))))
+            
+             ;; Math: FLOOR n - round down
+             ((starts-with (string-upcase trimmed) "FLOOR ")
+              (let* ((expr (trim (subseq trimmed 6)))
+                     (val (eval-expr expr env)))
+                (if (numberp val)
+                    (floor val)
+                    (error "FLOOR requires a number"))))
+            
+             ;; Math: CEIL n - round up (ceiling)
+             ((starts-with (string-upcase trimmed) "CEIL ")
+              (let* ((expr (trim (subseq trimmed 5)))
+                     (val (eval-expr expr env)))
+                (if (numberp val)
+                    (ceiling val)
+                    (error "CEIL requires a number"))))
+            
+             ;; Math: RANDOM FROM a TO b - random integer in range [a, b]
+             ((and (starts-with (string-upcase trimmed) "RANDOM FROM ")
+                   (search " TO " (string-upcase trimmed)))
+              (let* ((to-pos (search " TO " (string-upcase trimmed)))
+                     (from-expr (trim (subseq trimmed 12 to-pos)))
+                     (to-expr (trim (subseq trimmed (+ to-pos 4))))
+                     (from-val (eval-expr from-expr env))
+                     (to-val (eval-expr to-expr env)))
+                (if (and (integerp from-val) (integerp to-val))
+                    (+ from-val (random (1+ (- to-val from-val))))
+                    (error "RANDOM FROM requires two integers"))))
+            
+             ;; Math: RANDOM - random float between 0.0 and 1.0
+             ((string-equal trimmed "RANDOM")
+              (random 1.0))
+            
+             ;; Arithmetic: result * n (with auto-fix for literal-first)
+            ((search "*" trimmed)
+             (multiple-value-bind (fixed-expr was-fixed)
+                 (auto-fix-literal-first trimmed "*")
+               (when was-fixed
+                 (format *error-output* "~%⚠ Expression auto-fixed: '~A' → '~A'~%" trimmed fixed-expr)
+                 (format *error-output* "  Hint: Write variables before literals (e.g., 'n * 3' not '3 * n')~%"))
+               (let ((parts (split-string fixed-expr #\*)))
+                 (* (eval-expr (trim (car parts)) env)
+                    (eval-expr (trim (cadr parts)) env)))))
+            
+            ;; Arithmetic: n - 1 (with auto-fix for literal-first)
+            ((search "-" trimmed)
+             (multiple-value-bind (fixed-expr was-fixed)
+                 (auto-fix-literal-first trimmed "-")
+               (when was-fixed
+                 (format *error-output* "~%⚠ Expression auto-fixed: '~A' → '~A'~%" trimmed fixed-expr)
+                 (format *error-output* "  Hint: Write variables before literals (e.g., 'n - 3' not '3 - n')~%"))
+               (let ((parts (split-string fixed-expr #\-)))
+                 (- (eval-expr (trim (car parts)) env)
+                    (eval-expr (trim (cadr parts)) env)))))
+           
+             ;; Addition/Concatenation: n + 1 or "hello" + "world" or "a" + b + "c"
+             ((search "+" trimmed)
+              (let* ((parts (split-string trimmed #\+))
+                     ;; Evaluate all parts
+                     (values (mapcar (lambda (p) (eval-expr (trim p) env)) parts)))
+                ;; Determine operation type by first two values
+                (if (and (numberp (car values)) (numberp (cadr values)))
+                    ;; All numeric: add them all
+                    (reduce #'+ values)
+                    ;; String concatenation: convert all to strings and concatenate
+                    (apply #'concatenate 'string
+                           (mapcar (lambda (v)
+                                    (if (stringp v) v (format nil "~A" v)))
+                                  values)))))
+            
+            ;; Arithmetic: n / 2 (division, with auto-fix for literal-first)
+            ((search "/" trimmed)
+             (multiple-value-bind (fixed-expr was-fixed)
+                 (auto-fix-literal-first trimmed "/")
+               (when was-fixed
+                 (format *error-output* "~%⚠ Expression auto-fixed: '~A' → '~A'~%" trimmed fixed-expr)
+                 (format *error-output* "  Hint: Write variables before literals (e.g., 'n / 2' not '2 / n')~%"))
+               (let ((parts (split-string fixed-expr #\/)))
+                 (floor (/ (eval-expr (trim (car parts)) env)
+                           (eval-expr (trim (cadr parts)) env))))))
+            
+             ;; Arithmetic: n % 2 (modulo, with auto-fix for literal-first)
+             ((search "%" trimmed)
+              (multiple-value-bind (fixed-expr was-fixed)
+                  (auto-fix-literal-first trimmed "%")
+                (when was-fixed
+                  (format *error-output* "~%⚠ Expression auto-fixed: '~A' → '~A'~%" trimmed fixed-expr)
+                  (format *error-output* "  Hint: Write variables before literals (e.g., 'n % 2' not '2 % n')~%"))
+                 (let ((parts (split-string fixed-expr #\%)))
+                   (mod (eval-expr (trim (car parts)) env)
+                        (eval-expr (trim (cadr parts)) env)))))
             
              ;; Length operation: length of list or string
              ((starts-with (string-upcase trimmed) "LENGTH OF ")

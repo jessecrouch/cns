@@ -227,13 +227,24 @@ Then: dice becomes RANDOM FROM 1 TO 6   # Random integer (e.g., 4)
 
 **Note on floats**: CNS now supports decimal literals: `3.14`, `-2.5`, `98.6`
 
-### ❌ DANGEROUS (Returns NIL or Wrong Result)
+### ✅ BOTH ORDERS WORK! (Literal-first bug FIXED)
 
 ```cns
-Then: result becomes 3 * n        # ❌ Literal-first → NIL
+Then: result becomes 3 * n        # ✅ Works! (15)
+Then: result becomes n * 3        # ✅ Works! (15)
+Then: result becomes 10 - x       # ✅ Works! (5)
+Then: result becomes x - 1        # ✅ Works! (4)
+Then: result becomes 100 / n      # ✅ Works! (20)
+```
+
+**NEW in v1.1:** Literal-first expressions now work correctly! No need to rewrite `3 * n` as `n * 3`.
+
+### ⚠️ STILL LIMITATIONS (Multi-operator, Parentheses)
+
+```cns
 Then: result becomes n * 3 + 1    # ❌ Multi-operator → NIL
 Then: avg becomes (a + b) / 2     # ❌ Parentheses → NIL
-Then: result becomes 2 + 3 * 4    # ❌ Wrong order (left-to-right)
+Then: result becomes 2 + 3 * 4    # ⚠️ Returns 20, not 14 (left-to-right evaluation)
 Then: x becomes SQRT 16           # ❌ Missing "OF" → NIL (use "SQRT OF 16")
 Then: y becomes POW 2 3           # ❌ Missing "TO" → NIL (use "POW 2 TO 3")
 ```
@@ -241,14 +252,11 @@ Then: y becomes POW 2 3           # ❌ Missing "TO" → NIL (use "POW 2 TO 3")
 ### ✅ WORKAROUNDS
 
 ```cns
-# Fix literal-first:
-Then: result becomes n * 3        # Swap to variable-first
-
-# Fix multi-operator:
+# Multi-operator expressions - split into steps:
 Then: temp becomes n * 3
 Then: result becomes temp + 1     # Split into steps
 
-# Fix parentheses:
+# Parentheses - use temporary variable:
 Then: sum becomes a + b
 Then: avg becomes sum / 2         # Use temporary variable
 
@@ -929,9 +937,9 @@ End: Return count
    - ❌ `ENV("VAR")` → Not available
    - ❌ `arr[0]` → ✅ Use `FIRST FROM arr`
 
-5. ❌ Literal-first expressions
-   - ✅ Use: `result becomes n * 3`
-   - ❌ Don't: `result becomes 3 * n` (returns NIL)
+5. ✅ Literal-first expressions (FIXED!)
+   - ✅ Both work: `result becomes n * 3` AND `result becomes 3 * n`
+   - **NEW**: As of v1.1, both orders work correctly!
 
 6. ❌ Multi-operator expressions
    - ✅ Use two lines:
