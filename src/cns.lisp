@@ -116,6 +116,8 @@
 (defvar *current-file* nil "Current CNS file being interpreted")
 (defvar *current-step* nil "Current step number being executed")
 (defvar *strict-mode* nil "Enable strict mode with immediate NIL failures")
+(defvar *max-iterations* 10000 "Maximum iterations before throwing error (prevents infinite loops)")
+(defvar *iteration-counter* 0 "Current iteration count")
 
 (defun make-cns-error (type message &key cause fix example context)
   "Create a structured, LLM-friendly error message.
@@ -196,6 +198,27 @@
   
 Step 1: Set result to x * 2
   Then: Print result  # Will print 20"))
+
+(defun cns-error-iteration-limit (iterations step-num env)
+  "Generate error for exceeding iteration limit."
+  (let ((state-snapshot (with-output-to-string (s)
+                         (format s "State snapshot:~%")
+                         (maphash (lambda (k v)
+                                   (format s "    ~A = ~A~%" k (if (null v) "NIL" v)))
+                                 env))))
+    (make-cns-error
+     :iteration-limit-exceeded
+     (format nil "Iteration limit exceeded (~A iterations)" iterations)
+     :cause "The program has been running for too long, likely due to an infinite loop"
+     :fix (format nil "Common patterns:
+   1. Variable became NIL, condition never met
+   2. Loop condition always true
+   3. Forgot to update loop counter
+   
+To increase limit: ./cns-run --max-iterations ~A yourfile.cns" 
+                    (* iterations 5))
+     :example state-snapshot
+     :context (format nil "Currently at Step ~A" step-num))))
 
 (defun format-error-context (step-num action)
   "Format context string for error location."
@@ -1427,6 +1450,14 @@ World' and ' rest'"
       (let ((pc 0))
         (handler-case
             (loop while (< pc (length steps)) do
+                  ;; Check iteration limit
+                  (incf *iteration-counter*)
+                  (when (> *iteration-counter* *max-iterations*)
+                    (error (cns-error-iteration-limit *iteration-counter* 
+                                                     (if (< pc (length steps)) 
+                                                         (cadr (nth pc steps))
+                                                         "Unknown")
+                                                     func-env)))
                   (let* ((step (nth pc steps))
                          (step-num (cadr step))
                          (step-body (cddr step))
@@ -3749,8 +3780,17 @@ World' and ' rest'"
     
     ;; Phase 2: Execute steps in loop (with error handling)
     (when verbose (format t "~%Execution Trace:~%"))
+    (setf *iteration-counter* 0)  ; Reset counter at start of execution
     (handler-case
         (loop while (< pc (length steps)) do
+            ;; Check iteration limit
+            (incf *iteration-counter*)
+            (when (> *iteration-counter* *max-iterations*)
+              (error (cns-error-iteration-limit *iteration-counter* 
+                                               (if (< pc (length steps)) 
+                                                   (cadr (nth pc steps))
+                                                   "Unknown")
+                                               env)))
             (let* ((step (nth pc steps))
                    (step-num (cadr step))
                    (step-body (cddr step))
