@@ -1,25 +1,32 @@
-G: text = "  Hello World  "
-G: list = ["apple", "banana", "cherry"]
-G: messy = "the quick brown fox"
+G: text:S = "  Hello World  "
+G: list:L = ["apple", "banana", "cherry"]
+G: messy:S = "the quick brown fox"
+G: cleaned:S, upper:S, lower:S, replaced:S, joined:S
+G: length1:I, length2:I
+G: combined:S
 
-S1→ cleaned = TRIM text
-S2→ upper = UPPERCASE cleaned
-S3→ lower = LOWERCASE cleaned
-S4→ replaced = REPLACE "World" WITH "CNS" IN cleaned
-S5→ joined = JOIN list WITH ", "
-S6→ length1 = LENGTH_OF cleaned
-S7→ length2 = LENGTH_OF list
+S1→ Test operations
+  cleaned = TRIM text
+  upper = UPPERCASE cleaned
+  lower = LOWERCASE cleaned
+  replaced = REPLACE "World" WITH "CNS" IN cleaned
+  joined = JOIN list WITH ", "
+  length1 = LENGTH_OF cleaned
+  length2 = LENGTH_OF list
 
-S8→ PRINT "Original: '" + text + "'"
-S9→ PRINT "Trimmed: '" + cleaned + "'"
-S10→ PRINT "Uppercase: " + upper
-S11→ PRINT "Lowercase: " + lower
-S12→ PRINT "Replaced: " + replaced
-S13→ PRINT "Joined: " + joined
-S14→ PRINT "String length: " + STR length1
-S15→ PRINT "List length: " + STR length2
+S3→ Test combined operations
+  combined = TRIM "  spaces  "
+  combined = UPPERCASE combined
 
-S16→ combined = UPPERCASE (TRIM "  spaces  ")
-S17→ PRINT "Combined ops: " + combined
+S2→ Display results
+  E: PRINT "Original: '" + text + "'"
+  E: PRINT "Trimmed: '" + cleaned + "'"
+  E: PRINT "Uppercase: " + upper
+  E: PRINT "Lowercase: " + lower
+  E: PRINT "Replaced: " + replaced
+  E: PRINT "Joined: " + joined
+  E: PRINT "String length: " + STR length1
+  E: PRINT "List length: " + STR length2
+  E: PRINT "Combined ops: " + combined
 
-E:
+End: String helpers working

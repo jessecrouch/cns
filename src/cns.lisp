@@ -84,6 +84,31 @@
           finally (push (subseq str start) result))
     (nreverse result)))
 
+(defun split-smart (str delimiter)
+  "Split string by delimiter, but skip delimiters inside brackets [] or braces {}."
+  (let ((result '())
+        (start 0)
+        (depth 0)
+        (in-string nil))
+    (loop for i from 0 below (length str) do
+          (let ((ch (char str i)))
+            (cond
+             ;; Toggle string mode on unescaped quotes
+             ((and (char= ch #\") 
+                   (or (= i 0) (char/= (char str (1- i)) #\\)))
+              (setf in-string (not in-string)))
+             ;; Track bracket depth when not in string
+             ((and (not in-string) (or (char= ch #\[) (char= ch #\{)))
+              (incf depth))
+             ((and (not in-string) (or (char= ch #\]) (char= ch #\})))
+              (decf depth))
+             ;; Split on delimiter only when depth is 0 and not in string
+             ((and (char= ch delimiter) (= depth 0) (not in-string))
+              (push (subseq str start i) result)
+              (setf start (1+ i))))))
+    (push (subseq str start) result)
+    (nreverse result)))
+
 (defun trim (str)
   "Trim whitespace from string."
   (string-trim '(#\Space #\Tab #\Newline #\Return) str))
@@ -979,36 +1004,51 @@ World' and ' rest'"
    Transforms:
    - G: -> Given:
    - Sn→ -> Step n →
-   - E: -> End:
+   - E: within steps -> Effect:
+   - E: at top level or after steps -> stays as empty section marker
+   - End: -> End: (unchanged)
    - var=expr -> Then: var becomes expr
    - cond? then : else -> If/Otherwise
    - ->Sn -> repeat from Step n
    - ->E -> go to End"
   (let ((lines (split-string code #\Newline))
-        (result '()))
+        (result '())
+        (in-step nil)
+        (given-vars '())
+        (seen-given nil))
     (dolist (line lines)
-      (let ((trimmed (trim line)))
+      (let* ((trimmed (trim line))
+             (indented (and (> (length line) 0) 
+                           (or (char= (char line 0) #\Space)
+                               (char= (char line 0) #\Tab)
+                               (starts-with (trim line) "→"))))
+             ;; Remove leading → from indented lines for processing
+             (trimmed-content (if (and indented (starts-with trimmed "→"))
+                                 (trim (subseq trimmed 1))
+                                 trimmed)))
         (cond
          ;; Story: (unchanged)
          ((starts-with trimmed "Story:")
+          (setf in-step nil)
           (push line result))
          
-         ;; G: -> Given:
-          ((starts-with trimmed "G:")
-           (push "Given:" result)
-           (let* ((vars-str (trim (subseq trimmed 2)))
-                  (var-decls (split-string vars-str #\,)))
-             (dolist (var-decl var-decls)
-               (let* ((var-trimmed (trim var-decl))
-                      (colon-pos (position #\: var-trimmed))
-                      (equals-pos (position #\= var-trimmed)))
+         ;; G: -> Accumulate Given variables
+         ((starts-with trimmed "G:")
+          (setf in-step nil)
+          (setf seen-given t)
+          (let* ((vars-str (trim (subseq trimmed 2)))
+                 (var-decls (split-smart vars-str #\,)))
+            (dolist (var-decl var-decls)
+              (let* ((var-trimmed (trim var-decl))
+                     (colon-pos (position #\: var-trimmed))
+                     (equals-pos (position #\= var-trimmed)))
                  (when colon-pos
-                   (let* ((name (subseq var-trimmed 0 colon-pos))
-                          (type-abbr (if equals-pos
+                   (let* ((name (trim (subseq var-trimmed 0 colon-pos)))
+                          (type-abbr (trim (if equals-pos
                                         (subseq var-trimmed (1+ colon-pos) equals-pos)
-                                        (subseq var-trimmed (1+ colon-pos))))
+                                        (subseq var-trimmed (1+ colon-pos)))))
                           (value (if equals-pos
-                                    (subseq var-trimmed (1+ equals-pos))
+                                    (trim (subseq var-trimmed (1+ equals-pos)))
                                     nil))
                           (type-full (cond
                                       ((string= type-abbr "I") "Integer")
@@ -1016,101 +1056,138 @@ World' and ' rest'"
                                       ((string= type-abbr "L") "List")
                                       ((string= type-abbr "M") "Map")
                                       (t type-abbr))))
-                     (if value
-                         (push (format nil "  ~A: ~A = ~A" name type-full value) result)
-                         (push (format nil "  ~A: ~A" name type-full) result))))))))
+                    (if value
+                        (push (format nil "  ~A: ~A = ~A" name type-full value) given-vars)
+                        (push (format nil "  ~A: ~A" name type-full) given-vars))))))))
          
-          ;; Sn→ -> Step n →
-          ((and (>= (length trimmed) 3)
-                (char= (char trimmed 0) #\S)
-                (digit-char-p (char trimmed 1))
-                (contains-char trimmed #\→))
-           (let* ((arrow-pos (position #\→ trimmed))
-                  (step-num (parse-integer (subseq trimmed 1 arrow-pos)))
-                  (step-content (trim (subseq trimmed (1+ arrow-pos)))))
-             ;; Parse step content for conditional or action
-             (let ((question-pos (position #\? step-content))
-                   (colon-pos (position #\: step-content)))
-               (cond
-                ;; Conditional: cond? then : else
-                ((and question-pos colon-pos (< question-pos colon-pos))
-                 (let* ((condition (trim (subseq step-content 0 question-pos)))
-                        (then-part (trim (subseq step-content (1+ question-pos) colon-pos)))
-                        (else-part (trim (subseq step-content (1+ colon-pos)))))
-                   ;; Step header with IF condition
-                   (push (format nil "Step ~D → If ~A" step-num condition) result)
-                   (push "  Because: execution step" result)
-                   ;; Expand then part
-                   (cond
-                    ((starts-with then-part "->S")
-                     (let ((target-step (parse-integer (subseq then-part 3))))
-                       (push (format nil "  Then: repeat from Step ~D" target-step) result)))
-                    ((starts-with then-part "->E")
-                     (push "  Then: go to End" result))
-                    ((contains-char then-part #\=)
-                     (let* ((eq-pos (position #\= then-part))
-                            (var (trim (subseq then-part 0 eq-pos)))
-                            (expr (trim (subseq then-part (1+ eq-pos)))))
-                       (push (format nil "  Then: ~A becomes ~A" var expr) result)))
-                    (t
-                     (push (format nil "  Then: ~A" then-part) result)))
-                   ;; Expand else part
-                   (cond
-                    ((starts-with else-part "->S")
-                     (let ((target-step (parse-integer (subseq else-part 3))))
-                       ;; Use "go to Step" for forward jumps in Otherwise clause
-                       (push (format nil "  Otherwise: go to Step ~D" target-step) result)))
-                    ((starts-with else-part "->E")
-                     (push "  Otherwise: go to End" result))
-                    ((contains-char else-part #\=)
-                     (let* ((eq-pos (position #\= else-part))
-                            (var (trim (subseq else-part 0 eq-pos)))
-                            (expr (trim (subseq else-part (1+ eq-pos)))))
-                       (push (format nil "  Otherwise: ~A becomes ~A" var expr) result)))
-                    (t
-                     (push (format nil "  Otherwise: ~A" else-part) result)))))
-               
-               ;; Effect: statements
-               ((starts-with step-content "Effect:")
-                (let ((effect-content (trim (subseq step-content 7))))
-                  (push (format nil "Step ~D → Execute effect" step-num) result)
-                  (push "  Because: execution step" result)
-                  (push (format nil "  Effect: ~A" effect-content) result)))
-               
-               ;; Simple assignment(s): var=expr or var=expr; var2=expr2
-               ((contains-char step-content #\=)
-                (push (format nil "Step ~D → Execute assignments" step-num) result)
+         ;; Sn→ -> Step n →
+         ((and (>= (length trimmed) 3)
+               (char= (char trimmed 0) #\S)
+               (digit-char-p (char trimmed 1))
+               (contains-char trimmed #\→))
+          ;; Output accumulated Given section before first step
+          (when (and seen-given given-vars)
+            (push "Given:" result)
+            (dolist (var-line (nreverse given-vars))
+              (push var-line result))
+            (setf given-vars nil)
+            (setf seen-given nil))
+          (let* ((arrow-pos (position #\→ trimmed))
+                 (step-num (parse-integer (subseq trimmed 1 arrow-pos)))
+                 (step-content (trim (subseq trimmed (1+ arrow-pos))))
+                 (question-pos (position #\? step-content))
+                 (colon-pos (position #\: step-content)))
+            (cond
+             ;; Conditional: cond? then : else
+             ((and question-pos colon-pos (< question-pos colon-pos))
+              (setf in-step nil)  ; Conditional steps don't have indented content
+              (let* ((condition (trim (subseq step-content 0 question-pos)))
+                     (then-part (trim (subseq step-content (1+ question-pos) colon-pos)))
+                     (else-part (trim (subseq step-content (1+ colon-pos)))))
+                (push (format nil "Step ~D → If ~A" step-num condition) result)
                 (push "  Because: execution step" result)
-                (let ((assignments (split-string step-content #\;)))
-                  (dolist (assignment assignments)
-                    (let* ((assign-trimmed (trim assignment))
-                           (eq-pos (position #\= assign-trimmed)))
-                      (when eq-pos
-                        (let ((var (trim (subseq assign-trimmed 0 eq-pos)))
-                              (expr (trim (subseq assign-trimmed (1+ eq-pos)))))
-                          (push (format nil "  Then: ~A becomes ~A" var expr) result)))))))
-               
-               ;; Jump: ->Sn or ->E
-               ((starts-with step-content "->")
-                (push (format nil "Step ~D → Jump" step-num) result)
-                (push "  Because: execution step" result)
+                ;; Expand then part
                 (cond
-                 ((starts-with step-content "->S")
-                  (let ((target-step (parse-integer (subseq step-content 3))))
+                 ((starts-with then-part "->S")
+                  (let ((target-step (parse-integer (subseq then-part 3))))
                     (push (format nil "  Then: repeat from Step ~D" target-step) result)))
-                 ((starts-with step-content "->E")
-                  (push "  Then: go to End" result))))
-               
-               ;; Unknown - pass through
-               (t
-                (push (format nil "Step ~D → ~A" step-num step-content) result)
+                 ((starts-with then-part "->E")
+                  (push "  Then: go to End" result))
+                 ((contains-char then-part #\=)
+                  (let* ((eq-pos (position #\= then-part))
+                         (var (trim (subseq then-part 0 eq-pos)))
+                         (expr (trim (subseq then-part (1+ eq-pos)))))
+                    (push (format nil "  Then: ~A becomes ~A" var expr) result)))
+                 (t
+                  (push (format nil "  Then: ~A" then-part) result)))
+                ;; Expand else part
+                (cond
+                 ((starts-with else-part "->S")
+                  (let ((target-step (parse-integer (subseq else-part 3))))
+                    (push (format nil "  Otherwise: go to Step ~D" target-step) result)))
+                 ((starts-with else-part "->E")
+                  (push "  Otherwise: go to End" result))
+                 ((contains-char else-part #\=)
+                  (let* ((eq-pos (position #\= else-part))
+                         (var (trim (subseq else-part 0 eq-pos)))
+                         (expr (trim (subseq else-part (1+ eq-pos)))))
+                    (push (format nil "  Otherwise: ~A becomes ~A" var expr) result)))
+                 (t
+                  (push (format nil "  Otherwise: ~A" else-part) result)))))
+             ;; Effect: on Sn→ line
+             ((starts-with step-content "Effect:")
+              (setf in-step nil)  ; Inline effect, no indented content expected
+              (let ((effect-content (trim (subseq step-content 7))))
+                (push (format nil "Step ~D → Execute effect" step-num) result)
                 (push "  Because: execution step" result)
-                (push (format nil "  Then: ~A" step-content) result))))))
+                (push (format nil "  Effect: ~A" effect-content) result)))
+             ;; Inline assignment
+             ((contains-char step-content #\=)
+              (setf in-step nil)  ; Inline assignment, no indented content expected
+              (let* ((eq-pos (position #\= step-content))
+                     (var (trim (subseq step-content 0 eq-pos)))
+                     (expr (trim (subseq step-content (1+ eq-pos)))))
+                (push (format nil "Step ~D → Assign ~A" step-num var) result)
+                (push "  Because: execution step" result)
+                (push (format nil "  Then: ~A becomes ~A" var expr) result)))
+             ;; Just a description, may have indented content
+             (t
+              (setf in-step t)
+              (push (format nil "Step ~D → ~A" step-num step-content) result)
+              (push "  Because: execution step" result)))))
          
-         ;; E: -> End:
+         ;; End: at top level
+         ((starts-with trimmed "End:")
+          (setf in-step nil)
+          (let ((end-content (trim (subseq trimmed 4))))
+            (if (emptyp end-content)
+                (push "End:" result)
+                ;; Wrap content in Return "..." if not already a Return statement
+                (if (starts-with (string-upcase end-content) "RETURN")
+                    (push line result)
+                    (push (format nil "End: Return \"~A\"" end-content) result)))))
+         
+         ;; E: - could be Effect: (in step) or End: (top level)
          ((starts-with trimmed "E:")
-          (let ((return-val (trim (subseq trimmed 2))))
-            (push (format nil "End: Return ~A" return-val) result)))
+          (let ((content (trim (subseq trimmed 2))))
+            (cond
+             ;; Inside step with content -> Effect:
+             ((and in-step (not (emptyp content)))
+              (push (format nil "  Effect: ~A" content) result))
+             ;; Top level with content -> End: Return
+             ((not (emptyp content))
+              (setf in-step nil)
+              (push (format nil "End: Return ~A" content) result))
+             ;; Empty E: -> ignore (section marker)
+             (t nil))))
+         
+         ;; Indented line within a step
+         ((and in-step indented (not (emptyp trimmed-content)))
+          (cond
+           ;; Effect line
+           ((starts-with trimmed-content "E:")
+            (let ((effect-content (trim (subseq trimmed-content 2))))
+              (push (format nil "  Effect: ~A" effect-content) result)))
+           
+           ;; Assignment
+           ((contains-char trimmed-content #\=)
+            (let* ((eq-pos (position #\= trimmed-content))
+                   (var (trim (subseq trimmed-content 0 eq-pos)))
+                   (expr (trim (subseq trimmed-content (1+ eq-pos)))))
+              (push (format nil "  Then: ~A becomes ~A" var expr) result)))
+           
+           ;; Jump
+           ((starts-with trimmed-content "->")
+            (cond
+             ((starts-with trimmed-content "->S")
+              (let ((target-step (parse-integer (subseq trimmed-content 3))))
+                (push (format nil "  Then: repeat from Step ~D" target-step) result)))
+             ((starts-with trimmed-content "->E")
+              (push "  Then: go to End" result))))
+           
+           ;; Effect without E: prefix (just text/expression)
+           (t
+            (push (format nil "  Effect: ~A" trimmed-content) result))))
          
          ;; Empty line
          ((emptyp trimmed)
@@ -1119,7 +1196,7 @@ World' and ' rest'"
          ;; Unknown - pass through
          (t
           (push line result)))))
-     (format nil "~{~A~%~}" (nreverse result))))
+    (format nil "~{~A~%~}" (nreverse result))))
 
 ;;; ============================================================================
 ;;; Function Registry - Support for reusable stories
