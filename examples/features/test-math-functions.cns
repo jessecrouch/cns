@@ -1,0 +1,135 @@
+Story: Test all advanced math functions in CNS
+
+Given:
+  number: Integer = 0
+  base: Integer = 0
+  exponent: Integer = 0
+  negative: Integer = 0
+  min_val: Integer = 0
+  max_val: Integer = 0
+  random_val: Integer = 0
+  random_range: Integer = 0
+  result: Integer = 0
+
+Step 1 → Test SQRT (square root)
+  Because: we want to test square root function
+  Then: number becomes 16
+  Effect: Print "SQRT of 16 = {SQRT OF number}"
+
+Step 2 → Test SQRT with direct value
+  Because: test with literal value
+  Effect: Print "SQRT of 25 = {SQRT OF 25}"
+
+Step 3 → Test SQRT with 100
+  Because: test with larger value
+  Then: number becomes 100
+  Effect: Print "SQRT of 100 = {SQRT OF number}"
+
+Step 4 → Test POW (exponentiation)
+  Because: test power function
+  Then: base becomes 2
+  Then: exponent becomes 3
+  Then: result becomes POW base TO exponent
+  Effect: Print "2^3 = {result}"
+
+Step 5 → Test POW with direct values
+  Because: test direct power calculation
+  Effect: Print "5^2 = {POW 5 TO 2}"
+
+Step 6 → Test POW with larger values
+  Because: test larger power
+  Effect: Print "10^4 = {POW 10 TO 4}"
+
+Step 7 → Test ABS (absolute value)
+  Because: test absolute value with negative
+  Then: negative becomes -42
+  Effect: Print "ABS of -42 = {ABS OF negative}"
+
+Step 8 → Test ABS with direct negative
+  Because: test direct ABS
+  Effect: Print "ABS of -100 = {ABS OF -100}"
+
+Step 9 → Test ABS with positive
+  Because: test positive ABS
+  Then: negative becomes 50
+  Effect: Print "ABS of 50 = {ABS OF negative}"
+
+Step 10 → Test ROUND
+  Because: test rounding function
+  Effect: Print "ROUND 3.7 = {ROUND 3.7}"
+  Effect: Print "ROUND 3.2 = {ROUND 3.2}"
+  Effect: Print "ROUND 3.5 = {ROUND 3.5}"
+
+Step 11 → Test FLOOR
+  Because: test floor function
+  Effect: Print "FLOOR 3.9 = {FLOOR 3.9}"
+  Effect: Print "FLOOR 3.1 = {FLOOR 3.1}"
+
+Step 12 → Test CEIL
+  Because: test ceiling function
+  Effect: Print "CEIL 3.1 = {CEIL 3.1}"
+  Effect: Print "CEIL 3.9 = {CEIL 3.9}"
+
+Step 13 → Test MIN
+  Because: test minimum function
+  Then: min_val becomes MIN OF 10 AND 20
+  Effect: Print "MIN of 10 and 20 = {min_val}"
+
+Step 14 → Test MIN with different values
+  Because: test with reversed values
+  Then: min_val becomes MIN OF 100 AND 50
+  Effect: Print "MIN of 100 and 50 = {min_val}"
+
+Step 15 → Test MIN with negative
+  Because: test with negative values
+  Then: min_val becomes MIN OF -5 AND 5
+  Effect: Print "MIN of -5 and 5 = {min_val}"
+
+Step 16 → Test MAX
+  Because: test maximum function
+  Then: max_val becomes MAX OF 10 AND 20
+  Effect: Print "MAX of 10 and 20 = {max_val}"
+
+Step 17 → Test MAX with different values
+  Because: test with reversed values
+  Then: max_val becomes MAX OF 100 AND 50
+  Effect: Print "MAX of 100 and 50 = {max_val}"
+
+Step 18 → Test MAX with negative
+  Because: test with negative values
+  Then: max_val becomes MAX OF -5 AND 5
+  Effect: Print "MAX of -5 and 5 = {max_val}"
+
+Step 19 → Test RANDOM float
+  Because: test random number generation
+  Then: random_val becomes RANDOM
+  Effect: Print "RANDOM float (0.0-1.0): {random_val}"
+
+Step 20 → Test RANDOM again
+  Because: verify randomness
+  Then: random_val becomes RANDOM
+  Effect: Print "RANDOM float (0.0-1.0): {random_val}"
+
+Step 21 → Test RANDOM FROM...TO
+  Because: test random integer in range
+  Then: random_range becomes RANDOM FROM 1 TO 10
+  Effect: Print "RANDOM integer (1-10): {random_range}"
+
+Step 22 → Test RANDOM with different range
+  Because: test larger range
+  Then: random_range becomes RANDOM FROM 100 TO 200
+  Effect: Print "RANDOM integer (100-200): {random_range}"
+
+Step 23 → Test dice roll simulation
+  Because: simulate a 6-sided die
+  Then: random_range becomes RANDOM FROM 1 TO 6
+  Effect: Print "Dice roll (1-6): {random_range}"
+
+Step 24 → Test complex math in print
+  Because: test combining functions in output
+  Then: number becomes 16
+  Effect: Print "SQRT OF 16 = {SQRT OF 16}"
+  Effect: Print "POW 2 TO 3 = {POW 2 TO 3}"
+  Effect: Print "ABS OF -42 = {ABS OF -42}"
+
+End: Return 0

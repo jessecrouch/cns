@@ -183,17 +183,47 @@
    Simple heuristic: looks for word tokens that aren't keywords/operators."
   (when (stringp expr)
     (let ((trimmed (trim expr))
-          (vars '()))
-      ;; Skip string literals  
-      (when (and (> (length trimmed) 0)
+          (vars '())
+          (in-string nil)
+          (cleaned-expr ""))
+      ;; First, remove all string literals from the expression
+      (loop for i from 0 below (length trimmed)
+            for char = (char trimmed i)
+            do (cond
+                 ((and (char= char #\") (not in-string))
+                  (setf in-string t))
+                 ((and (char= char #\") in-string)
+                  (setf in-string nil))
+                 ((not in-string)
+                  (setf cleaned-expr (concatenate 'string cleaned-expr (string char))))))
+      
+      ;; Skip if entire expression was a string literal
+      (when (and (> (length cleaned-expr) 0)
+                 (> (length trimmed) 0)
                  (not (char= (char trimmed 0) #\")))
         ;; Skip control flow statements and built-in functions - they have their own validators
-        (when (not (or (search "go to" trimmed :test #'char-equal)
-                       (search "repeat from" trimmed :test #'char-equal)
-                       (search "return" trimmed :test #'char-equal)
-                       (search "READ FROM FILE" (string-upcase trimmed))))
+        (when (not (or (search "go to" cleaned-expr :test #'char-equal)
+                       (search "repeat from" cleaned-expr :test #'char-equal)
+                       (search "return" cleaned-expr :test #'char-equal)
+                       (search "READ FROM FILE" (string-upcase cleaned-expr))
+                       (search "PARSE JSON" (string-upcase cleaned-expr))
+                       (search "PARSE HTTP" (string-upcase cleaned-expr))
+                       (search "CSV READ" (string-upcase cleaned-expr))
+                       (search "CSV WRITE" (string-upcase cleaned-expr))
+                       (search "LENGTH_OF" (string-upcase cleaned-expr))
+                       (search "LENGTH OF" (string-upcase cleaned-expr))
+                       (search "FORMAT TIME" (string-upcase cleaned-expr))
+                       (search "TRIM" (string-upcase cleaned-expr))
+                       (search "UPPERCASE" (string-upcase cleaned-expr))
+                       (search "LOWERCASE" (string-upcase cleaned-expr))
+                       (search "REPLACE" (string-upcase cleaned-expr))
+                       (search "SPLIT" (string-upcase cleaned-expr))
+                       (search "NOW()" (string-upcase cleaned-expr))
+                       (search "TIMESTAMP()" (string-upcase cleaned-expr))
+                       (search "EXTRACT" (string-upcase cleaned-expr))
+                       (search "MATCHES" (string-upcase cleaned-expr))))
           ;; Split by common operators and keywords
-          (let ((tokens (split-string-by-any trimmed '(#\Space #\+ #\- #\* #\/ #\% #\= #\< #\> #\( #\) #\[ #\] #\, #\"))))
+          (let ((tokens (split-string-by-any cleaned-expr '(#\Space #\+ #\- #\* #\/ #\% #\= #\< #\> #\( #\) #\[ #\] #\, #\"))))
             (dolist (token tokens)
               (let ((tok (trim token)))
                 (when (and (> (length tok) 0)
@@ -204,7 +234,14 @@
                            (not (member (string-upcase tok) '("BECOMES" "TO" "FROM" "AND" "OR" "IF" "THEN" "OTHERWISE" 
                                                                "STEP" "END" "SET" "PRINT" "TRUE" "FALSE" "NIL" "T"
                                                                "REPEAT" "GO" "RETURN" "EACH" "FOR" "AT" "BY" "WITH"
-                                                               "SPLIT" "JOIN" "NOW" "ENV" "CONTAINS" "IN" "THE" "A" "AN")))
+                                                               "SPLIT" "JOIN" "NOW" "ENV" "CONTAINS" "IN" "THE" "A" "AN"
+                                                               "SQRT" "POW" "ABS" "ROUND" "FLOOR" "CEIL" "MIN" "MAX" "RANDOM" "OF"
+                                                               "PARSE" "JSON" "GET" "LENGTH" "CSV" "READ" "WRITE" "HEADERS"
+                                                               "ADD" "LIST" "INTO" "SPACES" "LENGTH_OF"
+                                                               "FORMAT" "TIME" "TRIM" "UPPERCASE" "LOWERCASE" "REPLACE"
+                                                               "DAYS" "HOURS" "MINUTES" "SECONDS" "TIMESTAMP"
+                                                               "EXTRACT" "MATCHES" "GROUP")
+                                        :test #'string-equal))
                            ;; Not empty
                            (> (length tok) 0))
                   (push tok vars)))))))
@@ -220,7 +257,7 @@
         (builtin-vars '("REQUEST_METHOD" "REQUEST_PATH" "REQUEST_BODY" 
                         "HTTP_STATUS" "HTTP_HEADERS" "QUERY_STRING"
                         "CLIENT_IP" "SERVER_PORT" "TIMESTAMP"
-                        "ENV" "ARGS" "ARGC")))
+                        "ENV" "ARGS" "ARGC" "REQUEST_DATA")))
     ;; Extract declared variables from Given
     (dolist (node ast)
       (when (and (listp node) (eql (car node) 'given))
@@ -331,29 +368,57 @@
         (dolist (clause (cddr node))
           (when (and (listp clause) (eql (car clause) 'effect))
             (let ((effect-str (cadr clause)))
-              ;; Check for common effect patterns
-              (cond
-                ;; Network effects should specify socket
-                ((or (search "Accept connection" effect-str)
-                     (search "Send" effect-str)
-                     (search "Create socket" effect-str))
-                 ;; Valid network effect
-                 nil)
-                ;; File effects should specify filename
-                ((or (search "Write to file" effect-str)
-                     (search "Read from file" effect-str))
-                 ;; Valid file effect
-                 nil)
-                ;; Print effects
-                ((search "Print" effect-str)
-                 ;; Valid print effect
-                 nil)
-                ;; Unknown effect - warning
-                (t
-                 (push (make-error :semantic :warning
-                                  (format nil "Unrecognized effect pattern: ~A" effect-str)
-                                  :context effect-str)
-                       errors))))))))
+               ;; Check for common effect patterns
+              (let ((effect-upper (string-upcase effect-str)))
+                (cond
+                  ;; Network effects should specify socket
+                  ((or (search "ACCEPT CONNECTION" effect-upper)
+                       (search "SEND" effect-upper)
+                       (search "CREATE SOCKET" effect-upper))
+                   ;; Valid network effect
+                   nil)
+                  ;; File effects should specify filename
+                  ((or (search "WRITE TO FILE" effect-upper)
+                       (search "READ FROM FILE" effect-upper)
+                       (search "READ" effect-upper))
+                   ;; Valid file effect
+                   nil)
+                  ;; CSV effects
+                  ((or (search "CSV WRITE" effect-upper)
+                       (search "CSV READ" effect-upper))
+                   ;; Valid CSV effect
+                   nil)
+                  ;; List effects
+                  ((or (search "ADD" effect-upper)
+                       (search "TO LIST" effect-upper))
+                   ;; Valid list effect
+                   nil)
+                  ;; Shell effects
+                  ((search "SHELL" effect-upper)
+                   ;; Valid shell effect
+                   nil)
+                  ;; HTTP effects
+                  ((or (search "HTTP" effect-upper)
+                       (search "GET" effect-upper)
+                       (search "POST" effect-upper))
+                   ;; Valid HTTP effect
+                   nil)
+                  ;; Git effects
+                  ((or (search "GIT" effect-upper)
+                       (search "FIND" effect-upper)
+                       (search "GREP" effect-upper))
+                   ;; Valid git/search effect
+                   nil)
+                  ;; Print effects
+                  ((search "PRINT" effect-upper)
+                   ;; Valid print effect
+                   nil)
+                  ;; Unknown effect - warning
+                  (t
+                   (push (make-error :semantic :warning
+                                    (format nil "Unrecognized effect pattern: ~A" effect-str)
+                                    :context effect-str)
+                         errors)))))))))
     (nreverse errors)))
 
 ;;; ============================================================================

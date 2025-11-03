@@ -71,11 +71,11 @@
 - 🚧 Command-line arguments (next)
 - 🚧 Process management (backgrounding, signals)
 
-**Math & Logic** (85%)
+**Math & Logic** (100%)
 - ✅ Arithmetic: +, -, *, /, %
 - ✅ Comparison: >, <, >=, <=, ==, !=
 - ✅ Boolean: AND, OR, NOT
-- 🚧 Advanced math: SQRT, POW, etc. (planned)
+- ✅ Advanced math: SQRT, POW, ABS, ROUND, FLOOR, CEIL, MIN, MAX, RANDOM
 
 ---
 

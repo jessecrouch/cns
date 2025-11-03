@@ -558,30 +558,54 @@ git commit -m "Repository cleanup: reduce context bloat
 
 ```bash
 # 1. Identify affected docs
-# Language change → docs/language/*.md
+# Language change → docs/language/*.md AND prompts/detailed-template.md
 # Testing change → docs/development/TESTING.md
 # Feature change → docs/guides/*.md
 
 # 2. Update in SAME commit as code change
 # ... edit docs/language/SYNTAX.md ...
 
-# 3. Cross-reference related docs
+# 3. **CRITICAL**: Update prompts/detailed-template.md for language changes
+# This is the SINGLE SOURCE OF TRUTH for LLM code generation
+# Add new functions to:
+#   - Quick Reference lookup table (lines 10-56)
+#   - Appropriate sections (Expressions, Effects, etc.)
+#   - Common Mistakes section if there are gotchas
+
+# 4. Cross-reference related docs
 # Add links: See also COMMON-PATTERNS.md
 
-# 4. Update examples if needed
+# 5. Update examples if needed
 # ... edit examples/features/test-*.cns ...
 
-# 5. Test examples still work
+# 6. Test examples still work
 ./test-all-examples.sh
 
-# 6. Commit together
-git add src/cns.lisp docs/language/SYNTAX.md examples/features/test-*.cns
+# 7. Commit together
+git add src/cns.lisp docs/language/SYNTAX.md prompts/detailed-template.md examples/features/test-*.cns
 git commit -m "Add feature X with documentation
 
 - Code: <description>
-- Docs: Updated SYNTAX.md, added examples
+- Docs: Updated SYNTAX.md, template, added examples
 - Tests: 42/42 examples pass"
 ```
+
+**CRITICAL REMINDER: Language Changes Checklist**
+
+When adding or modifying CNS language features, you MUST update:
+
+- [ ] `src/cns.lisp` - Implementation
+- [ ] `src/cns-validator.lisp` - Validation rules (if needed)
+- [ ] `docs/language/SYNTAX.md` - Reference documentation
+- [ ] **`prompts/detailed-template.md`** - LLM template (CRITICAL!)
+- [ ] `examples/features/test-*.cns` - Working examples
+- [ ] Test with LLM: `python3 scripts/llm-tester.py --task "Use new feature"`
+
+**Why the template is critical:**
+- It's the ONLY documentation LLMs see when generating code
+- Outdated templates = LLMs hallucinate non-existent syntax
+- Missing entries = LLMs use wrong patterns from other languages
+- Template updates prevent 100% of hallucination bugs
 
 ---
 

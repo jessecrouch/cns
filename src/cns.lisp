@@ -1650,18 +1650,72 @@ World' and ' rest'"
                    '()
                    ;; Non-empty list
                    (let ((items (split-string content #\,)))
-                     (mapcar (lambda (item) (eval-expr (trim item) env)) items)))))
+                   (mapcar (lambda (item) (eval-expr (trim item) env)) items)))))
             
-             ;; Try to parse as number (handles negative numbers)
+             ;; Assignment: n becomes n - 1 (MUST come before number parsing and operators!)
+             ((search " becomes " trimmed)
+            (let* ((becomes-pos (search " becomes " trimmed))
+                   (var-name (trim (subseq trimmed 0 becomes-pos)))
+                   (right-expr (trim (subseq trimmed (+ becomes-pos 9)))))  ; 9 = length of " becomes "
+              (let ((result (eval-expr right-expr env)))
+                (setf (gethash var-name env) result))))
+            
+             ;; Try to parse as number (handles integers and floats, including negative)
              ;; Only match if the ENTIRE string is a valid number
              ((and (> (length trimmed) 0)
                    (or (digit-char-p (char trimmed 0))
                        (and (char= (char trimmed 0) #\-)
                             (> (length trimmed) 1)))
                    (handler-case
-                       (progn (parse-integer trimmed) t)
+                       ;; Try parsing as float first (handles both int and float)
+                       (progn (read-from-string trimmed) t)
                      (error () nil)))
-              (parse-integer trimmed))
+              ;; Use read-from-string to handle both integers and floats
+              (read-from-string trimmed))
+           
+             ;; Math: MIN OF a AND b - minimum of two numbers (BEFORE boolean AND check)
+             ((and (starts-with (string-upcase trimmed) "MIN OF ")
+                   (search " AND " (string-upcase trimmed)))
+              (let* ((and-pos (search " AND " (string-upcase trimmed)))
+                     (first-expr (trim (subseq trimmed 7 and-pos)))
+                     (second-expr (trim (subseq trimmed (+ and-pos 5))))
+                     (first-val (eval-expr first-expr env))
+                     (second-val (eval-expr second-expr env)))
+                (if (and (numberp first-val) (numberp second-val))
+                    (min first-val second-val)
+                    (error "MIN requires two numbers"))))
+           
+             ;; Math: MAX OF a AND b - maximum of two numbers (BEFORE boolean AND check)
+             ((and (starts-with (string-upcase trimmed) "MAX OF ")
+                   (search " AND " (string-upcase trimmed)))
+              (let* ((and-pos (search " AND " (string-upcase trimmed)))
+                     (first-expr (trim (subseq trimmed 7 and-pos)))
+                     (second-expr (trim (subseq trimmed (+ and-pos 5))))
+                     (first-val (eval-expr first-expr env))
+                     (second-val (eval-expr second-expr env)))
+                (if (and (numberp first-val) (numberp second-val))
+                    (max first-val second-val)
+                    (error "MAX requires two numbers"))))
+           
+             ;; Boolean: a OR b (LOWEST PRECEDENCE - check before AND and comparisons)
+             ((search " OR " (string-upcase trimmed))
+              (let* ((pos (search " OR " (string-upcase trimmed)))
+                     (left (subseq trimmed 0 pos))
+                     (right (subseq trimmed (+ pos 4))))
+                (or (eval-expr (trim left) env)
+                    (eval-expr (trim right) env))))
+           
+             ;; Boolean: a AND b (check before comparisons, after OR)
+             ((search " AND " (string-upcase trimmed))
+              (let* ((pos (search " AND " (string-upcase trimmed)))
+                     (left (subseq trimmed 0 pos))
+                     (right (subseq trimmed (+ pos 5))))
+                (and (eval-expr (trim left) env)
+                     (eval-expr (trim right) env))))
+           
+            ;; Boolean: NOT expression (unary prefix operator)
+            ((starts-with (string-upcase trimmed) "NOT ")
+             (not (eval-expr (trim (subseq trimmed 4)) env)))
            
            ;; Comparison: n ≤ 1 (less than or equal, Unicode) - BEFORE < check
              ((search "≤" trimmed)
@@ -1759,26 +1813,6 @@ World' and ' rest'"
                      (= left-val right-val)
                      (equal left-val right-val))))
            
-            ;; Boolean: NOT expression
-            ((starts-with (string-upcase trimmed) "NOT ")
-             (not (eval-expr (trim (subseq trimmed 4)) env)))
-            
-             ;; Boolean: a AND b
-             ((search " AND " (string-upcase trimmed))
-              (let* ((pos (search " AND " (string-upcase trimmed)))
-                     (left (subseq trimmed 0 pos))
-                     (right (subseq trimmed (+ pos 5))))
-                (and (eval-expr (trim left) env)
-                     (eval-expr (trim right) env))))
-            
-             ;; Boolean: a OR b
-             ((search " OR " (string-upcase trimmed))
-              (let* ((pos (search " OR " (string-upcase trimmed)))
-                     (left (subseq trimmed 0 pos))
-                     (right (subseq trimmed (+ pos 4))))
-                (or (eval-expr (trim left) env)
-                    (eval-expr (trim right) env))))
-            
              ;; JSON parsing: PARSE JSON {json_string} GET "key" or GET "path.to.value[0]"
              ((starts-with (string-upcase trimmed) "PARSE JSON ")
               (let* ((rest (trim (subseq trimmed 11)))
@@ -1852,14 +1886,6 @@ World' and ' rest'"
                   (error (e)
                     (format *error-output* "File read error: ~A~%" e)
                     ""))))
-            
-             ;; Assignment: n becomes n - 1 (MUST come before string ops that use becomes!)
-             ((search " becomes " trimmed)
-            (let* ((becomes-pos (search " becomes " trimmed))
-                   (var-name (trim (subseq trimmed 0 becomes-pos)))
-                   (right-expr (trim (subseq trimmed (+ becomes-pos 9)))))  ; 9 = length of " becomes "
-              (let ((result (eval-expr right-expr env)))
-                (setf (gethash var-name env) result))))
             
              ;; String operation: text STARTS WITH "prefix"
              ((search " STARTS WITH " (string-upcase trimmed))
@@ -2158,7 +2184,78 @@ World' and ' rest'"
                       (if (and (numberp time-val) (numberp mins-val))
                           (+ time-val (* mins-val 60)) ; 60 seconds per minute
                           time-val))
-                    0)))
+                     0)))
+            
+             ;; Math: SQRT OF n - square root
+             ((starts-with (string-upcase trimmed) "SQRT OF ")
+              (let* ((expr (trim (subseq trimmed 8)))
+                     (val (eval-expr expr env)))
+                (if (numberp val)
+                    (sqrt val)
+                    (error "SQRT requires a number"))))
+            
+             ;; Math: POW base TO exponent - power/exponentiation
+             ((and (search " TO " (string-upcase trimmed))
+                   (let* ((to-pos (search " TO " (string-upcase trimmed)))
+                          (before-to (trim (subseq trimmed 0 to-pos))))
+                     (starts-with (string-upcase before-to) "POW ")))
+              (let* ((to-pos (search " TO " (string-upcase trimmed)))
+                     (before-to (trim (subseq trimmed 0 to-pos)))
+                     (base-expr (trim (subseq before-to 4)))
+                     (exp-expr (trim (subseq trimmed (+ to-pos 4))))
+                     (base (eval-expr base-expr env))
+                     (exponent (eval-expr exp-expr env)))
+                (if (and (numberp base) (numberp exponent))
+                    (expt base exponent)
+                    (error "POW requires two numbers"))))
+            
+             ;; Math: ABS OF n - absolute value
+             ((starts-with (string-upcase trimmed) "ABS OF ")
+              (let* ((expr (trim (subseq trimmed 7)))
+                     (val (eval-expr expr env)))
+                (if (numberp val)
+                    (abs val)
+                    (error "ABS requires a number"))))
+            
+             ;; Math: ROUND n - round to nearest integer
+             ((starts-with (string-upcase trimmed) "ROUND ")
+              (let* ((expr (trim (subseq trimmed 6)))
+                     (val (eval-expr expr env)))
+                (if (numberp val)
+                    (round val)
+                    (error "ROUND requires a number"))))
+            
+             ;; Math: FLOOR n - round down
+             ((starts-with (string-upcase trimmed) "FLOOR ")
+              (let* ((expr (trim (subseq trimmed 6)))
+                     (val (eval-expr expr env)))
+                (if (numberp val)
+                    (floor val)
+                    (error "FLOOR requires a number"))))
+            
+             ;; Math: CEIL n - round up (ceiling)
+             ((starts-with (string-upcase trimmed) "CEIL ")
+              (let* ((expr (trim (subseq trimmed 5)))
+                     (val (eval-expr expr env)))
+                (if (numberp val)
+                    (ceiling val)
+                    (error "CEIL requires a number"))))
+            
+             ;; Math: RANDOM FROM a TO b - random integer in range [a, b]
+             ((and (starts-with (string-upcase trimmed) "RANDOM FROM ")
+                   (search " TO " (string-upcase trimmed)))
+              (let* ((to-pos (search " TO " (string-upcase trimmed)))
+                     (from-expr (trim (subseq trimmed 12 to-pos)))
+                     (to-expr (trim (subseq trimmed (+ to-pos 4))))
+                     (from-val (eval-expr from-expr env))
+                     (to-val (eval-expr to-expr env)))
+                (if (and (integerp from-val) (integerp to-val))
+                    (+ from-val (random (1+ (- to-val from-val))))
+                    (error "RANDOM FROM requires two integers"))))
+            
+             ;; Math: RANDOM - random float between 0.0 and 1.0
+             ((string-equal trimmed "RANDOM")
+              (random 1.0))
             
              ;; Arithmetic: result * n (with auto-fix for literal-first)
             ((search "*" trimmed)
@@ -2215,9 +2312,9 @@ World' and ' rest'"
                 (when was-fixed
                   (format *error-output* "~%⚠ Expression auto-fixed: '~A' → '~A'~%" trimmed fixed-expr)
                   (format *error-output* "  Hint: Write variables before literals (e.g., 'n % 2' not '2 % n')~%"))
-                (let ((parts (split-string fixed-expr #\%)))
-                  (mod (eval-expr (trim (car parts)) env)
-                       (eval-expr (trim (cadr parts)) env)))))
+                 (let ((parts (split-string fixed-expr #\%)))
+                   (mod (eval-expr (trim (car parts)) env)
+                        (eval-expr (trim (cadr parts)) env)))))
             
              ;; Length operation: length of list or string
              ((starts-with (string-upcase trimmed) "LENGTH OF ")
@@ -2349,13 +2446,17 @@ World' and ' rest'"
     (setf result (search-replace result "\\{" "<<<LBRACE>>>"))
     (setf result (search-replace result "\\}" "<<<RBRACE>>>"))
     
-    ;; Second pass: substitute variables
+    ;; Second pass: substitute variables (evaluate expressions in {})
     (loop for start = (position #\{ result)
           while start
           do (let ((end (position #\} result :start start)))
                (when end
-                 (let* ((var-name (subseq result (1+ start) end))
-                        (value (gethash var-name env)))
+                 (let* ((expr (subseq result (1+ start) end))
+                        ;; Try to evaluate as expression first, fallback to variable lookup
+                        (value (handler-case
+                                  (eval-expr expr env)
+                                 (error ()
+                                   (gethash expr env)))))
                    (setf result (concatenate 'string
                                             (subseq result 0 start)
                                             (format nil "~A" value)

@@ -103,7 +103,7 @@ Real-world examples:
 - `todo-api.cns` - REST API server
 - `text-processor-functions.cns` - Functions with recursion
 - `advanced-webserver.cns` - TCP socket server
-- `swe-bench-agent.cns` - Automated code agent (FIND/GREP/GIT)
+- `automation-agent.cns` - Automated code agent (FIND/GREP/GIT)
 
 **Pattern Coverage:**
 - Multi-step workflows
@@ -390,8 +390,8 @@ E: result
 3. GIT COMMIT with message
 4. GIT DIFF to generate patch
 
-### Use Case: Code Search Agent
-**See:** `advanced/swe-bench-agent.cns`
+### Use Case: Code Automation Agent
+**See:** `advanced/automation-agent.cns`
 
 **Pattern:**
 1. FIND files by pattern

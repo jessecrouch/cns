@@ -220,16 +220,17 @@ Effect: WRITE "data" TO FILE # Explicit file write
 **Consolidated into single template**
 
 **Before**:
-- SYNTAX.md
-- EXPRESSION-LIMITATIONS.md
-- CONTROL-FLOW-RULES.md
-- COMMON-PATTERNS.md
-- LLM-COMMON-MISTAKES.md
+- docs/language/SYNTAX.md
+- docs/language/EXPRESSION-LIMITATIONS.md
+- docs/language/CONTROL-FLOW-RULES.md
+- docs/language/COMMON-PATTERNS.md
+- docs/language/LLM-COMMON-MISTAKES.md
 - Quick templates
 - System prompts
 
 **After**:
-- detailed-template.md (one comprehensive file)
+- prompts/detailed-template.md (one comprehensive file)
+- docs/language/ archived (2025-11-03)
 
 ---
 
@@ -280,19 +281,12 @@ Overall: VALID (ready for execution)
 CNS Project
 │
 ├── prompts/
-│   ├── detailed-template.md      ← PRIMARY (use this!)
+│   ├── detailed-template.md      ← SINGLE SOURCE OF TRUTH
 │   ├── README.md                 ← How to use template
 │   ├── cns-system-prompt.md      ← DEPRECATED
 │   └── quick-template.md         ← DEPRECATED
 │
 ├── docs/
-│   ├── language/                 ← Human-friendly references
-│   │   ├── SYNTAX.md
-│   │   ├── EXPRESSION-LIMITATIONS.md
-│   │   ├── CONTROL-FLOW-RULES.md
-│   │   ├── COMMON-PATTERNS.md
-│   │   └── LLM-COMMON-MISTAKES.md
-│   │
 │   ├── guides/                   ← Integration guides
 │   │   ├── LLM-INTEGRATION.md
 │   │   ├── TRACE-MODE.md
@@ -304,11 +298,14 @@ CNS Project
 │   │   ├── LLM-TEMPLATE-STATUS.md
 │   │   └── ...
 │   │
-│   └── install/                  ← Installation guides
+│   ├── install/                  ← Installation guides
+│   │
+│   └── archive/2025-11/          ← Archived docs
+│       └── language-docs-replaced-by-template/
 │
-├── examples/                     ← 32 working programs
+├── examples/                     ← 90+ working programs
 │   ├── core/                     ← 8 fundamental
-│   ├── features/                 ← 21 specific
+│   ├── features/                 ← 24 specific
 │   └── advanced/                 ← 3 complex
 │
 ├── src/                          ← Interpreter
@@ -511,11 +508,11 @@ CNS demonstrates that a language can be **designed for LLMs first**:
 
 ## Resources
 
-- **Template**: `prompts/detailed-template.md` (USE THIS!)
-- **Examples**: `examples/` (32 working programs)
-- **Documentation**: `docs/language/` (human reference)
+- **Template**: `prompts/detailed-template.md` (SINGLE SOURCE OF TRUTH)
+- **Examples**: `examples/` (90+ working programs)
+- **This Guide**: `LLMS-FIRST-COMPLETE.md` (you are here)
 - **Status Report**: `docs/development/LLM-TEMPLATE-STATUS.md`
-- **This Session**: `docs/development/LLM-CONSOLIDATION-2025-11-03.md`
+- **Session Logs**: `docs/archive/2025-11/`
 
 ---
 

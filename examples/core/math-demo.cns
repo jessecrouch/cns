@@ -1,0 +1,47 @@
+Story: Demonstrate all math functions in CNS
+
+Given:
+  radius: Integer = 5
+  area: Integer = 0
+  hypotenuse: Integer = 0
+  distance: Integer = 0
+  dice: Integer = 0
+
+Step 1 → Calculate circle area
+  Because: demonstrate SQRT and POW
+  Then: area becomes POW radius TO 2
+  Effect: Print "Circle with radius {radius}:"
+  Effect: Print "  Area ≈ {area} square units"
+
+Step 2 → Calculate hypotenuse (3-4-5 triangle)
+  Because: demonstrate SQRT with Pythagorean theorem
+  Then: hypotenuse becomes SQRT OF 25
+  Effect: Print "Pythagorean triple (3,4,5):"
+  Effect: Print "  Hypotenuse = {hypotenuse}"
+
+Step 3 → Calculate absolute distance
+  Because: demonstrate ABS
+  Then: distance becomes ABS OF -15
+  Effect: Print "Distance from origin:"
+  Effect: Print "  |-15| = {distance} units"
+
+Step 4 → Round and compare temperatures
+  Because: demonstrate ROUND, FLOOR, CEIL
+  Effect: Print "Temperature conversions:"
+  Effect: Print "  98.6°F → ROUND: {ROUND 98.6}°F"
+  Effect: Print "  98.6°F → FLOOR: {FLOOR 98.6}°F"
+  Effect: Print "  98.6°F → CEIL:  {CEIL 98.6}°F"
+
+Step 5 → Find temperature range
+  Because: demonstrate MIN and MAX
+  Effect: Print "Daily temperature range:"
+  Effect: Print "  Low:  {MIN OF 15 AND 28}°C"
+  Effect: Print "  High: {MAX OF 15 AND 28}°C"
+
+Step 6 → Simulate dice roll
+  Because: demonstrate RANDOM
+  Then: dice becomes RANDOM FROM 1 TO 6
+  Effect: Print "Dice roll:"
+  Effect: Print "  🎲 You rolled a {dice}!"
+
+End: Return dice

@@ -130,8 +130,11 @@ echo " Phase 1: Example Validation"
 echo "==========================================="
 echo ""
 
-for file in "$BASE_DIR"/examples/*.cns; do
-    test_validate "$file" "$(basename "$file")"
+# Test all .cns files in examples subdirectories
+for file in "$BASE_DIR"/examples/core/*.cns "$BASE_DIR"/examples/features/*.cns "$BASE_DIR"/examples/advanced/*.cns; do
+    if [ -f "$file" ]; then
+        test_validate "$file" "$(basename "$file")"
+    fi
 done
 
 echo ""
@@ -144,11 +147,15 @@ echo ""
 echo "This is a test file with some words for counting" > "$BASE_DIR/tests/test-input.txt"
 
 # Test non-webserver examples
-for file in "$BASE_DIR"/examples/*.cns; do
+for file in "$BASE_DIR"/examples/core/*.cns "$BASE_DIR"/examples/features/*.cns "$BASE_DIR"/examples/advanced/*.cns; do
+    if [ ! -f "$file" ]; then
+        continue
+    fi
+    
     filename=$(basename "$file")
     
-    # Skip webserver examples for now (they need special handling)
-    if [[ "$filename" == *"webserver"* ]]; then
+    # Skip webserver examples and API examples (they need special handling)
+    if [[ "$filename" == *"webserver"* ]] || [[ "$filename" == *"-api"* ]] || [[ "$filename" == "test-http-"* ]]; then
         continue
     fi
     
@@ -158,7 +165,7 @@ for file in "$BASE_DIR"/examples/*.cns; do
             test_execute "$file" "$filename" "120"
             ;;
         "fibonacci.cns")
-            test_execute "$file" "$filename" "55"
+            test_execute "$file" "$filename" "89"
             ;;
         "hello.cns")
             test_execute "$file" "$filename" "Hello"

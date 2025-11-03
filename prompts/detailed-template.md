@@ -50,8 +50,16 @@ Generate a complete CNS program that solves this task.
 | Not equals | `If: NOT (x = 5)` | `If: x != 5`, `If: x <> 5` |
 | Contains | ❌ Use exact `=` | `CONTAINS`, `IN` |
 | **Math** |
-| Square root | `SQRT x` | `SQRT(x)`, `Math.sqrt()` |
-| Power | `x ** y` or loop | `POW(x, y)`, `POWER()` |
+| Square root | `SQRT OF x` | `SQRT(x)`, `Math.sqrt()`, `SQRT x` |
+| Power | `POW x TO y` | `POW(x, y)`, `x ** y`, `POWER()` |
+| Absolute value | `ABS OF x` | `ABS(x)`, `Math.abs()` |
+| Round | `ROUND x` | `ROUND(x)`, `Math.round()` |
+| Floor | `FLOOR x` | `FLOOR(x)`, `Math.floor()` |
+| Ceiling | `CEIL x` | `CEIL(x)`, `Math.ceil()`, `CEILING()` |
+| Minimum | `MIN OF a AND b` | `MIN(a, b)`, `Math.min()` |
+| Maximum | `MAX OF a AND b` | `MAX(a, b)`, `Math.max()` |
+| Random 0-1 | `RANDOM` | `RANDOM()`, `Math.random()` |
+| Random range | `RANDOM FROM 1 TO 10` | `RANDOM(1, 10)`, `randint()` |
 | Modulo | `x % y` | `MOD(x, y)` |
 
 ---
@@ -185,12 +193,27 @@ Step 1 → Read HTTP request
 ### ✅ SAFE (Always Works)
 
 ```cns
+# Arithmetic
 Then: result becomes x + 5        # Variable-first
 Then: sum becomes a + b           # Simple binary operation
 Then: product becomes x * y       # Multiplication
 Then: quotient becomes x / 2      # Division
 Then: remainder becomes x % 3     # Modulo
+
+# Math functions
+Then: root becomes SQRT OF 16     # Square root (result: 4.0)
+Then: power becomes POW 2 TO 3    # Exponentiation (result: 8)
+Then: distance becomes ABS OF -42 # Absolute value (result: 42)
+Then: rounded becomes ROUND 3.7   # Round to nearest (result: 4)
+Then: floored becomes FLOOR 3.9   # Round down (result: 3)
+Then: ceiled becomes CEIL 3.1     # Round up (result: 4)
+Then: lowest becomes MIN OF 10 AND 20   # Minimum (result: 10)
+Then: highest becomes MAX OF 10 AND 20  # Maximum (result: 20)
+Then: chance becomes RANDOM       # Random 0.0-1.0 (e.g., 0.629)
+Then: dice becomes RANDOM FROM 1 TO 6   # Random integer (e.g., 4)
 ```
+
+**Note on floats**: CNS now supports decimal literals: `3.14`, `-2.5`, `98.6`
 
 ### ❌ DANGEROUS (Returns NIL or Wrong Result)
 
@@ -199,6 +222,8 @@ Then: result becomes 3 * n        # ❌ Literal-first → NIL
 Then: result becomes n * 3 + 1    # ❌ Multi-operator → NIL
 Then: avg becomes (a + b) / 2     # ❌ Parentheses → NIL
 Then: result becomes 2 + 3 * 4    # ❌ Wrong order (left-to-right)
+Then: x becomes SQRT 16           # ❌ Missing "OF" → NIL (use "SQRT OF 16")
+Then: y becomes POW 2 3           # ❌ Missing "TO" → NIL (use "POW 2 TO 3")
 ```
 
 ### ✅ WORKAROUNDS
@@ -555,7 +580,7 @@ Step 3 → Parse response
 End: Return name
 ```
 
-### Pattern 4: HTTP Server with Routing
+### Pattern 7: HTTP Server with Routing
 
 ```cns
 Story: Multi-Route Server
@@ -621,7 +646,47 @@ Step 10 → Close and continue
 End: Return 0
 ```
 
-### Pattern 5: File Processing
+### Pattern 5: Math Operations
+
+```cns
+Story: Mathematical Calculations
+
+Given:
+  radius: Integer = 5
+  area: Integer = 0
+  hypotenuse: Integer = 0
+  temperature: Integer = 0
+  dice: Integer = 0
+
+Step 1 → Calculate circle area
+  Because: Use power for area = radius²
+  Then: area becomes POW radius TO 2
+  Effect: Print "Area: {area} square units"
+
+Step 2 → Calculate hypotenuse
+  Because: Use square root for Pythagorean theorem
+  Then: hypotenuse becomes SQRT OF 25
+  Effect: Print "Hypotenuse: {hypotenuse}"
+
+Step 3 → Round temperature
+  Because: Display rounded celsius value
+  Then: temperature becomes ROUND 98.6
+  Effect: Print "Temp: {temperature}°F"
+
+Step 4 → Roll dice
+  Because: Generate random number 1-6
+  Then: dice becomes RANDOM FROM 1 TO 6
+  Effect: Print "Rolled: {dice}"
+
+Step 5 → Find range
+  Because: Get min and max values
+  Effect: Print "Min: {MIN OF 15 AND 28}"
+  Effect: Print "Max: {MAX OF 15 AND 28}"
+
+End: Return dice
+```
+
+### Pattern 6: File Processing
 
 ```cns
 Story: Process Text File
@@ -706,13 +771,22 @@ End: Return count
       Then: avg becomes sum / 2
       ```
 
-11. ❌ Math in string interpolation
-    - ❌ Don't: `"Total: {count + 1}"` (won't evaluate)
-    - ✅ Do:
+11. ❌ Complex math in string interpolation
+    - ❌ Don't: `"Total: {count + 1}"` (use temp variable)
+    - ✅ But simple expressions work: `"√16 = {SQRT OF 16}"` (prints "√16 = 4.0")
+    - ✅ Variables work: `"Result: {result}"`
+    - ✅ Functions work: `"Random: {RANDOM}"`
+    - ✅ Best practice: Use temp variables for complex expressions
       ```
       Then: total becomes count + 1
       Effect: Print "Total: {total}"
       ```
+
+12. ❌ Wrong math function syntax
+    - ❌ Don't: `SQRT 16` → Use `SQRT OF 16`
+    - ❌ Don't: `POW 2 3` → Use `POW 2 TO 3`
+    - ❌ Don't: `ABS -5` → Use `ABS OF -5`
+    - ✅ Do: Always include keywords (OF, TO, AND)
 
 ---
 

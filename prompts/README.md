@@ -50,8 +50,8 @@ Using this template, Grok-2 achieved:
 ## For Humans
 
 If you're a human developer, see:
-- [examples/](../examples/) - 30+ working CNS programs
-- [docs/language/SYNTAX.md](../docs/language/SYNTAX.md) - Human-friendly syntax guide
+- [examples/](../examples/) - 90+ working CNS programs
+- [detailed-template.md](detailed-template.md) - The template doubles as complete syntax reference
 - [QUICKSTART.md](../QUICKSTART.md) - Getting started tutorial
 
 ## Files

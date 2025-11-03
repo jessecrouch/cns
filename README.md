@@ -211,9 +211,8 @@ End: Return variable
 - **[CHANGELOG.md](CHANGELOG.md)** - Version history
 
 ### Language Reference
-- **[SYNTAX.md](docs/language/SYNTAX.md)** - Complete syntax guide
+- **[LLM Template](prompts/detailed-template.md)** - Complete CNS reference (single source of truth)
 - **[FUNCTIONS.md](docs/guides/FUNCTIONS.md)** - Reusable code patterns
-- **[EXPRESSION-LIMITATIONS.md](docs/language/EXPRESSION-LIMITATIONS.md)** - Expression rules
 
 ### Guides
 - **[LLM-INTEGRATION.md](docs/guides/LLM-INTEGRATION.md)** - Using CNS with LLMs
