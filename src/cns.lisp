@@ -1300,10 +1300,32 @@ World' and ' rest'"
            (setf current-section :end)
            (setf current-step nil)
            (let* ((end-content (trim (subseq trimmed 4)))
-                  (return-value (if (starts-with (string-upcase end-content) "RETURN")
+                  (return-value (if (and (> (length end-content) 0)
+                                         (starts-with (string-upcase end-content) "RETURN"))
                                     (trim (subseq end-content 6))
-                                    end-content)))
-             (push `(end (return ,return-value) (because "computation complete")) ast))))))
+                                    (if (> (length end-content) 0)
+                                        end-content
+                                        nil))))
+             (push `(end (return ,return-value) (because "computation complete")) ast)))
+          
+          ;; End section content (Return, Effect, Because) - handle separate lines (with or without indentation)
+          ((and (eql current-section :end))
+           (cond
+            ((starts-with trimmed "Return:")
+             (let ((return-value (trim (subseq trimmed 7))))
+               ;; Update the return value in the end node
+               (when (and ast (eq (caar ast) 'end))
+                 (setf (cadr (car ast)) `(return ,return-value)))))
+            ((starts-with trimmed "Effect:")
+             (let ((effect-str (trim (subseq trimmed 7))))
+               (when (and ast (eq (caar ast) 'end))
+                 (setf (cdar ast) (append (cdar ast) (list `(effect ,effect-str)))))))
+            ((starts-with trimmed "Because:")
+             (let ((because-str (trim (subseq trimmed 8))))
+               ;; Update the because value in the end node
+               (when (and ast (eq (caar ast) 'end))
+                 (let ((end-node (car ast)))
+                   (setf (caddr end-node) `(because ,because-str)))))))))))
      ;; Finish last step if any
      (when current-step
        (push (nreverse current-step) ast))
@@ -1448,6 +1470,18 @@ World' and ' rest'"
                                     (setf pc (1- target-step))))
                                  ((search "go to End" then-clause :test #'char-equal)
                                   (return))
+                                 ;; Check if this is actually an effect keyword (PRINT, HTTP, etc.)
+                                 ((or (starts-with (string-upcase (trim then-clause)) "PRINT ")
+                                      (starts-with (string-upcase (trim then-clause)) "HTTP ")
+                                      (starts-with (string-upcase (trim then-clause)) "HTTPS ")
+                                      (starts-with (string-upcase (trim then-clause)) "SHELL ")
+                                      (starts-with (string-upcase (trim then-clause)) "FIND ")
+                                      (starts-with (string-upcase (trim then-clause)) "GREP ")
+                                      (starts-with (string-upcase (trim then-clause)) "GIT ")
+                                      (starts-with (string-upcase (trim then-clause)) "CSV ")
+                                      (starts-with (string-upcase (trim then-clause)) "SQL ")
+                                      (starts-with (string-upcase (trim then-clause)) "SOCKET "))
+                                  (apply-effect then-clause func-env verbose))
                                  (t
                                   (eval-expr then-clause func-env))))
                               
@@ -1490,6 +1524,18 @@ World' and ' rest'"
                                       (return)))
                                    ((search "go to End" then-clause :test #'char-equal)
                                     (return))
+                                   ;; Check if this is actually an effect keyword
+                                   ((or (starts-with (string-upcase (trim then-clause)) "PRINT ")
+                                        (starts-with (string-upcase (trim then-clause)) "HTTP ")
+                                        (starts-with (string-upcase (trim then-clause)) "HTTPS ")
+                                        (starts-with (string-upcase (trim then-clause)) "SHELL ")
+                                        (starts-with (string-upcase (trim then-clause)) "FIND ")
+                                        (starts-with (string-upcase (trim then-clause)) "GREP ")
+                                        (starts-with (string-upcase (trim then-clause)) "GIT ")
+                                        (starts-with (string-upcase (trim then-clause)) "CSV ")
+                                        (starts-with (string-upcase (trim then-clause)) "SQL ")
+                                        (starts-with (string-upcase (trim then-clause)) "SOCKET "))
+                                    (apply-effect then-clause func-env verbose))
                                    (t
                                     (eval-expr then-clause func-env))))
                                 (dolist (eff otherwise-effects)
@@ -1503,7 +1549,19 @@ World' and ' rest'"
                      ;; Regular step
                      (t
                       (dolist (then-clause then-clauses)
-                        (eval-expr then-clause func-env))
+                        ;; Check if this is actually an effect keyword
+                        (if (or (starts-with (string-upcase (trim then-clause)) "PRINT ")
+                                (starts-with (string-upcase (trim then-clause)) "HTTP ")
+                                (starts-with (string-upcase (trim then-clause)) "HTTPS ")
+                                (starts-with (string-upcase (trim then-clause)) "SHELL ")
+                                (starts-with (string-upcase (trim then-clause)) "FIND ")
+                                (starts-with (string-upcase (trim then-clause)) "GREP ")
+                                (starts-with (string-upcase (trim then-clause)) "GIT ")
+                                (starts-with (string-upcase (trim then-clause)) "CSV ")
+                                (starts-with (string-upcase (trim then-clause)) "SQL ")
+                                (starts-with (string-upcase (trim then-clause)) "SOCKET "))
+                            (apply-effect then-clause func-env verbose)
+                            (eval-expr then-clause func-env)))
                       (dolist (eff effects)
                         (apply-effect eff func-env verbose))
                       (incf pc)))))
@@ -3750,7 +3808,20 @@ World' and ' rest'"
               ;; Execute Then clauses if present (only for non-conditional, non-for-each steps)
               (when (and (not if-node) (not for-each-node))
                 (dolist (then-clause then-clauses)
-                  (eval-expr then-clause env (format nil "Step ~A Then clause" step-num))
+                  ;; Check if this is an effect keyword that should use apply-effect
+                  (if (or (starts-with (string-upcase (trim then-clause)) "PRINT ")
+                          (starts-with (string-upcase (trim then-clause)) "DISPLAY ")
+                          (starts-with (string-upcase (trim then-clause)) "HTTP ")
+                          (starts-with (string-upcase (trim then-clause)) "HTTPS ")
+                          (starts-with (string-upcase (trim then-clause)) "SHELL ")
+                          (starts-with (string-upcase (trim then-clause)) "FIND ")
+                          (starts-with (string-upcase (trim then-clause)) "GREP ")
+                          (starts-with (string-upcase (trim then-clause)) "GIT ")
+                          (starts-with (string-upcase (trim then-clause)) "CSV ")
+                          (starts-with (string-upcase (trim then-clause)) "SQL ")
+                          (starts-with (string-upcase (trim then-clause)) "SOCKET "))
+                      (apply-effect then-clause env verbose)
+                      (eval-expr then-clause env (format nil "Step ~A Then clause" step-num)))
                   (when verbose
                     (format t "  Then: ~A~%" then-clause))))
               
@@ -3797,8 +3868,17 @@ World' and ' rest'"
                               ;; Handle later in control flow
                               nil)
                              ;; Print/Display effects in Then clauses
-                             ((or (starts-with (string-upcase then-clause) "PRINT ")
-                                  (starts-with (string-upcase then-clause) "DISPLAY "))
+                             ((or (starts-with (string-upcase (trim then-clause)) "PRINT ")
+                                  (starts-with (string-upcase (trim then-clause)) "DISPLAY ")
+                                  (starts-with (string-upcase (trim then-clause)) "HTTP ")
+                                  (starts-with (string-upcase (trim then-clause)) "HTTPS ")
+                                  (starts-with (string-upcase (trim then-clause)) "SHELL ")
+                                  (starts-with (string-upcase (trim then-clause)) "FIND ")
+                                  (starts-with (string-upcase (trim then-clause)) "GREP ")
+                                  (starts-with (string-upcase (trim then-clause)) "GIT ")
+                                  (starts-with (string-upcase (trim then-clause)) "CSV ")
+                                  (starts-with (string-upcase (trim then-clause)) "SQL ")
+                                  (starts-with (string-upcase (trim then-clause)) "SOCKET "))
                               (apply-effect then-clause env verbose))
                             (t
                              ;; Regular assignment or expression
@@ -3884,6 +3964,21 @@ World' and ' rest'"
                               (format t "  -> Going to End~%"))
                             (setf pc (length steps))  ; Force loop exit
                             (return))
+                          ;; Check if it's an effect keyword
+                          ((or (starts-with (string-upcase (trim then-clause)) "PRINT ")
+                               (starts-with (string-upcase (trim then-clause)) "DISPLAY ")
+                               (starts-with (string-upcase (trim then-clause)) "HTTP ")
+                               (starts-with (string-upcase (trim then-clause)) "HTTPS ")
+                               (starts-with (string-upcase (trim then-clause)) "SHELL ")
+                               (starts-with (string-upcase (trim then-clause)) "FIND ")
+                               (starts-with (string-upcase (trim then-clause)) "GREP ")
+                               (starts-with (string-upcase (trim then-clause)) "GIT ")
+                               (starts-with (string-upcase (trim then-clause)) "CSV ")
+                               (starts-with (string-upcase (trim then-clause)) "SQL ")
+                               (starts-with (string-upcase (trim then-clause)) "SOCKET "))
+                           (apply-effect then-clause env verbose)
+                           (when verbose
+                             (format t "  Then: ~A~%" then-clause)))
                           (t
                            (eval-expr then-clause env (format nil "Step ~A Otherwise Then clause" step-num))
                            (when verbose
