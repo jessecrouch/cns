@@ -164,28 +164,155 @@
 ;;; Semantic Validators
 ;;; ============================================================================
 
+(defun split-string-by-any (str delimiters)
+  "Split string by any of the given delimiters."
+  (let ((result '())
+        (current ""))
+    (loop for char across str do
+      (if (member char delimiters)
+          (when (> (length current) 0)
+            (push current result)
+            (setf current ""))
+          (setf current (concatenate 'string current (string char)))))
+    (when (> (length current) 0)
+      (push current result))
+    (nreverse result)))
+
+(defun extract-variables-from-expr (expr)
+  "Extract variable names from an expression string.
+   Simple heuristic: looks for word tokens that aren't keywords/operators."
+  (when (stringp expr)
+    (let ((trimmed (trim expr))
+          (vars '()))
+      ;; Skip string literals  
+      (when (and (> (length trimmed) 0)
+                 (not (char= (char trimmed 0) #\")))
+        ;; Split by common operators and keywords
+        (let ((tokens (split-string-by-any trimmed '(#\Space #\+ #\- #\* #\/ #\= #\< #\> #\( #\)))))
+          (dolist (token tokens)
+            (let ((tok (trim token)))
+              (when (and (> (length tok) 0)
+                         ;; Not a number
+                         (not (digit-char-p (char tok 0)))
+                         (not (string-equal tok "-"))  ; Negative sign alone
+                         ;; Not an operator or keyword
+                         (not (member (string-upcase tok) '("BECOMES" "TO" "FROM" "AND" "OR" "IF" "THEN" "OTHERWISE" 
+                                                             "STEP" "END" "SET" "PRINT" "TRUE" "FALSE" "NIL" "T"
+                                                             "REPEAT" "GO" "RETURN" "EACH" "FOR")))
+                         ;; Not empty
+                         (> (length tok) 0))
+                (push tok vars))))))
+      (remove-duplicates vars :test #'string-equal))))
+
 (defun validate-variable-declarations (ast)
-  "Check that all variables used are declared in Given."
+  "Check that all variables used are declared in Given or assigned before use."
   (let ((declared-vars '())
-        (errors '()))
-    ;; Extract declared variables
+        (assigned-vars '())
+        (errors '())
+        (step-num 0))
+    ;; Extract declared variables from Given
     (dolist (node ast)
       (when (and (listp node) (eql (car node) 'given))
         (dolist (var (cdr node))
           (when (and (listp var) (eql (car var) 'var))
             (push (cadr var) declared-vars)))))
     
-    ;; TODO: Check that all referenced variables are declared
-    ;; This would require parsing expressions in steps
+    ;; Check variables in steps
+    (dolist (node ast)
+      (when (and (listp node) (eql (car node) 'step))
+        (setf step-num (cadr node))
+        ;; Check action
+        (let ((action (cadr (assoc 'action (cddr node)))))
+          (when action
+            ;; Check if it's an assignment: "Set var to expr" or "var becomes expr"
+            (cond
+              ;; "Set var to expr" pattern
+              ((and (search "Set " action :test #'char-equal)
+                    (search " to " action :test #'char-equal))
+               (let* ((set-pos (search "Set " action :test #'char-equal))
+                      (to-pos (search " to " action :test #'char-equal))
+                      (var-name (trim (subseq action (+ set-pos 4) to-pos)))
+                      (expr (trim (subseq action (+ to-pos 4)))))
+                 ;; Track assignment
+                 (push var-name assigned-vars)
+                 ;; Check variables in expression
+                 (let ((vars (extract-variables-from-expr expr)))
+                   (dolist (var vars)
+                     (unless (or (member var declared-vars :test #'string-equal)
+                                (member var assigned-vars :test #'string-equal))
+                       (push (make-error :semantic :error
+                                        (format nil "Variable '~A' used before declaration in Step ~D" var step-num)
+                                        :context action)
+                             errors))))))
+              
+              ;; "var becomes expr" pattern
+              ((search "becomes" action :test #'char-equal)
+               (let* ((becomes-pos (search "becomes" action :test #'char-equal))
+                      (var-name (trim (subseq action 0 becomes-pos)))
+                      (expr (trim (subseq action (+ becomes-pos 7)))))
+                 ;; Track assignment
+                 (push var-name assigned-vars)
+                 ;; Check variables in expression
+                 (let ((vars (extract-variables-from-expr expr)))
+                   (dolist (var vars)
+                     (unless (or (member var declared-vars :test #'string-equal)
+                                (member var assigned-vars :test #'string-equal))
+                       (push (make-error :semantic :error
+                                        (format nil "Variable '~A' used before declaration in Step ~D" var step-num)
+                                        :context action)
+                             errors))))))
+              
+              ;; Not an assignment, check all variables
+              (t
+               (let ((vars (extract-variables-from-expr action)))
+                 (dolist (var vars)
+                   (unless (or (member var declared-vars :test #'string-equal)
+                              (member var assigned-vars :test #'string-equal))
+                     (push (make-error :semantic :error
+                                      (format nil "Variable '~A' used before declaration in Step ~D" var step-num)
+                                      :context action)
+                           errors))))))))
+        
+        ;; Check Then clauses and track assignments
+        (dolist (clause (cddr node))
+          (when (and (listp clause) (eql (car clause) 'then))
+            (let ((then-str (cadr clause)))
+              (when then-str
+                ;; Check for assignment: "var becomes expr"
+                (if (search "becomes" then-str :test #'char-equal)
+                    (let ((becomes-pos (search "becomes" then-str :test #'char-equal)))
+                      (when becomes-pos
+                        (let ((var-name (trim (subseq then-str 0 becomes-pos)))
+                              (expr (trim (subseq then-str (+ becomes-pos 7)))))
+                          ;; Track this assignment
+                          (push var-name assigned-vars)
+                          ;; Check variables in the expression
+                          (let ((vars (extract-variables-from-expr expr)))
+                            (dolist (var vars)
+                              (unless (or (member var declared-vars :test #'string-equal)
+                                         (member var assigned-vars :test #'string-equal))
+                                (push (make-error :semantic :error
+                                                 (format nil "Variable '~A' used before declaration in Step ~D" var step-num)
+                                                 :context then-str)
+                                      errors)))))))
+                    ;; Not an assignment, check all variables
+                    (let ((vars (extract-variables-from-expr then-str)))
+                      (dolist (var vars)
+                        (unless (or (member var declared-vars :test #'string-equal)
+                                   (member var assigned-vars :test #'string-equal))
+                          (push (make-error :semantic :error
+                                           (format nil "Variable '~A' used before declaration in Step ~D" var step-num)
+                                           :context then-str)
+                                errors)))))))))))
     
-    errors))
+    (nreverse errors)))
 
 (defun validate-step-sequence (ast)
   "Check that steps are numbered sequentially."
   (let ((errors '())
         (expected-step 1))
     (dolist (node ast)
-      (when (and (listp node) (eql (caddr node) 'step))
+      (when (and (listp node) (eql (car node) 'step))
         (let ((step-num (cadr node)))
           (when (not (eql step-num expected-step))
             (push (make-error :logic :warning
@@ -201,13 +328,13 @@
         (step-numbers '()))
     ;; Collect all step numbers
     (dolist (node ast)
-      (when (and (listp node) (eql (caddr node) 'step))
+      (when (and (listp node) (eql (car node) 'step))
         (push (cadr node) step-numbers)))
     
     ;; Check that all referenced steps exist
     (dolist (node ast)
-      (when (and (listp node) (eql (caddr node) 'step))
-        (dolist (clause (car node))
+      (when (and (listp node) (eql (car node) 'step))
+        (dolist (clause (cddr node))
           (when (listp clause)
             (let ((text (cadr clause)))
               (when (stringp text)
@@ -235,8 +362,8 @@
   "Check that effects are properly declared and valid."
   (let ((errors '()))
     (dolist (node ast)
-      (when (and (listp node) (eql (caddr node) 'step))
-        (dolist (clause (car node))
+      (when (and (listp node) (eql (car node) 'step))
+        (dolist (clause (cddr node))
           (when (and (listp clause) (eql (car clause) 'effect))
             (let ((effect-str (cadr clause)))
               ;; Check for common effect patterns

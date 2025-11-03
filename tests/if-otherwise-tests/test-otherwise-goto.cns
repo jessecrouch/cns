@@ -1,0 +1,15 @@
+Story: Test Otherwise Control Flow
+
+Given:
+  x: Number = 5
+
+Step 1 → Test
+  If: x > 10
+    Then: result becomes "A"
+  Otherwise:
+    Then: result becomes "B"
+
+Step 2 → Show
+  Effect: Print "Result: {result}"
+  
+End: 0

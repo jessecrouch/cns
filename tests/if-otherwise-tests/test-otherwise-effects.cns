@@ -1,0 +1,12 @@
+Story: Test Otherwise Effects
+
+Given:
+  x: String = "hello"
+
+Step 1 → Test
+  If: x = "goodbye"
+    Effect: Print "Branch A"
+  Otherwise:
+    Effect: Print "Branch B"
+  
+End: 0

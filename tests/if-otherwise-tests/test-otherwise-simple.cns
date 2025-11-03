@@ -1,0 +1,16 @@
+Story: Test Simple Otherwise
+
+Given:
+  x: String = "hello"
+  result: String = ""
+
+Step 1 → Test
+  If: x = "goodbye"
+    Then: result becomes "Branch A"
+  Otherwise:
+    Then: result becomes "Branch B"
+
+Step 2 → Show result
+  Effect: Print "Result: {result}"
+  
+End: 0

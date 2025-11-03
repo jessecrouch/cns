@@ -1,0 +1,18 @@
+Story: Test Control Flow
+
+Given:
+  x: Number = 5
+
+Step 1 → Test
+  If: x > 10
+    Then: go to Step 3
+  Otherwise: go to Step 2
+
+Step 2 → Branch B
+  Effect: Print "x is NOT > 10"
+  Then: go to End
+
+Step 3 → Branch A
+  Effect: Print "x is > 10"
+  
+End: 0

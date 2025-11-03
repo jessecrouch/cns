@@ -9,7 +9,24 @@ Make sure you have SBCL (Steel Bank Common Lisp):
 sbcl --version
 ```
 
-## 2. Run Your First Program
+## 2. Validate Your Code (New!)
+
+Before running, validate your CNS program:
+```bash
+./cns-validate examples/factorial.cns
+```
+
+You should see:
+```
+=== CNS Validation Results ===
+
+✓ No errors found
+✓ No warnings
+
+Overall: VALID (ready for execution)
+```
+
+## 3. Run Your First Program
 
 ```bash
 ./cns-run examples/factorial.cns
@@ -22,7 +39,7 @@ You should see:
 Return: 120
 ```
 
-## 3. Try More Examples
+## 4. Try More Examples
 
 See what's available:
 ```bash
@@ -34,7 +51,7 @@ Run them all:
 ./cns-run --all
 ```
 
-## 4. Write Your Own Program
+## 5. Write Your Own Program
 
 ### Example 1: Simple Math
 Create a file `my-program.cns`:
@@ -130,7 +147,7 @@ End: Return response
 
 This calls 2 real APIs, parses JSON, and displays results. **No pip install. No setup. Just works!**
 
-## 5. Use the Interactive REPL
+## 6. Use the Interactive REPL
 
 Start the REPL:
 ```bash
@@ -143,6 +160,7 @@ Type your program, end with `.` on a line by itself, then see it run!
 
 | Command | What It Does |
 |---------|-------------|
+| `./cns-validate file.cns` | **Validate before running (recommended!)** |
 | `./cns-run file.cns` | Run a CNS file |
 | `./cns-run --list` | List all examples |
 | `./cns-run --all` | Run all examples |
@@ -210,11 +228,45 @@ End: Return variable_name
 
 ## Tips
 
-1. **Start Simple** - Begin with the examples
-2. **Be Explicit** - CNS values clarity over brevity
-3. **Explain Causality** - The "Because:" is what makes CNS special
-4. **Watch It Run** - The verbose output helps you understand execution
-5. **Think Narratively** - Write code like you're telling a story
+1. **Validate First** - Always run `./cns-validate` before `./cns-run`
+2. **Start Simple** - Begin with the examples
+3. **Be Explicit** - CNS values clarity over brevity
+4. **Explain Causality** - The "Because:" is what makes CNS special
+5. **Watch It Run** - The verbose output helps you understand execution
+6. **Think Narratively** - Write code like you're telling a story
+
+## Understanding Error Messages (New!)
+
+CNS now provides helpful error messages with context and suggestions:
+
+```
+=== CNS ERROR ===
+TYPE: VARIABLE-UNDEFINED
+LOCATION: Expression: Set result to y + 5
+STEP: 1
+
+ERROR: Variable 'y' is not defined
+
+CAUSE: The variable has not been declared in the Given section or assigned in any previous step.
+
+FIX: 1. Add 'y' to the Given section with a type and initial value
+   2. Or assign it in a previous step before using it
+
+EXAMPLE:
+Given:
+  y: Number = 0
+
+Step 1: Set y to 42
+  Then: Print y
+===============
+```
+
+Each error tells you:
+- **TYPE**: What kind of error it is
+- **LOCATION**: Where it occurred
+- **CAUSE**: Why it happened
+- **FIX**: How to resolve it
+- **EXAMPLE**: Working code you can copy
 
 ## Common Mistakes
 

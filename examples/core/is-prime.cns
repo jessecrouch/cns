@@ -1,0 +1,25 @@
+Story: Check if a number is prime by trial division
+
+Given:
+  n: Integer = 17
+  divisor: Integer = 2
+  is-prime: Integer = 1
+
+Step 1 → Check if done
+  Because: only need to check up to square root of n
+  If: divisor * divisor > n
+    Then: go to End
+
+Step 2 → Check divisibility
+  Because: if n is divisible by divisor then it's not prime
+  If: n % divisor = 0
+    Then: is-prime becomes 0
+    Then: go to End
+
+Step 3 → Next divisor
+  Because: check the next potential divisor
+  Then: divisor becomes divisor + 1
+  If: divisor > 0
+    Then: repeat from Step 1
+
+End: Return is-prime

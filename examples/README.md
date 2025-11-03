@@ -1,204 +1,554 @@
-# CNS Examples
+# CNS Examples - Pattern Guide for LLMs
 
-This directory contains example programs written in Causal Narrative Script (CNS) demonstrating various programming patterns and algorithms.
+**Purpose:** This directory teaches CNS patterns through curated examples organized by complexity.
 
-## Running Examples
+**Philosophy:** Learn by example, not by documentation. Every file demonstrates a working pattern.
 
-Use the CNS runner from the project root:
+---
 
-```bash
-# Run a specific example
-./cns-run examples/factorial.cns
+## 🎯 Learning Path
 
-# List all examples
-./cns-run --list
-
-# Run all examples
-./cns-run --all
-
-# Get help
-./cns-run --help
+```
+1. Start with core/        - Master fundamental patterns
+2. Explore features/       - Learn one feature at a time  
+3. Study advanced/         - See real-world applications
 ```
 
-## Available Examples
+**Recommendation for LLMs:** Read `core/` examples first to learn CNS syntax patterns. Then reference `features/` for specific capabilities.
 
-### Basic Examples
+---
 
-**factorial.cns** - Compute factorial of a positive integer
-- Input: n = 5
-- Output: 120 (5! = 5×4×3×2×1)
-- Demonstrates: Loops, multiplication, decrement
+## 📁 Directory Structure
 
-**simple-counter.cns** - Count from 1 to 5
-- Input: counter = 1, target = 5
-- Output: 5
-- Demonstrates: Basic loops, conditionals, increment
+### core/ (11 files)
+**Canonical examples demonstrating fundamental CNS patterns**
 
-**sum-numbers.cns** - Calculate sum of numbers from 1 to n
-- Input: n = 10
-- Output: 55 (1+2+3+...+10)
-- Demonstrates: Accumulation pattern
+Essential learning examples:
+- `hello.cns` / `hello.cnsc` - Minimal CNS program
+- `fibonacci.cns` / `fibonacci.cnsc` - Loop with multiple state variables
+- `factorial.cns` - Basic loop and accumulation
+- `is-prime.cns` / `is-prime.cnsc` - Boolean logic and conditionals
+- `gcd.cns` - Classical algorithm (Euclidean)
+- `collatz.cns` - Complex conditionals
+- `sum-range.cns` - Range iteration
+- `power.cns` - Repeated multiplication
 
-**sum-range.cns** - Sum all integers from start to end
-- Input: start = 1, end = 100
-- Output: 5050
-- Demonstrates: Range iteration, accumulation
+**Pattern Coverage:**
+- Variable declaration
+- Basic arithmetic
+- If/Otherwise conditionals
+- Loop control (repeat from)
+- State accumulation
+- Boolean logic
 
-### Mathematical Algorithms
+### features/ (25 files)
+**One example per major CNS feature**
 
-**fibonacci.cns** - Calculate the nth Fibonacci number
-- Input: n = 10
-- Output: 55 (10th Fibonacci number)
-- Demonstrates: Sequence generation, multiple state variables
+Organized by feature domain:
 
-**power.cns** - Calculate base raised to the power of exponent
-- Input: base = 2, exponent = 8
-- Output: 256 (2^8)
-- Demonstrates: Repeated multiplication
+**HTTP & APIs:**
+- `api-demo.cns` / `api-demo.cnsc` - REST API calls
+- `test-http-get.cns` - GET requests
+- `test-http-post.cns` - POST with data
+- `test-https.cns` / `test-https.cnsc` - HTTPS connections
 
-**gcd.cns** - Find greatest common divisor using Euclidean algorithm
-- Input: a = 48, b = 18
-- Output: 6 (GCD of 48 and 18)
-- Demonstrates: Classical algorithm, modulo operation concept
+**Data Parsing:**
+- `test-json-nested.cns` / `test-json-nested.cnsc` - JSON with dot notation
+- `test-json-comprehensive.cns` - All JSON features
+- `test-csv.cns` - CSV read/write with headers
+- `test-env-vars.cns` / `test-env-vars.cnsc` - Environment variables
 
-**is-prime.cns** - Check if a number is prime by trial division
-- Input: n = 17
-- Output: 1 (true, 17 is prime)
-- Demonstrates: Boolean logic, optimization (only check up to √n)
+**Text Processing:**
+- `test-regex.cns` - Pattern matching with MATCHES/EXTRACT
+- `test-string-helpers.cns` / `test-string-helpers.cnsc` - TRIM, UPPERCASE, etc.
 
-### Interesting Sequences
+**Date & Time:**
+- `test-datetime.cns` - NOW, TIMESTAMP, FORMAT TIME, arithmetic
 
-**collatz.cns** - Count steps in the Collatz conjecture sequence
-- Input: n = 27
-- Output: Number of steps to reach 1
-- Demonstrates: Complex conditionals, famous unsolved problem
+**Database:**
+- `test-db-simple.cnsc` - Basic SQLite operations
+- `test-db-comprehensive.cnsc` - Full CRUD workflow
 
-**digit-sum.cns** - Calculate the sum of digits in a number
-- Input: n = 12345
-- Output: 15 (1+2+3+4+5)
-- Demonstrates: Digit extraction pattern
+**System Integration:**
+- `test-shell.cns` - Shell command execution
+- `test-git-workflow.cns` - Complete git workflow
+- `test-find-basic.cns` - File discovery (FIND)
+- `test-grep-basic.cns` - Content search (GREP)
 
-### JSON Examples (v1.1.0+)
+**Core Features:**
+- `test-lists.cns` - List operations
+- `error-handling-demo.cns` - Error section usage
+- `file-demo.cns` - File I/O (read, write, append)
 
-**test-json-direct.cns** - Simple JSON parsing
-- Parse flat JSON objects
-- Extract string and numeric fields
-- Demonstrates: Basic JSON parsing with GET operator
+**Pattern Coverage:**
+- HTTP GET/POST with status codes
+- JSON parsing (nested, arrays, dot notation)
+- CSV headers and data manipulation
+- Regex pattern matching
+- String manipulation helpers
+- Date/time arithmetic
+- Database CRUD
+- Shell execution with I/O capture
+- Git operations
+- File/content search
+- List operations
+- Error handling
 
-**test-json-nested.cns** - Nested JSON with arrays
-- Parse deeply nested objects (user.profile.name)
-- Array indexing (tags[0])
-- Array/object length (GET "tags" LENGTH)
-- Demonstrates: Full JSON capabilities including dot notation
+### advanced/ (6 files)
+**Complex multi-feature applications**
 
-**test-json-comprehensive.cns** - Complete JSON feature test
-- Nested objects (3 levels deep)
-- Array element access by index
-- Mixed paths (users[2].email)
-- All JSON types: strings, numbers, booleans, null
-- Array and object length operations
-- Demonstrates: All JSON parser features
+Real-world examples:
+- `killer-app-demo.cns` - Multi-API orchestration
+- `language-detector.cns` - Complex text analysis
+- `todo-api.cns` - REST API server
+- `text-processor-functions.cns` - Functions with recursion
+- `advanced-webserver.cns` - TCP socket server
+- `swe-bench-agent.cns` - Automated code agent (FIND/GREP/GIT)
 
-**test-json-parse.cns** - JSON parsing with type handling
-- Boolean values (true/false)
-- Null values
-- Numeric values
-- Demonstrates: JSON type system
+**Pattern Coverage:**
+- Multi-step workflows
+- Function definitions and calls
+- Complex control flow
+- Real TCP sockets
+- Multi-API coordination
+- Code navigation patterns
 
-### Regex Examples (v1.2.0+) ⚠️ Requires cl-ppcre
+---
 
-**test-regex.cns** - Comprehensive regex pattern matching and extraction
-- Email validation with MATCHES operator
-- Phone number extraction with patterns
-- URL parsing from text
-- Log line parsing with capture groups
-- HTML tag content extraction
-- Demonstrates: MATCHES operator, EXTRACT with GROUP
-- Requirements: Install cl-ppcre with `(ql:quickload :cl-ppcre)` (see [INSTALL-REGEX.md](../INSTALL-REGEX.md))
+## 🔑 Key CNS Patterns (For LLM Learning)
 
-**test-regex-simple.cns** - Basic regex demonstration
-- Simple pattern matching
-- Digit extraction
-- Quick validation test
-- Demonstrates: Core regex operators
+### Pattern 1: Variable Declaration
+```cns
+Given:
+  count: Integer = 0
+  name: String = "default"
+  items: List = []
+  data: Map = {}
+```
 
-### Date/Time Examples (v1.2.0+)
+**Common Mistake:**
+```cns
+# ❌ Wrong - missing type
+Given:
+  count = 0
+  
+# ✅ Right
+Given:
+  count: Integer = 0
+```
 
-**test-datetime-simple.cns** - Basic date/time operations
-- NOW() - current universal time
-- TIMESTAMP() - ISO 8601 formatted time
-- FORMAT TIME - custom time formatting
-- ADD DAYS - date arithmetic
-- Demonstrates: Core date/time features
+### Pattern 2: State Transformation
+```cns
+Step 1 → Update counter
+  Then: count becomes count + 1
+  Then: total becomes total + count
+```
 
-**test-datetime.cns** - Comprehensive date/time test
-- Time arithmetic (days, hours, minutes)
-- Custom time formatting
-- Time comparisons
-- Multiple format strings
-- Demonstrates: All date/time capabilities
+**Common Mistake:**
+```cns
+# ❌ Wrong - "Set" syntax doesn't work everywhere
+Step 1:
+  Set count to count + 1
+  
+# ✅ Right - Use "becomes"
+Step 1:
+  Then: count becomes count + 1
+```
 
-## Understanding CNS Structure
+### Pattern 3: Conditionals
+```cns
+Step 2 → Check condition
+  If: count > 10
+    Then: status becomes "high"
+  Otherwise:
+    Then: status becomes "low"
+```
 
-Each example follows the CNS narrative structure:
+**Important:** Control flow (`repeat from`, `go to`) ONLY works inside If/Otherwise!
 
 ```cns
-Story: <What the program does>
+# ❌ Wrong - control flow outside conditional
+Step 3:
+  Then: repeat from Step 1
+
+# ✅ Right - control flow in conditional
+Step 3:
+  If: count < 100
+    Then: repeat from Step 1
+  Otherwise: go to End
+```
+
+### Pattern 4: Loops
+```cns
+Story: Count to 10
 
 Given:
-  <variable>: <Type> = <initial value>
+  counter: Integer = 1
 
-Step N → <Action or condition>
-  Because: <Why this step is necessary>
-  Then: <State transformation>
-  Otherwise: <Alternative path>
+Step 1 → Increment
+  Then: counter becomes counter + 1
 
-End: Return <result>
+Step 2 → Check if done
+  If: counter < 10
+    Then: repeat from Step 1
+
+End: Return counter
 ```
 
-## Key Features Demonstrated
+**Pattern:** Separate increment and check steps for clarity
 
-- **Explicit Causality**: Every step explains "why" with `Because:` clause
-- **State Transformations**: Clear `Then:` clauses showing variable changes
-- **Loop Control**: `repeat from Step N` for iteration
-- **Conditionals**: `If`, `Then`, `Otherwise` for branching
-- **Narrative Flow**: Code reads like a story with clear intent
-- **Real Networking**: TCP sockets with actual network I/O (webserver examples)
-- **File I/O**: Write and append operations for data persistence
-- **List Processing**: Operations on collections with explicit reasoning
+### Pattern 5: HTTP Requests
+```cns
+Given:
+  url: String = "https://api.example.com/data"
+  response: String = ""
+  status: Integer = 0
 
-## Creating Your Own Examples
+Step 1 → Call API
+  Effect: HTTP GET from url into response with status code status
+  
+Step 2 → Check success
+  If: status == 200
+    Then: data becomes PARSE JSON response GET "result"
+```
 
-1. Start with a clear story describing what you want to compute
-2. Declare all variables in the `Given:` section
-3. Break the algorithm into logical steps
-4. Explain each step's causality with `Because:`
-5. Use `Then:` for state changes
-6. Use conditionals for branching logic
-7. End with the return value
+**Key:** Use `with status code variable` to capture HTTP status
 
-## Tips for Writing CNS
+### Pattern 6: JSON Parsing
+```cns
+# Nested objects with dot notation
+Then: name becomes PARSE JSON response GET "user.profile.name"
 
-- **Be Explicit**: Don't hide logic in complex expressions
-- **Explain Causality**: The `Because:` clause is mandatory and important
-- **Linear Steps**: Keep steps sequential and easy to follow
-- **Single Responsibility**: Each step should do one thing well
-- **Test Incrementally**: Run after each step to verify logic
+# Array indexing
+Then: first becomes PARSE JSON response GET "items[0]"
 
-## Running with Verbose Output
+# Mixed
+Then: email becomes PARSE JSON response GET "users[2].email"
 
-By default, CNS shows full execution traces. To see exactly how your program executes:
+# Array length
+Then: count becomes PARSE JSON response GET "items" LENGTH
+```
 
+### Pattern 7: Expression Limitations (IMPORTANT!)
+
+**What DOESN'T work:**
+```cns
+# ❌ Literal-first multiplication
+Then: result becomes 3 * n
+
+# ❌ Multi-operator expressions
+Then: result becomes a + b * c
+```
+
+**Workarounds that DO work:**
+```cns
+# ✅ Variable-first multiplication
+Then: result becomes n * 3
+
+# ✅ Split multi-operator into steps
+Then: temp becomes b * c
+Then: result becomes a + temp
+```
+
+**Why:** CNS expression parser is conservative. LLMs should generate simple expressions.
+
+### Pattern 8: String Concatenation
+```cns
+# Multi-part concatenation with +
+Then: message becomes "Count: " + count + " items"
+
+# Works in PRINT
+Effect: Print "Found " + num_files + " files"
+```
+
+### Pattern 9: FIND/GREP (Code Navigation)
+```cns
+# Find files by pattern
+FIND "*.cns" IN "examples" INTO cns_files WITH COUNT count
+
+# Search file contents
+GREP "function" IN "src/code.lisp" INTO matches
+
+# Search multiple files (accepts list variable)
+FIND "*.lisp" IN "src" INTO files
+GREP "TODO" IN files INTO todos WITH COUNT num_todos
+```
+
+**Match data structure:**
+```cns
+# Each GREP match is [file, line_number, text]
+FOREACH match IN matches:
+  SET file = match[0]
+  SET line_num = match[1]
+  SET text = match[2]
+  PRINT file + ":" + line_num + " - " + text
+END
+```
+
+### Pattern 10: CNSC Compact Format
+
+**Verbose CNS:**
+```cns
+Story: Calculate factorial
+
+Given:
+  n: Integer = 5
+  result: Integer = 1
+
+Step 1 → Multiply
+  Then: result becomes result * n
+  Then: n becomes n - 1
+
+Step 2 → Check done
+  If: n > 1
+    Then: repeat from Step 1
+
+End: Return result
+```
+
+**CNSC (62% smaller):**
+```cnsc
+Story: Calculate factorial
+
+G: n:I=5, result:I=1
+
+S1→ result=result*n
+  → n=n-1
+
+S2→ n>1? ->S1
+
+E: result
+```
+
+**When to use CNSC:** Production code, LLM context optimization, large programs
+
+---
+
+## 🚀 Running Examples
+
+### From Repository Root
 ```bash
-./cns-run examples/factorial.cns
+# Run verbose format
+./cns-run examples/core/factorial.cns
+
+# Run compact format (auto-expands)
+./cns-run examples/core/fibonacci.cnsc
+
+# Run feature example
+./cns-run examples/features/test-http-get.cns
+
+# Run advanced example
+./cns-run examples/advanced/killer-app-demo.cns
 ```
 
-You'll see:
-- Initial variable values
-- Each step's execution
-- Causality explanations
-- State transformations
-- Loop jumps
-- Final result
+### Test All Examples
+```bash
+# From repository root
+./test-all-examples.sh
+```
 
-This makes debugging and understanding the algorithm very easy!
+**Expected:** 50%+ pass rate (some examples require optional dependencies)
+
+---
+
+## 📚 Common Patterns by Use Case
+
+### Use Case: REST API Client
+**See:** `features/api-demo.cns`
+
+**Pattern:**
+1. HTTP GET to fetch data
+2. Parse JSON response
+3. Extract specific fields with dot notation
+4. Handle errors with status codes
+
+### Use Case: File Processing
+**See:** `features/file-demo.cns`
+
+**Pattern:**
+1. READ FILE into variable
+2. Process content (split, parse, etc.)
+3. WRITE FILE or APPEND FILE
+4. Handle file not found errors
+
+### Use Case: Database Application
+**See:** `features/test-db-comprehensive.cnsc`
+
+**Pattern:**
+1. CONNECT to database
+2. EXECUTE DDL (CREATE TABLE)
+3. EXECUTE DML (INSERT, UPDATE)
+4. QUERY SELECT into variable
+5. Parse results
+
+### Use Case: Git Workflow
+**See:** `features/test-git-workflow.cns`
+
+**Pattern:**
+1. GIT STATUS to check state
+2. GIT ADD files
+3. GIT COMMIT with message
+4. GIT DIFF to generate patch
+
+### Use Case: Code Search Agent
+**See:** `advanced/swe-bench-agent.cns`
+
+**Pattern:**
+1. FIND files by pattern
+2. GREP for specific content
+3. Analyze matches
+4. GIT operations for changes
+
+---
+
+## ⚠️ Common LLM Mistakes
+
+### Mistake 1: Forgetting Type Annotations
+```cns
+# ❌ Wrong
+Given:
+  count = 0
+
+# ✅ Right
+Given:
+  count: Integer = 0
+```
+
+### Mistake 2: Using "Set" in Then Clauses
+```cns
+# ❌ Wrong - "Set" is for standalone actions
+Step 1:
+  Then: Set count to 5
+
+# ✅ Right - "becomes" in Then clauses
+Step 1:
+  Then: count becomes 5
+```
+
+### Mistake 3: Control Flow Outside Conditionals
+```cns
+# ❌ Wrong - silently ignored
+Step 1:
+  Then: count becomes count + 1
+  Then: repeat from Step 1
+
+# ✅ Right - inside If/Otherwise
+Step 1:
+  Then: count becomes count + 1
+
+Step 2:
+  If: count < 10
+    Then: repeat from Step 1
+```
+
+### Mistake 4: Complex Expressions
+```cns
+# ❌ Wrong - multi-operator fails
+Then: result becomes 3 * n + 1
+
+# ✅ Right - split into steps
+Then: temp becomes n * 3
+Then: result becomes temp + 1
+```
+
+### Mistake 5: Missing WITH Clauses
+```cns
+# ❌ Wrong - can't capture status
+HTTP GET from url into response
+
+# ✅ Right - capture status for error handling
+HTTP GET from url into response with status code status
+```
+
+---
+
+## 🎓 Learning Recommendations
+
+### For LLMs Generating CNS Code:
+
+1. **Start with core/ examples** - Learn fundamental patterns
+2. **Keep expressions simple** - Avoid multi-operator, literal-first
+3. **Always use type annotations** - In Given section
+4. **Control flow in conditionals** - repeat/go to only in If/Otherwise
+5. **Capture status codes** - Always use WITH clauses for HTTP, Shell, Git
+6. **Split complex logic** - One operation per Then clause when possible
+7. **Use CNSC for production** - 62% smaller, better context efficiency
+
+### For Humans Learning CNS:
+
+1. **Read core/ examples** - Understand narrative structure
+2. **Run with verbose output** - See execution traces
+3. **Study features/ one at a time** - Master one feature before next
+4. **Experiment with advanced/** - See real-world patterns
+5. **Check error messages** - They include working examples
+6. **Use validator** - `./cns-validate yourfile.cns` before running
+
+---
+
+## 📊 Example Statistics
+
+**Total Examples:** 42 files (92 before cleanup - 54% reduction)
+
+**By Format:**
+- CNS (verbose): 32 files
+- CNSC (compact): 10 files
+
+**By Category:**
+- Core: 11 files (26%)
+- Features: 25 files (60%)
+- Advanced: 6 files (14%)
+
+**Coverage:**
+- HTTP/HTTPS: ✅
+- JSON parsing: ✅
+- Database (SQLite): ✅
+- File I/O: ✅
+- Git operations: ✅
+- Shell execution: ✅
+- Find/Grep: ✅
+- Regex: ✅
+- Date/Time: ✅
+- CSV: ✅
+- Error handling: ✅
+- Functions: ✅
+- TCP Sockets: ✅
+
+---
+
+## 🔗 Additional Resources
+
+**Language Documentation:**
+- [QUICKSTART.md](../QUICKSTART.md) - 5-minute tutorial
+- [CNSC Guide](../docs/guides/CNSC-COMPACT.md) - Compact format reference
+- [Functions Guide](../docs/guides/FUNCTIONS.md) - Function syntax
+- [CHANGELOG.md](../CHANGELOG.md) - Feature history
+
+**Installation:**
+- [Install HTTPS](../docs/install/INSTALL-HTTPS.md) - SSL/TLS support
+- [Install Regex](../docs/install/INSTALL-REGEX.md) - cl-ppcre setup
+- [Install SQLite](../docs/install/INSTALL-SQLITE.md) - Database support
+
+**Development:**
+- [ROADMAP.md](../docs/development/ROADMAP.md) - Future plans
+- [Lisp Debugging](../docs/development/LISP-DEBUGGING-GUIDE.md) - Internals
+
+---
+
+## 💡 Philosophy
+
+**Every example teaches a pattern.**
+
+CNS is optimized for LLM code generation. These examples demonstrate:
+- Clear narrative structure
+- Explicit state transformations
+- Predictable control flow
+- Simple expression patterns
+- Comprehensive feature coverage
+
+**Goal:** LLMs should achieve 80%+ first-try success rate by learning from these patterns.
+
+---
+
+**Last Updated:** November 2, 2025  
+**Examples Version:** v1.7.0  
+**Maintained by:** CNS Development Team

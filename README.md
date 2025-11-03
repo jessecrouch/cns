@@ -82,26 +82,26 @@ cd cns-starter
 - ✅ String helpers (TRIM, UPPERCASE, LOWERCASE, REPLACE, JOIN, LENGTH_OF)
 - ✅ CSV support (read/write with headers)
 
-**Phase C - Benchmark Track** (50% COMPLETE) 🚀
+**Phase C - Language Improvements** (IN PROGRESS) 🚧
 - ✅ Shell execution (SHELL command with output capture)
 - ✅ Basic git operations (status, diff, checkout, add, commit, clone)
 - ✅ Advanced git operations (branch management, unified diffs, commit log, merge)
 - ✅ Code search and navigation (FIND, GREP commands) - v1.7.0
-- 🔄 Language adapters (multi-language build/test detection) - v1.8.0 in progress
-- 🔄 SWE-Bench agent (works across Python, Rust, Go, Java, C++, TypeScript)
-- 🎯 **Dual benchmark target:**
-  - SWE-bench Verified: 70%+ (beat 65% SOTA)
-  - SWE-bench Multilingual: 60%+ (beat 43% baseline by 40%)
+- ✅ Enhanced error messages (structured, with examples and fixes)
+- ✅ Validation mode (catch 90% errors pre-runtime)
+- 🔄 Strict mode NIL enforcement (parsing complete, enforcement in progress)
+- 🔄 Expression parsing improvements (literal-first, multi-operator)
+- 🔄 LLM-first repository reorganization
 
-**Result**: First narrative language to beat procedural agents on multi-language software engineering
+**Result**: Making CNS the easiest language for LLMs to read, write, and debug
 
-**Why CNS Wins at Multi-Language:**
-- **No AST dependency** - Other agents fail on non-Python because they hardcode Python parsing
-- **Language-agnostic tools** - SHELL, FIND, GREP work on any codebase
-- **Self-learning** - Extracts build/test commands from CI configs
-- **Compact context** - CNSC format = more room for understanding code
+**Why LLM-First Matters:**
+- **Error messages teach** - Show working examples, not just error descriptions
+- **Validation > Runtime** - Catch 90% of errors before execution
+- **Pattern-focused** - Repository structure optimized for LLM learning
+- **Self-documenting** - Examples demonstrate patterns better than prose
 
-**[See full roadmap →](docs/development/ROADMAP.md)** · **[Benchmark strategy →](docs/development/BENCHMARK-STRATEGY.md)**
+**[See full roadmap →](docs/development/ROADMAP.md)**
 
 ---
 
@@ -237,7 +237,7 @@ cd cns
 ./cns-run examples/killer-app-demo.cns
 ```
 
-**Includes:** 40+ examples, test suites, development tools, LLM datasets
+**Includes:** 90+ examples, test suites, development tools, comprehensive documentation
 
 ---
 
@@ -398,8 +398,8 @@ End: Return result
 
 ### Getting Started
 - **[QUICKSTART.md](QUICKSTART.md)** - 5-minute tutorial
-- **[examples/](examples/)** - 40+ working programs
-- **[STRUCTURE.md](STRUCTURE.md)** - Repository layout
+- **[examples/](examples/)** - 90+ working programs
+- **[CHANGELOG.md](CHANGELOG.md)** - Version history
 
 ### Guides
 - **[CNSC Compact Format](docs/guides/CNSC-COMPACT.md)** - Token-optimized syntax
@@ -407,10 +407,11 @@ End: Return result
 - **[LLM Integration](docs/guides/LLM-INTEGRATION.md)** - Using CNS with LLMs
 
 ### Development
-- **[ROADMAP.md](docs/development/ROADMAP.md)** - Development roadmap (v1.7 → v2.0)
-- **[PROJECT-STATUS.md](PROJECT-STATUS.md)** - Current status and metrics
-- **[RELEASE-NOTES-v1.7.0.md](RELEASE-NOTES-v1.7.0.md)** - Latest release details
-- **[RELEASE-NOTES-HISTORY.md](RELEASE-NOTES-HISTORY.md)** - Historical releases (v1.1-v1.5)
+- **[ROADMAP.md](docs/development/ROADMAP.md)** - Development roadmap
+- **[LISP-DEBUGGING-GUIDE.md](docs/development/LISP-DEBUGGING-GUIDE.md)** - Debugging CNS source
+
+### Installation
+- **[Installation Guides](docs/install/)** - HTTPS, Regex, SQLite setup
 
 ---
 
@@ -440,13 +441,19 @@ End: Return result
 **LLM Validation:** 100% success rate (10/10 tests)  
 
 ### Roadmap
-- **v1.7.0 (Current):** FIND/GREP for code navigation and search ✅
-- **v1.8.0 (Week 1):** Language adapters + multi-language SWE-bench agent
-- **v1.9.0 (Week 2-3):** Scale to 300 tasks, optimize success rates
-- **v2.0.0 (Week 4):** **Dual benchmark submission:**
-  - SWE-bench Verified (Python): Target 70%+ (beat 65% SOTA)
-  - SWE-bench Multilingual (9 languages): Target 60%+ (beat 43% baseline)
-- **v2.5+ (Months 2-3):** CLI tools, file ops, crypto → 80% coverage
+- **v1.7.0 (Current):** FIND/GREP for code navigation ✅
+- **v1.8.0 (Next):** LLM-first improvements
+  - Strict mode NIL enforcement
+  - Expression parsing improvements
+  - Enhanced validator (control flow analysis)
+  - Repository reorganization (pattern-focused)
+- **v2.0.0 (Future):** Real-world production apps
+  - Build 10+ real production applications
+  - Community feedback integration
+  - 85%+ feature completeness
+- **v3.0.0 (Later):** Benchmark attempts
+  - Return to SWE-bench with mature language
+  - Alternative benchmarks (SimpleQA, HumanEval, GAIA)
 
 **[See detailed roadmap →](docs/development/ROADMAP.md)**
 
@@ -504,7 +511,7 @@ Step 3 → Send response
 End: Server stopped
 ```
 
-**[See all 40+ examples →](examples/)**
+**[See all 90+ examples →](examples/)**
 
 ---
 

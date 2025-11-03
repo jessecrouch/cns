@@ -1,0 +1,34 @@
+Story: CheckValue (function)
+Given:
+  x: Integer
+  output: Text = ""
+
+Step 1 → If x > 5
+  Then: output becomes "large"
+  Otherwise: output becomes "small"
+
+End: Return output
+
+---
+
+Story: Test Function If/Otherwise
+
+Given:
+  x: Integer = 0
+  result: Text = ""
+
+Step 1 → Set x to 3
+  Then: x becomes 3
+  Then: result becomes CheckValue(x)
+  
+Step 2 → Show first result
+  Effect: Show result
+  
+Step 3 → Set x to 10
+  Then: x becomes 10
+  Then: result becomes CheckValue(x)
+
+Step 4 → Show second result
+  Effect: Show result
+
+End: Done

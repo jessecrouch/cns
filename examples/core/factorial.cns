@@ -1,0 +1,17 @@
+Story: Compute factorial of a positive integer
+# STARTER - Simple math example showing loops and conditionals
+
+Given:
+  n: Integer = 5
+  result: Integer = 1
+
+Step 1 → Check if done
+  Because: we need to multiply all integers from n down to 1
+  If: n > 0
+    Then: result becomes result * n
+    Then: n becomes n - 1
+    Then: repeat from Step 1
+  Otherwise:
+    Then: go to End
+
+End: Return result

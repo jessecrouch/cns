@@ -107,7 +107,104 @@
                      new
                      (subseq string (+ pos (length old))))
          old new)
-        string)))
+         string)))
+
+;;; ============================================================================
+;;; Enhanced Error Handling - LLM-friendly error messages
+;;; ============================================================================
+
+(defvar *current-file* nil "Current CNS file being interpreted")
+(defvar *current-step* nil "Current step number being executed")
+(defvar *strict-mode* nil "Enable strict mode with immediate NIL failures")
+
+(defun make-cns-error (type message &key cause fix example context)
+  "Create a structured, LLM-friendly error message.
+   
+   Arguments:
+   - type: Error category (e.g., :variable-undefined, :expression-invalid, :control-flow)
+   - message: Main error description
+   - cause: Why this error occurred (optional)
+   - fix: How to fix it (optional)
+   - example: Working code example (optional)
+   - context: Where the error occurred (file, step, line - optional)"
+  (with-output-to-string (s)
+    (format s "~%=== CNS ERROR ===~%")
+    (format s "TYPE: ~A~%" type)
+    (when context
+      (format s "LOCATION: ~A~%" context))
+    (when *current-file*
+      (format s "FILE: ~A~%" *current-file*))
+    (when *current-step*
+      (format s "STEP: ~A~%" *current-step*))
+    (format s "~%ERROR: ~A~%" message)
+    (when cause
+      (format s "~%CAUSE: ~A~%" cause))
+    (when fix
+      (format s "~%FIX: ~A~%" fix))
+    (when example
+      (format s "~%EXAMPLE:~%~A~%" example))
+    (format s "~%===============~%")))
+
+(defun cns-error-undefined-variable (var-name &optional expr)
+  "Generate error for undefined variable."
+  (make-cns-error 
+   :variable-undefined
+   (format nil "Variable '~A' is not defined" var-name)
+   :cause "The variable has not been declared in the Given section or assigned in any previous step."
+   :fix (format nil "1. Add '~A' to the Given section with a type and initial value~%   2. Or assign it in a previous step before using it" var-name)
+   :example (format nil "Given:~%  ~A: Number = 0~%~%Step 1: Set ~A to 42~%  Then: Print ~A" var-name var-name var-name)
+   :context (if expr (format nil "Expression: ~A" expr) nil)))
+
+(defun cns-error-invalid-expression (expr &optional reason)
+  "Generate error for invalid expression."
+  (make-cns-error
+   :expression-invalid
+   (format nil "Cannot evaluate expression: ~A" expr)
+   :cause (or reason "The expression syntax is not recognized or contains unsupported operations.")
+   :fix "Check expression syntax:
+   - Literal-first expressions fail: '3 * n' → use 'n * 3'
+   - Multi-operator expressions fail: 'a + b * c' → split into steps
+   - String comparisons need quotes: name = \"John\"
+   - Variables need quotes in strings: Print \"Hello {name}\""
+   :example "Working examples:
+   result becomes n * 3
+   temp becomes result + 1
+   Print \"Value: {result}\""))
+
+(defun cns-error-control-flow (clause &optional step-num)
+  "Generate error for invalid control flow."
+  (make-cns-error
+   :control-flow-invalid
+   (format nil "Invalid control flow: ~A" clause)
+   :cause "Control flow statements (repeat from Step, go to Step, go to End) can only be used inside If/Otherwise branches."
+   :fix "Move the control flow statement inside an If or Otherwise clause"
+   :example (format nil "Step ~A: If n > 0~%  Then: repeat from Step 1~%  Otherwise: go to End" 
+                    (or step-num "X"))))
+
+(defun cns-error-nil-value (var-name expr)
+  "Generate error for NIL value in strict mode."
+  (make-cns-error
+   :nil-value
+   (format nil "Variable '~A' is NIL (strict mode)" var-name)
+   :cause (format nil "Expression '~A' evaluated to NIL" expr)
+   :fix "Check that:
+   1. All variables in the expression are defined
+   2. The expression syntax is correct
+   3. Functions return expected values"
+   :example "Given:
+  x: Number = 10
+  
+Step 1: Set result to x * 2
+  Then: Print result  # Will print 20"))
+
+(defun format-error-context (step-num action)
+  "Format context string for error location."
+  (format nil "Step ~A: ~A" step-num action))
+
+(defun check-strict-nil (var-name value expr step-num)
+  "In strict mode, error on NIL values from expressions."
+  (when (and *strict-mode* (null value) expr)
+    (error (cns-error-nil-value var-name expr))))
 
 (defun parse-json-value (json-str key)
   "Simple JSON parser to extract a value by key (LEGACY - use parse-json-full for new code).
@@ -1076,7 +1173,14 @@ World' and ' rest'"
         (cond
          ;; Story header
          ((starts-with trimmed "Story:")
-          (push `(story ,(trim (subseq trimmed 6))) ast)
+          (let* ((story-text (trim (subseq trimmed 6)))
+                 (has-strict (search "[strict]" story-text :test #'char-equal))
+                 (story-name (if has-strict
+                                (trim (substitute #\Space #\] (substitute #\Space #\[ story-text)))
+                                story-text)))
+            (if has-strict
+                (push `(story ,story-name :strict t) ast)
+                (push `(story ,story-name) ast)))
           (setf current-section :story))
          
          ;; Given section (variable declarations)
@@ -1110,11 +1214,9 @@ World' and ' rest'"
                                   (subseq type-part (1+ bracket-start) bracket-end)))
                               nil))
                       (val (if val-part
-                              ;; Check if value is a quoted string
-                              (if (and (> (length val-part) 0) (char= (char val-part 0) #\"))
-                                  ;; Extract string content (extract-quoted-string removes quotes)
-                                  (extract-quoted-string val-part)
-                                  val-part)
+                              ;; Keep value as-is (with quotes if present)
+                              ;; eval-expr will handle parsing correctly
+                              val-part
                               nil)))
                   ;; Append to the given node (which is at (car ast))
                   (setf (cdar ast) (append (cdar ast) (list `(var ,name ,type ,val ,tag))))))))
@@ -1161,7 +1263,10 @@ World' and ' rest'"
          
           ;; If conditional
           ((and current-step indented (starts-with trimmed "If"))
-           (let ((cond-str (trim (subseq trimmed 2))))
+           (let* ((after-if (subseq trimmed 2))
+                  (cond-str (if (and (> (length after-if) 0) (char= (char after-if 0) #\:))
+                               (trim (subseq after-if 1))
+                               (trim after-if))))
              (push `(if ,cond-str) current-step)))
           
           ;; Error section
@@ -1303,9 +1408,23 @@ World' and ' rest'"
                   (let* ((step (nth pc steps))
                          (step-num (cadr step))
                          (step-body (cddr step))
-                         (then-clauses (mapcar #'cadr (remove-if-not (lambda (x) (eq (car x) 'then)) step-body)))
-                         (effects (mapcar #'cadr (remove-if-not (lambda (x) (eq (car x) 'effect)) step-body)))
                          (if-node (assoc 'if step-body))
+                         (otherwise-pos (position 'otherwise step-body :key #'car))
+                         ;; Split step-body into if-branch and otherwise-branch
+                         (if-branch-body (if otherwise-pos
+                                           (subseq step-body 0 otherwise-pos)
+                                           step-body))
+                         (otherwise-branch-body (when otherwise-pos
+                                                 (subseq step-body (1+ otherwise-pos))))
+                         ;; Extract clauses from appropriate branches
+                         (then-clauses (mapcar #'cadr (remove-if-not (lambda (x) (eq (car x) 'then)) 
+                                                                     (if if-node if-branch-body step-body))))
+                         (effects (mapcar #'cadr (remove-if-not (lambda (x) (eq (car x) 'effect)) 
+                                                                (if if-node if-branch-body step-body))))
+                         (otherwise-then-clauses (mapcar #'cadr (remove-if-not (lambda (x) (eq (car x) 'then)) 
+                                                                               otherwise-branch-body)))
+                         (otherwise-effects (mapcar #'cadr (remove-if-not (lambda (x) (eq (car x) 'effect)) 
+                                                                          otherwise-branch-body)))
                          (otherwise-clause (cadr (assoc 'otherwise step-body))))
                     
                     ;; Handle conditional
@@ -1331,24 +1450,55 @@ World' and ' rest'"
                                   (return))
                                  (t
                                   (eval-expr then-clause func-env))))
+                              
+                              ;; Execute effects for true branch
+                              (dolist (eff effects)
+                                (apply-effect eff func-env verbose))
+                              
                               (unless (or (search "repeat from" (car (last then-clauses)) :test #'char-equal)
                                           (search "go to" (car (last then-clauses)) :test #'char-equal))
                                 (incf pc)))
-                            ;; False branch
-                            (cond
-                             ((and otherwise-clause (search "go to End" otherwise-clause :test #'char-equal))
-                              (return))
-                             ((and otherwise-clause (search "go to Step" otherwise-clause :test #'char-equal))
-                              (let* ((step-pos (search "Step " otherwise-clause))
-                                     (num-start (+ step-pos 5))
-                                     (target-step (parse-integer otherwise-clause :start num-start :junk-allowed t)))
-                                (setf pc (1- target-step))))
-                             ((and otherwise-clause (search "repeat from Step" otherwise-clause :test #'char-equal))
-                              (let* ((step-pos (search "Step " otherwise-clause))
-                                     (num-start (+ step-pos 5))
-                                     (target-step (parse-integer otherwise-clause :start num-start :junk-allowed t)))
-                                (setf pc (1- target-step))))
-                             (t (incf pc))))))
+                             ;; False branch - handle otherwise
+                             (cond
+                               ((and otherwise-clause (search "go to End" otherwise-clause :test #'char-equal))
+                                (return))
+                               ((and otherwise-clause (search "go to Step" otherwise-clause :test #'char-equal))
+                                (let* ((step-pos (search "Step " otherwise-clause))
+                                       (num-start (+ step-pos 5))
+                                       (target-step (parse-integer otherwise-clause :start num-start :junk-allowed t)))
+                                  (setf pc (1- target-step))))
+                               ((and otherwise-clause (search "repeat from Step" otherwise-clause :test #'char-equal))
+                                (let* ((step-pos (search "Step " otherwise-clause))
+                                       (num-start (+ step-pos 5))
+                                       (target-step (parse-integer otherwise-clause :start num-start :junk-allowed t)))
+                                  (setf pc (1- target-step))))
+                               (t
+                                ;; Execute otherwise-branch Then and Effect clauses
+                                (dolist (then-clause otherwise-then-clauses)
+                                  (cond
+                                   ((search "repeat from Step" then-clause :test #'char-equal)
+                                    (let* ((step-pos (search "Step " then-clause))
+                                           (num-start (+ step-pos 5))
+                                           (target-step (parse-integer then-clause :start num-start :junk-allowed t)))
+                                      (setf pc (1- target-step))
+                                      (return)))
+                                   ((search "go to Step" then-clause :test #'char-equal)
+                                    (let* ((step-pos (search "Step " then-clause))
+                                           (num-start (+ step-pos 5))
+                                           (target-step (parse-integer then-clause :start num-start :junk-allowed t)))
+                                      (setf pc (1- target-step))
+                                      (return)))
+                                   ((search "go to End" then-clause :test #'char-equal)
+                                    (return))
+                                   (t
+                                    (eval-expr then-clause func-env))))
+                                (dolist (eff otherwise-effects)
+                                  (apply-effect eff func-env verbose))
+                                ;; Check if last then-clause had control flow
+                                (unless (and otherwise-then-clauses
+                                           (or (search "repeat from" (car (last otherwise-then-clauses)) :test #'char-equal)
+                                               (search "go to" (car (last otherwise-then-clauses)) :test #'char-equal)))
+                                  (incf pc)))))))
                      
                      ;; Regular step
                      (t
@@ -2092,13 +2242,13 @@ World' and ' rest'"
              (t (multiple-value-bind (value exists) (gethash trimmed env)
                   (if exists
                       value
-                      (error "Unknown variable or expression: ~A" trimmed))))))
+                      (error (cns-error-undefined-variable trimmed expr)))))))
        (error (e)
-         ;; Silently return nil for errors - don't spam user
-         ;; Only show errors in non-context calls
-         (unless context
-           (format t "ERROR: Could not evaluate '~A' - ~A~%" expr e))
-         nil)))
+         ;; Re-raise CNS errors with full context
+         (if (search "CNS ERROR" (format nil "~A" e))
+             (error e)
+             ;; Otherwise wrap in expression error
+             (error (cns-error-invalid-expression expr (format nil "~A" e)))))))
    
    ;; Fallback
    (t expr)))
@@ -2146,10 +2296,11 @@ World' and ' rest'"
 (defun apply-effect (effect-str env verbose)
   "Execute an effect (Print, Write, etc.)."
   (let ((trimmed (trim effect-str)))
-    (cond
-     ;; Print "text" or Print {var} or Print "text {var}" or Print "text" + var + "more"
-     ((starts-with (string-upcase trimmed) "PRINT ")
-      (let* ((msg (trim (subseq trimmed 6)))
+     (cond
+      ;; Print/Display "text" or Print {var} or Print "text {var}" or Print "text" + var + "more"
+      ((or (starts-with (string-upcase trimmed) "PRINT ")
+           (starts-with (string-upcase trimmed) "DISPLAY "))
+       (let* ((msg (trim (subseq trimmed (if (starts-with (string-upcase trimmed) "PRINT ") 6 8))))
              ;; First try to evaluate as expression (handles + concatenation)
              (result (handler-case
                         (let ((val (eval-expr msg env)))
@@ -2682,24 +2833,26 @@ World' and ' rest'"
                (pattern (if pattern-end
                            (subseq rest 1 pattern-end)
                            nil))
-               (after-pattern (if pattern-end (trim (subseq rest (1+ pattern-end))) ""))
-               (after-pattern-upper (string-upcase after-pattern))
-               ;; Find IN, INTO, WITH COUNT positions
-               (in-pos (search " IN " after-pattern-upper))
-               (into-pos-space (search " INTO " after-pattern-upper))
-               (into-pos-start (when (starts-with after-pattern-upper "INTO ") 0))
-               (into-pos (or into-pos-space into-pos-start))
-               (count-pos (search " WITH COUNT " after-pattern-upper))
-               ;; Extract directory if present
-               (directory (when (and in-pos into-pos)
-                           (let* ((start (+ in-pos 4))
-                                  (end into-pos)
-                                  (dir-str (trim (subseq after-pattern start end))))
-                             (if (and (> (length dir-str) 1)
-                                     (char= (char dir-str 0) #\")
-                                     (char= (char dir-str (1- (length dir-str))) #\"))
-                                 (subseq dir-str 1 (1- (length dir-str)))
-                                 dir-str))))
+                (after-pattern (if pattern-end (trim (subseq rest (1+ pattern-end))) ""))
+                (after-pattern-upper (string-upcase after-pattern))
+                ;; Find IN, INTO, WITH COUNT positions
+                (in-pos-space (search " IN " after-pattern-upper))
+                (in-pos-start (when (starts-with after-pattern-upper "IN ") 0))
+                (in-pos (or in-pos-space in-pos-start))
+                (into-pos-space (search " INTO " after-pattern-upper))
+                (into-pos-start (when (starts-with after-pattern-upper "INTO ") 0))
+                (into-pos (or into-pos-space into-pos-start))
+                (count-pos (search " WITH COUNT " after-pattern-upper))
+                ;; Extract directory if present
+                (directory (when (and in-pos into-pos)
+                            (let* ((start (if (zerop in-pos) 3 (+ in-pos 4)))
+                                   (end into-pos)
+                                   (dir-str (trim (subseq after-pattern start end))))
+                              (if (and (> (length dir-str) 1)
+                                      (char= (char dir-str 0) #\")
+                                      (char= (char dir-str (1- (length dir-str))) #\"))
+                                  (subseq dir-str 1 (1- (length dir-str)))
+                                  dir-str))))
                ;; Extract variable names
                (files-var (when into-pos
                            (let ((start (if (zerop into-pos) 5 (+ into-pos 6)))
@@ -3428,8 +3581,11 @@ World' and ' rest'"
                   (apply-effect eff env verbose))))))))
 
 ;;; ============================================================================
-;;; Interpreter: Execute the AST
+;;; Interpreter - Execute CNS programs
 ;;; ============================================================================
+
+;; Forward declaration
+(declaim (ftype (function (t &key (:verbose t)) t) interpret-single-story))
 
 (defun interpret-cns (ast-or-code &key (verbose t))
   "Interpret CNS code or AST with function support.
@@ -3493,14 +3649,19 @@ World' and ' rest'"
         (steps '())                           ; List of steps
         (pc 0)                                ; Program counter (step index)
         (result nil)
-        (error-block nil))
+        (error-block nil)
+        (*current-step* nil))                 ; Track current step for errors
     
     ;; Phase 1: Collect sections
     (dolist (node ast)
       (case (car node)
         (story 
+         ;; Check for strict mode flag
+         (when (and (cddr node) (eql (caddr node) :strict))
+           (setf *strict-mode* t))
          (when verbose
-           (format t "~%=== Executing Story: ~A ===~%" (cadr node))))
+           (format t "~%=== Executing Story: ~A ===~%~A" (cadr node)
+                  (if *strict-mode* " [STRICT MODE]~%" "~%"))))
         
          (given 
           (when verbose (format t "~%Given:~%"))
@@ -3514,14 +3675,8 @@ World' and ' rest'"
               ;; - Otherwise evaluate it as an expression
               (setf (gethash name env) 
                     (if val 
-                        (if (stringp val)
-                            ;; Check if it's a list literal
-                            (if (and (> (length val) 1)
-                                     (char= (char val 0) #\[)
-                                     (char= (char val (1- (length val))) #\]))
-                                (eval-expr val env)  ; Parse list literal
-                                val)  ; Already a string from extract-quoted-string
-                            (eval-expr val env))  ; Number or expression
+                        ;; Always evaluate the value - eval-expr handles strings, numbers, lists, etc.
+                        (eval-expr val env)
                         nil))
               (when verbose
                 (format t "  ~A: ~A = ~A~%" name type (gethash name env))))))
@@ -3544,10 +3699,27 @@ World' and ' rest'"
                    (action (cadr (assoc 'action step-body)))
                    (for-each-node (assoc 'for-each step-body))
                    (because (cadr (assoc 'because step-body)))
-                   (then-clauses (mapcar #'cadr (remove-if-not (lambda (x) (eq (car x) 'then)) step-body)))
-                   (effects (mapcar #'cadr (remove-if-not (lambda (x) (eq (car x) 'effect)) step-body)))
                    (if-node (assoc 'if step-body))
+                   (otherwise-pos (position 'otherwise step-body :key #'car))
+                   ;; Split step-body into if-branch and otherwise-branch
+                   (if-branch-body (if otherwise-pos
+                                     (subseq step-body 0 otherwise-pos)
+                                     step-body))
+                   (otherwise-branch-body (when otherwise-pos
+                                           (subseq step-body (1+ otherwise-pos))))
+                   ;; Extract clauses from appropriate branches
+                   (then-clauses (mapcar #'cadr (remove-if-not (lambda (x) (eq (car x) 'then)) 
+                                                               (if if-node if-branch-body step-body))))
+                   (effects (mapcar #'cadr (remove-if-not (lambda (x) (eq (car x) 'effect)) 
+                                                          (if if-node if-branch-body step-body))))
+                   (otherwise-then-clauses (mapcar #'cadr (remove-if-not (lambda (x) (eq (car x) 'then)) 
+                                                                         otherwise-branch-body)))
+                   (otherwise-effects (mapcar #'cadr (remove-if-not (lambda (x) (eq (car x) 'effect)) 
+                                                                    otherwise-branch-body)))
                    (otherwise-clause (cadr (assoc 'otherwise step-body))))
+              
+              ;; Set current step for error reporting
+              (setf *current-step* step-num)
               
               (when verbose
                 ;; Display step - handle actions, conditionals, and for-each
@@ -3561,8 +3733,13 @@ World' and ' rest'"
                 (when because
                   (format t "  Because: ~A~%" because)))
              
-               ;; Execute action (if not a conditional or for-each)
-               (when (and action (not for-each-node))
+               ;; Execute action (only if it's a standalone action with no Then/If/For-each/Effects)
+               ;; If there are Then/Effect clauses, the action is just a description
+               (when (and action 
+                         (not for-each-node) 
+                         (not if-node)
+                         (null then-clauses)   ; No Then clauses
+                         (null effects))       ; No Effect clauses
                  (eval-expr action env (format nil "Step ~A action" step-num)))
                
                ;; Handle For each loop
@@ -3577,8 +3754,8 @@ World' and ' rest'"
                   (when verbose
                     (format t "  Then: ~A~%" then-clause))))
               
-               ;; Apply effects (real implementation) - not for for-each (handled in loop)
-               (when (not for-each-node)
+               ;; Apply effects (real implementation) - not for for-each or conditionals (handled in branches)
+               (when (and (not for-each-node) (not if-node))
                  (dolist (eff effects)
                    (apply-effect eff env verbose)))
               
@@ -3606,39 +3783,59 @@ World' and ' rest'"
                   (if (eval-expr cond-expr env (format nil "Step ~A condition" step-num))
                       ;; Condition true - execute Then clauses
                       (progn
-                        ;; Execute all Then clauses for conditional
-                        (dolist (then-clause then-clauses)
-                          ;; Check if it's a control flow or assignment
-                           (cond
-                            ((search "repeat from Step" then-clause :test #'char-equal)
-                             ;; Handle later in control flow
-                             nil)
-                            ((search "go to Step" then-clause :test #'char-equal)
-                             ;; Handle later in control flow
-                             nil)
-                           (t
-                            ;; Regular assignment or expression
-                            (eval-expr then-clause env (format nil "Step ~A Then clause" step-num))
-                            (when verbose
-                              (format t "  Then: ~A~%" then-clause)))))
+                         ;; Execute all Then clauses for conditional
+                         (dolist (then-clause then-clauses)
+                           ;; Check if it's a control flow or assignment
+                            (cond
+                             ((search "repeat from Step" then-clause :test #'char-equal)
+                              ;; Handle later in control flow
+                              nil)
+                             ((search "go to Step" then-clause :test #'char-equal)
+                              ;; Handle later in control flow
+                              nil)
+                             ((search "go to End" then-clause :test #'char-equal)
+                              ;; Handle later in control flow
+                              nil)
+                             ;; Print/Display effects in Then clauses
+                             ((or (starts-with (string-upcase then-clause) "PRINT ")
+                                  (starts-with (string-upcase then-clause) "DISPLAY "))
+                              (apply-effect then-clause env verbose))
+                            (t
+                             ;; Regular assignment or expression
+                             (eval-expr then-clause env (format nil "Step ~A Then clause" step-num))
+                             (when verbose
+                               (format t "  Then: ~A~%" then-clause)))))
+                        
+                        ;; Execute effects for true branch
+                        (dolist (eff effects)
+                          (apply-effect eff env verbose))
                         
                          ;; Check last Then clause for control flow
                          (let ((last-then (car (last then-clauses))))
-                           (if (and last-then (search "repeat from Step" last-then :test #'char-equal))
+                           (cond
+                             ;; repeat from Step X
+                             ((and last-then (search "repeat from Step" last-then :test #'char-equal))
                               (let* ((step-pos (search "Step " last-then))
                                      (num-start (+ step-pos 5))
                                      (target-step (parse-integer last-then :start num-start :junk-allowed t)))
                                 (when verbose
                                   (format t "  -> Jumping to Step ~A~%" target-step))
-                                (setf pc (1- target-step)))
-                               (if (and last-then (search "go to Step" last-then :test #'char-equal))
-                                  (let* ((step-pos (search "Step " last-then))
-                                         (num-start (+ step-pos 5))
-                                         (target-step (parse-integer last-then :start num-start :junk-allowed t)))
-                                    (when verbose
-                                      (format t "  -> Going to Step ~A~%" target-step))
-                                    (setf pc (1- target-step)))
-                                  (incf pc)))))
+                                (setf pc (1- target-step))))
+                             ;; go to Step X
+                             ((and last-then (search "go to Step" last-then :test #'char-equal))
+                              (let* ((step-pos (search "Step " last-then))
+                                     (num-start (+ step-pos 5))
+                                     (target-step (parse-integer last-then :start num-start :junk-allowed t)))
+                                (when verbose
+                                  (format t "  -> Going to Step ~A~%" target-step))
+                                (setf pc (1- target-step))))
+                             ;; go to End
+                             ((and last-then (search "go to End" last-then :test #'char-equal))
+                              (when verbose
+                                (format t "  -> Going to End~%"))
+                              (return))
+                             ;; No control flow, just increment
+                             (t (incf pc)))))
                     ;; Condition false - handle otherwise
                     (cond
                       ((and otherwise-clause (search "go to End" otherwise-clause :test #'char-equal))
@@ -3652,7 +3849,52 @@ World' and ' rest'"
                          (when verbose
                            (format t "  -> Going to Step ~A~%"target-step))
                          (setf pc (1- target-step))))
-                      (t (incf pc))))))
+                      ((and otherwise-clause (search "repeat from Step" otherwise-clause :test #'char-equal))
+                       (let* ((step-pos (search "Step " otherwise-clause))
+                              (num-start (+ step-pos 5))
+                              (target-step (parse-integer otherwise-clause :start num-start :junk-allowed t)))
+                         (when verbose
+                           (format t "  -> Repeating from Step ~A~%" target-step))
+                         (setf pc (1- target-step))))
+                      (t
+                       ;; Execute otherwise-branch Then and Effect clauses
+                       (dolist (then-clause otherwise-then-clauses)
+                         (cond
+                          ((search "repeat from Step" then-clause :test #'char-equal)
+                           (let* ((step-pos (search "Step " then-clause))
+                                  (num-start (+ step-pos 5))
+                                  (target-step (parse-integer then-clause :start num-start :junk-allowed t)))
+                             (when verbose
+                               (format t "  Then: ~A~%" then-clause)
+                               (format t "  -> Repeating from Step ~A~%" target-step))
+                             (setf pc (1- target-step))
+                             (return)))
+                          ((search "go to Step" then-clause :test #'char-equal)
+                           (let* ((step-pos (search "Step " then-clause))
+                                  (num-start (+ step-pos 5))
+                                  (target-step (parse-integer then-clause :start num-start :junk-allowed t)))
+                             (when verbose
+                               (format t "  Then: ~A~%" then-clause)
+                               (format t "  -> Going to Step ~A~%" target-step))
+                             (setf pc (1- target-step))
+                             (return)))
+                           ((search "go to End" then-clause :test #'char-equal)
+                            (when verbose
+                              (format t "  Then: ~A~%" then-clause)
+                              (format t "  -> Going to End~%"))
+                            (setf pc (length steps))  ; Force loop exit
+                            (return))
+                          (t
+                           (eval-expr then-clause env (format nil "Step ~A Otherwise Then clause" step-num))
+                           (when verbose
+                             (format t "  Then: ~A~%" then-clause)))))
+                       (dolist (eff otherwise-effects)
+                         (apply-effect eff env verbose))
+                       ;; Check if last then-clause had control flow
+                       (unless (and otherwise-then-clauses
+                                  (or (search "repeat from" (car (last otherwise-then-clauses)) :test #'char-equal)
+                                      (search "go to" (car (last otherwise-then-clauses)) :test #'char-equal)))
+                         (incf pc)))))))
                
                ;; Regular step - just advance
                (t (incf pc)))))
