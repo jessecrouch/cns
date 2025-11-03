@@ -1,369 +1,709 @@
-# AGENTS.md: Causal Narrative Script (CNS) Project Guide
+# AGENTS.md: System Prompt for CNS Development
 
-This document serves as a high-level guide for AI agents assisting in the development of **Causal Narrative Script (CNS)**. CNS is a novel programming language optimized for Large Language Models (LLMs) to read, generate, and reason about code with minimal ambiguity.
+**Purpose**: Instructions for AI agents developing the CNS language and tooling.
 
-## Project Overview
+**Scope**: Development workflow, testing requirements, code quality standards, and best practices for working on the CNS project itself.
 
-### What is CNS?
-CNS is a declarative, narrative-driven programming language designed to make code more comprehensible for LLMs than traditional languages. Key motivations:
-- LLMs excel at causal, step-by-step reasoning but struggle with implicit control flow and side effects
-- CNS structures code as a "story" with explicit causes, effects, and justifications
-- Designed for LLM-generated scripts, collaborative coding, or as an intermediate representation for AI-driven programming
-
-Core Philosophy:
-- **Narrative Flow**: Code reads like a story (`Story:`, `Given:`, `Step:`, `End:`)
-- **Causality First**: Use arrows (`→`) and mandatory `Because:` clauses to explain every transformation
-- **Explicit Everything**: State transitions, effects, and conditions are declared upfront
-- **LLM-Friendly**: Linear structure, semantic tags on variables, and pattern-based logic
-
-Example CNS Code (Factorial):
-```
-Story: Compute factorial of a positive integer
-
-Given:
-  n: Integer [≥ 1] = 5
-  result: Integer = 1
-
-Step 1 → Multiply result by n
-  Because: n contributes to the product
-  Then: n becomes n - 1
-
-Step 2 → If n > 1, repeat from Step 1
-  Because: we need to include all integers down to 1
-  Otherwise: go to End
-
-End:
-  Return result
-  Because: all factors have been multiplied
-```
-
-### Goals of the Project
-- Build a functional interpreter for CNS that can parse, execute, and validate code
-- Make it extensible for new features (e.g., advanced effects, LLM-based causality checks)
-- Ensure it's LLM-trainable: Future versions could use CNS as a reasoning format
-- Cross-compatibility: While focusing on Lisp, allow ports to other hosts
-
-Non-Goals:
-- High-performance execution (prioritize clarity over speed)
-- Full Turing-completeness if it compromises readability
-
-## Lisp Implementation Focus
-
-The Lisp version leverages Common Lisp's strengths: S-expressions for AST representation, macros for syntax enforcement, and dynamic evaluation for rapid prototyping.
-
-### Current Implementation Summary
-The interpreter is implemented in `src/cns.lisp`. Key components:
-
-1. **Parser (`parse-cns`)**:
-   - Takes CNS code string, outputs S-expression AST
-   - Handles sections: `Story:`, `Given:`, `Step →`, `Because:`, `Effect:`, `If/Then/Otherwise`, `End:`
-   - Limitations: Needs better error handling and complex expression support
-
-2. **Interpreter (`interpret-cns`)**:
-   - Uses hash-table environment for state
-   - Program counter (pc) for step navigation
-   - Evaluates actions via `eval-expr` (basic ops: multiply, assign, etc.)
-   - Supports loops via `repeat from Step`
-   - Real socket effects using `usocket` for network I/O
-   - Outputs traces for each step including `Because:` for auditability
-
-3. **Effects System**:
-   - Supports network I/O (socket create, accept, send, close)
-   - File operations (read, write)
-   - Console output (print)
-
-See `src/cns.lisp` for full implementation details and `examples/` for working CNS programs.
-
-### Development Roadmap for Agents
-
-1. **Enhance Parser**:
-   - Add robust error reporting (e.g., "Missing Because: at Step 3")
-   - Support causal arrows in actions (parse "A → B" into `(causes A B)`)
-   - Handle semantic tags fully (validate types like Integer [≥ 1])
-   - Use Lisp reader macros for direct CNS-like syntax in Lisp files
-
-2. **Improve Interpreter**:
-   - Embed full Common Lisp in expressions (allow `(lisp (+ n 1))` in actions)
-   - Add causality validation: Check if each step's `Because:` logically matches the action
-   - Implement backtracking for failed paths (Prolog-style)
-   - Expand effects library (HTTP APIs, databases, etc.)
-
-3. **Add Features**:
-   - **Modules/Stories Composition**: Allow importing stories (`Include Story: utils`)
-   - **Pattern Matching**: Expand `When matches Pattern:` for conditionals
-   - **Testing Framework**: Macro to run CNS with inputs and assert outputs
-   - **Compiler Mode**: Translate CNS to pure Lisp for execution
-
-4. **Testing and Examples**:
-   - Maintain test suite in `tests/llm-tests/`
-   - Add examples for new features to `examples/`
-   - Benchmark: Compare CNS readability vs. equivalent Lisp
-
-5. **Integration with LLM Tools**:
-   - Add hooks for LLM models to generate CNS from natural language prompts
-   - Export AST to JSON for interoperability with other languages/tools
-   - Create prompt templates for consistent CNS generation (see `prompts/`)
-
-### General Guidelines for Agents
-- **Consistency**: Always enforce `Because:`—it's core to CNS
-- **Modularity**: Break extensions into small, narrative commits (e.g., "Add effect handling to track side effects")
-- **Documentation**: Update docs with new features; use CNS-style comments in code
-- **Collaboration**: Use OpenCode for rapid iteration
-- **Reference**: Point to `examples/` for CNS code samples rather than duplicating them
-- **Testing**: Run examples through interpreter to verify changes don't break existing functionality
-- **Context Management**: Keep the project lean for AI context windows:
-  - Remove obsolete documentation and planning artifacts after completion
-  - Avoid code duplication in docs—reference `src/` and `examples/` instead
-  - Delete redundant examples that don't add unique coverage
-  - Compress verbose documentation while preserving essential information
-  - Regularly audit for historical artifacts that can be archived or removed
-
-## Agent Architecture & Best Practices
-
-### Core Principle: CNS as Orchestration Language
-
-**CNS is the conductor, not the orchestra.**
-
-Like Kubernetes YAML orchestrates containers without implementing them, CNS orchestrates intelligent components without implementing complex algorithms. This keeps CNS:
-- **Token-efficient**: Compact representation for LLM context windows
-- **LLM-readable**: Clear causal narrative of agent behavior  
-- **Focused**: Does one thing well - orchestration
-
-### What CNS Excels At
-
-✅ **Narrative Flow** - "Here's what happens and why" with explicit causality  
-✅ **Tool Orchestration** - SHELL, FIND, GREP, HTTP, File I/O  
-✅ **Conditional Logic** - If/Otherwise with clear branching  
-✅ **State Management** - Variables, lists, file persistence  
-✅ **Story Composition** - Reusable functions via multi-story files
-
-### What External Tools Should Handle
-
-❌ **Complex Algorithms** - Use Python/Rust/Go for performance-critical logic  
-❌ **LLM Inference** - Call Python scripts with OpenAI/Anthropic APIs  
-❌ **Language-specific Parsing** - Use tree-sitter, rustc, go vet  
-❌ **Heavy Computation** - Delegate to compiled languages
-
-### Story Composition Pattern
-
-CNS supports **multi-story files** with `---` separator. Stories can call each other like functions:
-
-```cns
-Story: Square (function)
-Given:
-  Num: Integer = 0
-  Result: Integer = 0
-
-Step 1 → Calculate square
-  Because: Multiply number by itself
-  Then: Result becomes Num * Num
-
-End: Result
+**Not in scope**: CNS language syntax/patterns (see `docs/language/`), CNS examples (see `examples/`).
 
 ---
 
-Story: Main
+## Table of Contents
+
+1. [Core Principles](#core-principles)
+2. [Before You Start](#before-you-start)
+3. [Development Workflow](#development-workflow)
+4. [Testing Requirements](#testing-requirements)
+5. [Code Quality Standards](#code-quality-standards)
+6. [Repository Structure](#repository-structure)
+7. [Common Tasks](#common-tasks)
+8. [Code Bloat Management](#code-bloat-management)
+
+---
+
+## Core Principles
+
+### 1. LLM-First Development
+
+CNS is **optimized for LLM comprehension**. Every decision should prioritize:
+- **Token efficiency** - Compact representations, minimal duplication
+- **Clarity** - Explicit causality, narrative structure
+- **Learnability** - Patterns over syntax, examples over specs
+
+### 2. Test-Driven Changes
+
+**NEVER commit code without testing first:**
+```bash
+# REQUIRED before every commit
+./test-all-examples.sh           # All 42 examples must pass
+./cns-validate examples/new.cns  # Validate syntax
+./tests/run-all-tests.sh         # Regression tests
+```
+
+### 3. Documentation as Code
+
+- Keep docs synchronized with implementation
+- Update relevant docs in the **same commit** as code changes
+- Reference existing docs instead of duplicating content
+- Archive completed session docs after integration
+
+### 4. Context Management
+
+**The repository is an LLM context window.** Keep it lean:
+- Remove obsolete documentation after completion
+- Avoid code duplication in docs (reference instead)
+- Delete redundant examples that don't add unique coverage
+- Archive historical artifacts (see `docs/archive/`)
+- Compress verbose documentation while preserving essential information
+
+---
+
+## Before You Start
+
+### Essential Reading (in order)
+
+1. **`docs/language/SYNTAX.md`** - Complete CNS syntax reference
+2. **`docs/language/COMMON-PATTERNS.md`** - Reusable code patterns
+3. **`docs/language/EXPRESSION-LIMITATIONS.md`** - Critical parser limitations (READ THIS!)
+4. **`docs/language/CONTROL-FLOW-RULES.md`** - If/Otherwise and loop patterns
+5. **`docs/development/TESTING.md`** - Test infrastructure
+6. **`docs/development/LISP-DEBUGGING-GUIDE.md`** - Required if modifying `src/cns.lisp`
+
+### Quick Context
+
+**What is CNS?**
+- A narrative programming language designed for LLM comprehension
+- Explicit causality (`Because:`), step-by-step execution
+- Pattern-based syntax optimized for token efficiency
+- Lisp-based interpreter (SBCL/CCL), ~4000 lines
+
+**Current state:**
+- 42 working examples (100% pass rate)
+- Comprehensive test suite (`tests/`)
+- Three-tier example structure (core/features/advanced)
+- Iteration safety (10,000 step limit with `--max-iterations`)
+
+**Recent work:**
+- Phase 1-3: Repository reorganization (10MB → 3.5MB, 65% reduction)
+- Parser fixes for End section and effect keywords in Then clauses
+- LLM-first documentation (EXPRESSION-LIMITATIONS.md, CONTROL-FLOW-RULES.md)
+
+---
+
+## Development Workflow
+
+### Standard Development Cycle
+
+```bash
+# 1. Create feature branch (if multi-commit work)
+git checkout -b feature/your-feature-name
+
+# 2. Make changes to src/cns.lisp or other files
+# ... edit files ...
+
+# 3. Test immediately (don't batch!)
+sbcl --non-interactive --load src/cns.lisp  # Syntax check
+./cns-run examples/hello.cns                # Smoke test
+./test-all-examples.sh                      # Full validation
+
+# 4. If tests fail, fix immediately before proceeding
+# ... fix bugs ...
+
+# 5. Update documentation in SAME commit as code changes
+# ... update docs/language/*.md or docs/development/*.md ...
+
+# 6. Run full test suite before commit
+./test-all-examples.sh           # Must be 42/42 passing
+./tests/run-all-tests.sh         # Regression tests
+./cns-validate examples/*.cns    # Validate all syntax
+
+# 7. Commit with descriptive message
+git add <relevant files only>    # Don't use `git add .` blindly!
+git commit -m "Add feature X: <concise description>
+
+- What changed (code changes)
+- Why (motivation)
+- Impact (what works now that didn't before)
+- Tests: 42/42 examples pass"
+
+# 8. For multi-commit features, merge when complete
+git checkout main
+git merge feature/your-feature-name
+```
+
+### Modifying the Interpreter (`src/cns.lisp`)
+
+**CRITICAL: Read `docs/development/LISP-DEBUGGING-GUIDE.md` first!**
+
+```bash
+# 1. Backup before modifying
+cp src/cns.lisp src/cns.lisp.backup-$(date +%Y%m%d-%H%M%S)
+
+# 2. Make small, incremental changes
+# ... edit ONE function at a time ...
+
+# 3. Test after EVERY change
+sbcl --non-interactive --load src/cns.lisp
+# Look for "Unmatched parenthesis" or "Undefined function" errors
+
+# 4. If Lisp errors occur:
+#    a. Use binary search to isolate the problematic section
+#    b. Check parentheses balance with editor tooling
+#    c. Add tracing: (format t "~%DEBUG: var=~A~%" var)
+#    d. Test in REPL: sbcl --load src/cns.lisp
+#    e. See LISP-DEBUGGING-GUIDE.md for detailed methodology
+
+# 5. Once Lisp loads successfully, test CNS execution
+./cns-run examples/factorial.cns
+./test-all-examples.sh
+
+# 6. Keep backup until feature is complete and tested
+# Delete backup after successful commit:
+rm src/cns.lisp.backup-*
+```
+
+### Adding New Features
+
+**Standard feature development checklist:**
+
+- [ ] Research: Check existing code for similar patterns
+- [ ] Design: Document approach in `docs/development/` (if complex)
+- [ ] Implement: Small incremental changes with frequent testing
+- [ ] Test: Add regression test in `tests/` or example in `examples/`
+- [ ] Document: Update `docs/language/SYNTAX.md` or relevant guide
+- [ ] Validate: Run full test suite (`./test-all-examples.sh`)
+- [ ] Commit: Descriptive message with test results
+- [ ] Archive: Move session docs to `docs/archive/` if temporary
+
+---
+
+## Testing Requirements
+
+### Before Every Commit (MANDATORY)
+
+```bash
+# Test 1: All examples pass (REQUIRED)
+./test-all-examples.sh
+# Expected: 42/42 examples pass (100%)
+
+# Test 2: Validation passes (REQUIRED)
+./cns-validate examples/*.cns
+# Expected: All files validate without errors
+
+# Test 3: Regression tests (RECOMMENDED)
+./tests/run-all-tests.sh
+# Expected: All test suites pass
+```
+
+### Adding New Tests
+
+**For new features:**
+1. Add working example to `examples/features/test-<feature>.cns`
+2. Add `# STARTER` tag at top for test discovery
+3. Run `./test-all-examples.sh` to verify inclusion
+
+**For bug fixes:**
+1. Create minimal reproduction in `tests/` directory
+2. Run `./tests/run-validation-tests.sh` to verify fix
+3. Document in commit message
+
+**For edge cases:**
+1. Add to `tests/regression-tests.lisp` (Lisp-based tests)
+2. Document expected behavior in comments
+3. Run `sbcl --load tests/regression-tests.lisp`
+
+### Test Coverage Strategy
+
+**Current coverage (as of 2025-11-02):**
+- Core features: 11 examples (factorial, fibonacci, GCD, etc.)
+- Language features: 25 examples (HTTP, DB, file I/O, etc.)
+- Advanced patterns: 6 examples (webservers, agents, etc.)
+
+**When adding new tests:**
+- **core/**: Only add for fundamental language features
+- **features/**: Add for each new effect, syntax, or API
+- **advanced/**: Add for complex multi-feature patterns
+- **tests/**: Add for edge cases, regressions, validation
+
+---
+
+## Code Quality Standards
+
+### 1. No Duplication
+
+**Bad:** Documenting CNS syntax in multiple places
+```
+❌ AGENTS.md contains syntax reference
+❌ README.md duplicates examples
+❌ Session docs duplicate final documentation
+```
+
+**Good:** Single source of truth with references
+```
+✅ SYNTAX.md is the syntax reference
+✅ README.md links to SYNTAX.md
+✅ Session docs archived after integration
+```
+
+### 2. Lean Context
+
+**Repository size targets:**
+- **Current**: 3.5MB (down from 10MB after Phase 1-2)
+- **Target**: <5MB total (strict control on bloat)
+- **Method**: Regular cleanup, archive completed work, compress verbose docs
+
+**File count targets:**
+- **Examples**: 42 files (consolidated from 92)
+- **Docs**: ~25 files (down from 40+)
+- **Tests**: ~15 files (core test coverage)
+
+### 3. Clear Documentation
+
+**Session documentation** (temporary, for active work):
+- Created during development to track progress
+- Moved to `docs/archive/` after completion
+- Examples: `PHASE-1-REORGANIZATION-COMPLETE.md`
+
+**Reference documentation** (permanent):
+- `docs/language/`: CNS syntax, patterns, limitations
+- `docs/development/`: Testing, debugging, roadmap
+- `docs/guides/`: User-facing guides
+- `examples/README.md`: Pattern guide with examples
+
+### 4. Git Hygiene
+
+**Commit messages:**
+```
+Good format:
+"Add iteration safety with --max-iterations flag
+
+- Implemented *max-iterations* global (default 10,000)
+- Added counter tracking to prevent infinite loops  
+- Fast failure (~1 sec vs 60 sec timeout)
+- Tests: 42/42 examples pass, new flag documented"
+
+Bad format:
+"Fixed stuff"
+"WIP"
+"Update code"
+```
+
+**What to commit:**
+- Relevant source files only (no `git add .` without review!)
+- Updated documentation in same commit as code changes
+- Test additions for new features
+
+**What NOT to commit:**
+- Backup files (`.backup-*`, `*.bak`)
+- Session logs or debug output
+- Temporary test files
+- Commented-out code blocks (delete instead)
+
+---
+
+## Repository Structure
+
+### Source Code (`src/`)
+
+| File | Purpose | When to modify |
+|------|---------|----------------|
+| `cns.lisp` | Main interpreter (4000 lines) | Adding features, fixing bugs |
+| `cns-validator.lisp` | Syntax validator | Adding validation rules |
+| `cns-run` | CLI runner script | Adding flags, options |
+| `cns-validate` | Validation CLI | Validation flags |
+
+**Before modifying `cns.lisp`**: Read `docs/development/LISP-DEBUGGING-GUIDE.md`
+
+### Documentation (`docs/`)
+
+| Directory | Purpose | Update when |
+|-----------|---------|-------------|
+| `docs/language/` | CNS syntax, patterns, rules | Language changes |
+| `docs/development/` | Testing, debugging, roadmap | Development process changes |
+| `docs/guides/` | User-facing guides | Feature additions |
+| `docs/install/` | Setup instructions | Dependency changes |
+| `docs/archive/` | Historical session docs | Archiving completed work |
+
+### Examples (`examples/`)
+
+| Directory | Purpose | Add when |
+|-----------|---------|----------|
+| `examples/core/` | Fundamental patterns (11 files) | Core language features |
+| `examples/features/` | Feature demos (25 files) | New effects or APIs |
+| `examples/advanced/` | Complex patterns (6 files) | Multi-feature orchestration |
+
+See `examples/README.md` for complete pattern guide.
+
+### Tests (`tests/`)
+
+| File/Directory | Purpose | Add when |
+|----------------|---------|----------|
+| `tests/llm-tests/` | LLM-generated test cases | Testing LLM output |
+| `tests/if-otherwise-tests/` | Control flow tests | If/Otherwise changes |
+| `tests/grok-iterations/` | Iterative refinement tests | Testing corrections |
+| `tests/regression-tests.lisp` | Lisp-based regression suite | Bug fixes |
+
+Run with: `./tests/run-all-tests.sh` or `./test-all-examples.sh`
+
+### Scripts (`scripts/`)
+
+Development utilities (test runners, dataset generation, etc.). Generally don't modify unless adding new tooling.
+
+---
+
+## Common Tasks
+
+### Task 1: Fix a Bug
+
+```bash
+# 1. Create minimal reproduction
+cat > test-bug.cns << 'EOF'
+Story: Reproduce Bug
 Given:
   x: Integer = 5
-  result: Integer = 0
+Step 1 → Trigger bug
+  Then: x becomes x * 3
+End: Return x
+EOF
 
-Step 1 → Calculate
-  Then: result becomes Square(x)
+# 2. Verify bug exists
+./cns-run test-bug.cns  # Should fail or produce wrong output
 
-End: result
+# 3. Locate bug in src/cns.lisp
+#    - Search for relevant function (e.g., eval-expr, interpret-single-story)
+#    - Add tracing: (format t "~%DEBUG: x=~A~%" x)
+#    - Test incrementally
+
+# 4. Fix bug (small change!)
+# ... edit src/cns.lisp ...
+
+# 5. Test fix
+sbcl --non-interactive --load src/cns.lisp  # Lisp syntax check
+./cns-run test-bug.cns                       # Verify fix
+./test-all-examples.sh                       # Ensure no regressions
+
+# 6. Add regression test
+mv test-bug.cns tests/regression-bug-fix-description.cns
+
+# 7. Update documentation if behavior changed
+# ... edit relevant docs/language/*.md ...
+
+# 8. Commit with test results
+git add src/cns.lisp tests/regression-bug-fix-description.cns docs/...
+git commit -m "Fix bug in expression evaluation
+
+- Bug: Literal-first multiplication returned NIL
+- Fix: Added variable-first check in eval-expr
+- Tests: 42/42 examples pass, new regression test added
+- Docs: Updated EXPRESSION-LIMITATIONS.md with workaround"
 ```
 
-**Key Features:**
-- `---` separates Stories in same file
-- Stories can call each other: `Square(x)`
-- Return value via `End: variable`
-- Registered as "functions" at parse time
+### Task 2: Add New Effect
 
-### Modular Agent Design
+```bash
+# 1. Design effect syntax (check SYNTAX.md for patterns)
+# Example: CSV READ FROM file INTO variable
 
-**Recommended Structure:**
-```
-cns-agents/
-├── core/
-│   ├── language-detector.cns    # Atomic: Detect repo language
-│   ├── test-runner.cns          # Atomic: Execute tests
-│   ├── code-searcher.cns        # Atomic: FIND + GREP wrapper
-│   └── patch-applier.cns        # Atomic: Git operations
-├── workflows/
-│   ├── swe-bench-rust.cns       # Compose: Rust workflow
-│   ├── swe-bench-go.cns         # Compose: Go workflow
-│   └── swe-bench-multi.cns      # Compose: Multi-language
-└── lib/
-    └── cns-stdlib.cns           # Reusable utilities
-```
+# 2. Add to src/cns.lisp in apply-effect function
+# ... edit apply-effect to handle new effect keyword ...
 
-**Each Core Component:**
-- Single responsibility
-- Returns simple data (string, number, list)
-- Stateless (except via ENV or file state)
-- Callable from other Stories
-- Uses SHELL for external tools
-
-**Example: Modular Language Detector**
-```cns
-Story: DetectLanguage (function)
+# 3. Create test example
+cat > examples/features/test-csv.cns << 'EOF'
+# STARTER
+Story: CSV Read Test
 Given:
-  repo_path: String
-  result: String = ""
+  file: String = "/tmp/data.csv"
+  data: String = ""
+Step 1 → Read CSV
+  Then: data becomes CSV READ FROM file
+  Effect: Print "Data: {data}"
+End: Return data
+EOF
 
-Step 1 → Check Rust
-  Effect: SHELL "test -f {repo_path}/Cargo.toml && echo rust || echo ''" INTO result WITH EXIT_CODE code
+# 4. Test new effect
+./cns-run examples/features/test-csv.cns
+./test-all-examples.sh  # Should include new test
 
-Step 2 → Check Go if not found
-  If: result = ""
-    Effect: SHELL "test -f {repo_path}/go.mod && echo go || echo ''" INTO result WITH EXIT_CODE code
+# 5. Document in SYNTAX.md
+# ... add to Effects section ...
 
-Step 3 → Check JavaScript if not found
-  If: result = ""
-    Effect: SHELL "test -f {repo_path}/package.json && echo javascript || echo ''" INTO result WITH EXIT_CODE code
+# 6. Commit
+git add src/cns.lisp examples/features/test-csv.cns docs/language/SYNTAX.md
+git commit -m "Add CSV READ effect for file parsing
 
-End: result
+- New effect: CSV READ FROM file INTO variable
+- Implementation in apply-effect
+- Example: examples/features/test-csv.cns
+- Tests: 43/43 examples pass (was 42/42)
+- Docs: Added to SYNTAX.md Effects section"
+```
+
+### Task 3: Repository Cleanup
+
+```bash
+# 1. Identify bloat candidates
+find docs -name "*.md" -size +50k  # Large docs
+find examples -name "*.cns" | wc -l  # Example count
+du -sh docs/* examples/* | sort -h  # Directory sizes
+
+# 2. Archive completed session docs
+mv docs/development/SESSION-COMPLETE.md docs/archive/
+
+# 3. Remove redundant examples
+# ... delete examples that duplicate existing coverage ...
+
+# 4. Compress verbose docs (while preserving info)
+# ... edit large .md files to be more concise ...
+
+# 5. Measure improvement
+du -sh . # Total size
+git log --oneline -5  # Recent commits for context
+
+# 6. Commit cleanup
+git add docs examples
+git commit -m "Repository cleanup: reduce context bloat
+
+- Archived: SESSION-COMPLETE.md (work done)
+- Removed: 5 redundant examples (duplicated coverage)
+- Compressed: VERBOSE-DOC.md (50KB → 20KB, info preserved)
+- Before: 4.2MB, After: 3.5MB (17% reduction)
+- Tests: 42/42 examples still pass"
+```
+
+### Task 4: Update Documentation
+
+```bash
+# 1. Identify affected docs
+# Language change → docs/language/*.md
+# Testing change → docs/development/TESTING.md
+# Feature change → docs/guides/*.md
+
+# 2. Update in SAME commit as code change
+# ... edit docs/language/SYNTAX.md ...
+
+# 3. Cross-reference related docs
+# Add links: See also COMMON-PATTERNS.md
+
+# 4. Update examples if needed
+# ... edit examples/features/test-*.cns ...
+
+# 5. Test examples still work
+./test-all-examples.sh
+
+# 6. Commit together
+git add src/cns.lisp docs/language/SYNTAX.md examples/features/test-*.cns
+git commit -m "Add feature X with documentation
+
+- Code: <description>
+- Docs: Updated SYNTAX.md, added examples
+- Tests: 42/42 examples pass"
+```
 
 ---
 
-Story: Main
-Given:
-  repo: String = "test-repos/rust-example"
-  lang: String = ""
+## Code Bloat Management
 
-Step 1 → Detect language
-  Then: lang becomes DetectLanguage(repo)
-  Effect: Print "Detected: {lang}"
+### Measuring Repository Health
 
-End: lang
+**Repository size targets:**
+```bash
+# Total repository size
+du -sh .
+# Target: <5MB (currently 3.5MB)
+
+# Documentation size
+du -sh docs
+# Target: <2MB (currently 1.2MB)
+
+# Examples size
+du -sh examples
+# Target: <500KB (currently 350KB)
+
+# Source code size
+du -sh src
+# Target: <1MB (currently 600KB)
 ```
 
-### Data Interchange Between Components
+**File count targets:**
+```bash
+# Count files by type
+find docs -name "*.md" | wc -l      # Target: <30 (currently 25)
+find examples -name "*.cns*" | wc -l # Target: <50 (currently 42)
+find tests -type f | wc -l          # Target: <20 (currently 15)
+```
 
-Since CNS has limited data structures, use **JSON** for complex data:
+**Line count monitoring:**
+```bash
+# Source code complexity
+wc -l src/cns.lisp
+# Currently: ~4000 lines (monitor for growth)
 
-```cns
-Story: GetConfig (function)
-Given:
-  repo: String
-  config_json: String = ""
+# Documentation verbosity
+wc -l docs/language/*.md
+# Monitor: Large files (>1000 lines) are candidates for compression
+```
 
-Step 1 → Build JSON config
-  Then: lang becomes DetectLanguage(repo)
-  Then: config_json becomes "{\"language\":\"" + lang + "\",\"test_cmd\":\"cargo test\"}"
+### When to Clean Up
 
-End: config_json
+**Immediate cleanup triggers:**
+- ❌ Repository exceeds 5MB
+- ❌ Documentation exceeds 2MB
+- ❌ More than 50 example files
+- ❌ Duplicate content across multiple docs
+- ❌ Session docs older than 1 month (archive them)
+
+**Regular maintenance (monthly):**
+- Archive completed session documentation
+- Remove redundant examples (keep unique patterns only)
+- Compress verbose documentation (preserve essential info)
+- Delete obsolete test files (keep regression tests)
+- Review `docs/archive/` for very old items (consider deletion)
+
+### Cleanup Checklist
+
+```bash
+# 1. Identify bloat
+find docs -name "*.md" -size +100k        # Very large docs
+find examples -name "*.cns" -exec wc -l {} \; | sort -n  # Duplicate examples
+git log --all --pretty=format: --name-only | sort | uniq -c | sort -rg | head  # Frequently changed files
+
+# 2. Archive session docs
+mkdir -p docs/archive/YYYY-MM
+mv docs/development/OLD-SESSION-*.md docs/archive/YYYY-MM/
+
+# 3. Remove duplicates
+# ... delete examples that don't add unique value ...
+git rm examples/redundant-*.cns
+
+# 4. Compress docs (example)
+# Before: 150 lines of verbose explanation
+# After: 50 lines of concise patterns + examples
+# Preserve: All essential information, examples, links
+
+# 5. Validate after cleanup
+./test-all-examples.sh  # Ensure nothing broke
+du -sh .                # Measure improvement
+
+# 6. Commit cleanup
+git commit -m "Reduce repository bloat: <X>% size reduction
+
+- Archived: <session docs>
+- Removed: <redundant examples>
+- Compressed: <verbose docs>
+- Before: XMB, After: YMB (Z% reduction)
+- Tests: 42/42 examples still pass"
+```
+
+### Anti-Bloat Patterns
+
+**DO:**
+- ✅ Reference existing docs instead of duplicating content
+- ✅ Archive session docs after integration
+- ✅ Keep examples minimal and focused
+- ✅ Use concise language in documentation
+- ✅ Delete temporary files before committing
+- ✅ Monitor repository size with `du -sh .`
+
+**DON'T:**
+- ❌ Duplicate CNS syntax across multiple docs
+- ❌ Keep old session docs in main development folder
+- ❌ Create examples that duplicate existing patterns
+- ❌ Write verbose explanations when examples suffice
+- ❌ Commit backup files, logs, or temporary artifacts
+- ❌ Let repository grow without regular audits
 
 ---
 
-Story: UseConfig
-Given:
-  config: String = ""
-  language: String = ""
+## Best Practices Summary
 
-Step 1 → Get config
-  Then: config becomes GetConfig("my-repo")
+### Before Every Change
+1. Read relevant documentation first
+2. Understand current implementation
+3. Test existing behavior
 
-Step 2 → Parse language
-  Then: language becomes PARSE JSON config GET "language"
+### During Development
+1. Make small, incremental changes
+2. Test after every change (not batched!)
+3. Add tracing/logging to debug issues
+4. Keep backups until feature complete
 
-End: language
+### Before Every Commit
+1. Run `./test-all-examples.sh` (REQUIRED)
+2. Run `./cns-validate examples/*.cns` (REQUIRED)
+3. Run `./tests/run-all-tests.sh` (RECOMMENDED)
+4. Update documentation in same commit
+5. Write descriptive commit message with test results
+
+### Regular Maintenance
+1. Archive completed session docs monthly
+2. Monitor repository size (`du -sh .`)
+3. Remove redundant examples/tests
+4. Compress verbose documentation
+5. Review `docs/archive/` for very old items
+
+---
+
+## Quick Reference Card
+
+### Commands to Memorize
+
+```bash
+# Development cycle
+sbcl --non-interactive --load src/cns.lisp  # Syntax check
+./cns-run examples/factorial.cns            # Run example
+./test-all-examples.sh                      # Full test suite
+
+# Testing
+./cns-validate examples/new.cns             # Validate syntax
+./tests/run-all-tests.sh                    # Regression tests
+
+# Measurement
+du -sh .                                    # Repository size
+find docs -name "*.md" | wc -l              # Doc count
+wc -l src/cns.lisp                          # Interpreter size
+
+# Git workflow
+git status                                  # Check state
+git add <specific files>                    # Stage changes
+git commit -m "Description\n\n- Details"    # Commit
+git log --oneline -10                       # Recent history
 ```
 
-### Available CNS Features
+### Files to Know
 
-**Effects:**
-- `Print "text {var}"` - Output with variable substitution
-- `SHELL "cmd" INTO var WITH EXIT_CODE code` - Execute command
-- `FIND "pattern" IN "path" INTO var WITH COUNT count` - File discovery
-- `GREP "pattern" IN var INTO result` - Code search
-- `READ FROM FILE "path"` - Read file content
-- `Write "content" to /path/to/file` - Write file
-- `ADD item TO LIST list` - Append to list
-- `CSV WRITE data TO file WITH HEADERS headers` - Write CSV
-- `HTTP GET "url" INTO var` - Fetch HTTP
+| File | Purpose |
+|------|---------|
+| `src/cns.lisp` | Main interpreter (read LISP-DEBUGGING-GUIDE.md first!) |
+| `docs/language/SYNTAX.md` | Complete syntax reference |
+| `docs/language/EXPRESSION-LIMITATIONS.md` | Critical parser limitations |
+| `docs/development/TESTING.md` | Test infrastructure |
+| `examples/README.md` | Pattern guide with examples |
+| `test-all-examples.sh` | Run before every commit |
 
-**Data Types:**
-- `String` - Text values
-- `Integer` / `Number` - Numeric values
-- `Boolean` - TRUE/FALSE
-- `List` - Arrays (use `ADD`, `REMOVE`, `LENGTH OF`)
+---
 
-**Expressions:**
-- Arithmetic: `+`, `-`, `*`, `/`
-- Comparison: `=`, `<`, `>`, `<=`, `>=`
-- String concat: `+` (e.g., `"Hello " + name`)
-- JSON parsing: `PARSE JSON json GET "key.nested[0]"`
-- ENV vars: `ENV("VAR_NAME", "default")`
+## See Also
 
-**Control Flow:**
-- `If: condition` / `Otherwise:` - Branching
-- `repeat from Step N` - Loops
-- `go to End` - Early exit
+**Language Documentation:**
+- `docs/language/SYNTAX.md` - Complete CNS syntax reference
+- `docs/language/COMMON-PATTERNS.md` - Reusable code patterns
+- `docs/language/EXPRESSION-LIMITATIONS.md` - Parser limitations (CRITICAL)
+- `docs/language/CONTROL-FLOW-RULES.md` - If/Otherwise and loop patterns
 
-### Multi-Step Agent Example
+**Development Documentation:**
+- `docs/development/TESTING.md` - Test infrastructure and validation
+- `docs/development/LISP-DEBUGGING-GUIDE.md` - Debugging Common Lisp (CRITICAL)
+- `docs/development/ROADMAP.md` - Current priorities and direction
+- `docs/development/README.md` - Development guide index
 
-Complete agent that orchestrates external tools:
+**Examples:**
+- `examples/README.md` - Complete pattern guide
+- `examples/core/` - Fundamental language patterns (11 files)
+- `examples/features/` - Feature-specific examples (25 files)
+- `examples/advanced/` - Complex multi-feature patterns (6 files)
 
-```cns
-Story: SWE-bench Agent
-Given:
-  repo_path: String = "test-repos/rust-example"
-  language: String = ""
-  test_output: String = ""
-  exit_code: Number = 0
-  patch_needed: Boolean = FALSE
+---
 
-Step 1 → Detect language
-  Effect: SHELL "test -f {repo_path}/Cargo.toml && echo rust || echo unknown" INTO language WITH EXIT_CODE code
-  Effect: Print "Language: {language}"
-
-Step 2 → Run tests
-  If: language = "rust"
-    Effect: SHELL "cd {repo_path} && cargo test --color=never" INTO test_output WITH EXIT_CODE exit_code
-
-Step 3 → Analyze results
-  If: exit_code = 0
-    Effect: Print "Tests passing - no fix needed"
-    Then: patch_needed becomes FALSE
-  Otherwise:
-    Effect: Print "Tests failing - generating patch"
-    Then: patch_needed becomes TRUE
-
-Step 4 → Generate patch if needed
-  If: patch_needed = TRUE
-    Effect: SHELL "python3 llm-patcher.py --repo {repo_path} --output patch.txt" INTO result WITH EXIT_CODE code
-    Effect: SHELL "cd {repo_path} && git apply ../patch.txt" INTO output WITH EXIT_CODE status
-
-End: patch_needed
-```
-
-### Future Enhancements (Roadmap)
-
-**Short-term:**
-1. **Map/Dictionary Type** - Key-value data structures
-2. **Include Directive** - Load external CNS files
-3. **State Persistence** - Auto-save/load variables between runs
-
-**Medium-term:**
-4. **CNS Package Manager** - `cns-pm install language-detector`
-5. **Story Registry** - Discover reusable components
-6. **Native JSON Objects** - First-class object syntax
-
-**Long-term:**
-7. **LLM Integration** - Built-in OpenAI/Anthropic effects
-8. **Streaming Execution** - Real-time agent monitoring
-9. **Multi-agent Coordination** - Agent-to-agent messaging
-
-### Quick Reference
-- **Implementation**: `src/cns.lisp` - full interpreter code
-- **Examples**: `examples/` - working CNS programs (factorial, fibonacci, webserver, etc.)
-- **Prompts**: `prompts/` - templates for LLM code generation
-- **Tests**: `tests/` - comprehensive testing infrastructure
-- **Testing Guide**: `docs/development/TESTING.md` - validation and regression testing
-- **Roadmap**: `docs/development/ROADMAP.md` - strategic direction and milestones
-- **Agent Examples**: `examples/swe-bench-agent.cns`, `examples/language-detect-simple.cns`
-
-For extending beyond Lisp (e.g., Python port), mirror the structure: Parser to AST (dicts/classes), interpreter as a class with state.
-
-Let's build the future of LLM-friendly programming!
+*Last Updated: 2025-11-02*  
+*Status: Focused development system prompt*  
+*Audience: AI agents developing CNS*
