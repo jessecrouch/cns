@@ -140,7 +140,9 @@
 
 (defvar *current-file* nil "Current CNS file being interpreted")
 (defvar *current-step* nil "Current step number being executed")
+(defvar *current-code-line* nil "Current code line being executed")
 (defvar *strict-mode* nil "Enable strict mode with immediate NIL failures")
+(defvar *trace-mode* nil "Enable trace mode with execution visibility")
 (defvar *max-iterations* 10000 "Maximum iterations before throwing error (prevents infinite loops)")
 (defvar *iteration-counter* 0 "Current iteration count")
 
@@ -253,6 +255,16 @@ To increase limit: ./cns-run --max-iterations ~A yourfile.cns"
   "In strict mode, error on NIL values from expressions."
   (when (and *strict-mode* (null value) expr)
     (error (cns-error-nil-value var-name expr))))
+
+(defun trace-step (step-num label)
+  "Output trace information for a step if trace mode is enabled."
+  (when *trace-mode*
+    (when (or (<= *iteration-counter* 10)
+              (zerop (mod *iteration-counter* 10)))
+      (format t "[Iter ~A] Step ~A" *iteration-counter* step-num)
+      (when (and label (not (string= label "")))
+        (format t " → ~A" label))
+      (format t "~%"))))
 
 (defun parse-json-value (json-str key)
   "Simple JSON parser to extract a value by key (LEGACY - use parse-json-full for new code).

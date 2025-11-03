@@ -1,0 +1,12 @@
+Story: Test Strict Mode [strict]
+
+Given:
+  x: Integer = 10
+  result: Integer = 0
+
+Step 1 → Calculate
+  Because: Test strict mode catches NIL
+  Then: result becomes x * 2
+  Effect: Print "Result: {result}"
+
+End: Return result

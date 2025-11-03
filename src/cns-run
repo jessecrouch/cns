@@ -17,11 +17,14 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     echo "  ./cns-run <file.cns>                Run a verbose CNS file"
     echo "  ./cns-run <file.cnsc>               Run a compact CNSC file (auto-expands)"
     echo "  ./cns-run --max-iterations N file   Set max iterations (default: 10000)"
+    echo "  ./cns-run --trace file              Enable trace mode (execution visibility)"
+    echo "  ./cns-run --strict file             Enable strict mode (immediate NIL errors)"
     echo "  ./cns-run --all                     Run all example files"
     echo "  ./cns-run --list                    List available examples"
     echo "  ./cns-run --repl                    Start interactive REPL"
     echo "  ./cns-run --test                    Run test suite"
     echo ""
+    echo "Flags can be combined: ./cns-run --trace --strict --max-iterations 1000 file.cns"
     echo "Both .cns and .cnsc formats are supported seamlessly."
     echo ""
     exit 0
@@ -68,20 +71,36 @@ if [ "$1" = "--test" ] || [ "$1" = "-t" ]; then
     exit $?
 fi
 
-# Parse --max-iterations flag
+# Parse flags
 MAX_ITERS=""
+TRACE_MODE=""
+STRICT_MODE=""
 FILE_ARG=""
 
-if [ "$1" = "--max-iterations" ]; then
-    if [ -z "$2" ]; then
-        echo "Error: --max-iterations requires a number"
-        exit 1
-    fi
-    MAX_ITERS="$2"
-    FILE_ARG="$3"
-else
-    FILE_ARG="$1"
-fi
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --max-iterations)
+            if [ -z "$2" ]; then
+                echo "Error: --max-iterations requires a number"
+                exit 1
+            fi
+            MAX_ITERS="$2"
+            shift 2
+            ;;
+        --trace)
+            TRACE_MODE="t"
+            shift
+            ;;
+        --strict)
+            STRICT_MODE="t"
+            shift
+            ;;
+        *)
+            FILE_ARG="$1"
+            shift
+            ;;
+    esac
+done
 
 if [ -z "$FILE_ARG" ]; then
     echo "Error: No file specified"
@@ -100,6 +119,12 @@ fi
 SBCL_CMD="(progn "
 if [ -n "$MAX_ITERS" ]; then
     SBCL_CMD+="(setf *max-iterations* $MAX_ITERS) "
+fi
+if [ -n "$TRACE_MODE" ]; then
+    SBCL_CMD+="(setf *trace-mode* t) "
+fi
+if [ -n "$STRICT_MODE" ]; then
+    SBCL_CMD+="(setf *strict-mode* t) "
 fi
 
 # Check if it's a CNSC file (compact format)

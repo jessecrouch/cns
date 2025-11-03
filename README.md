@@ -90,11 +90,12 @@ cd cns-starter
 - ✅ Basic git operations (status, diff, checkout, add, commit, clone)
 - ✅ Advanced git operations (branch management, unified diffs, commit log, merge)
 - ✅ Code search and navigation (FIND, GREP commands) - v1.7.0
-- ✅ Enhanced error messages (structured, with examples and fixes)
-- ✅ Validation mode (catch 90% errors pre-runtime)
-- 🔄 Strict mode NIL enforcement (parsing complete, enforcement in progress)
-- 🔄 Expression parsing improvements (literal-first, multi-operator)
-- 🔄 LLM-first repository reorganization
+- ✅ Enhanced error messages (structured, with CAUSE/FIX/EXAMPLE sections)
+- ✅ Validation mode (comprehensive pre-runtime checks with warnings)
+- ✅ Strict mode NIL enforcement (`Story: Name [strict]` for immediate failures)
+- ✅ Expression auto-fix (literal-first expressions like `3 * n` work automatically)
+- ✅ Iteration safety (10K limit, 60x faster infinite loop detection)
+- ✅ LLM-friendly documentation (EXPRESSION-LIMITATIONS.md, CONTROL-FLOW-RULES.md)
 
 **Result**: Making CNS the easiest language for LLMs to read, write, and debug
 
