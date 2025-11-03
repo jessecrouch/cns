@@ -1635,7 +1635,12 @@ World' and ' rest'"
                     (char= (char trimmed 0) #\")
                     (char= (char trimmed (1- (length trimmed))) #\")
                     ;; Make sure there's no unescaped quote in the middle (which would mean it's "str" = "str")
-                    (not (position #\" trimmed :start 1 :end (1- (length trimmed)))))
+                    ;; Check for unescaped quotes by looking for \" that's not preceded by \
+                    (not (loop for i from 1 below (1- (length trimmed))
+                              when (and (char= (char trimmed i) #\")
+                                       (or (= i 0) 
+                                           (char/= (char trimmed (1- i)) #\\)))
+                              return t)))
                (let ((raw-str (subseq trimmed 1 (1- (length trimmed)))))
                  ;; Process escape sequences: \\n -> \n, \\t -> \t, \\r -> \r, \\\\ -> \\
                  (let ((result (make-array 0 :element-type 'character :adjustable t :fill-pointer 0))
@@ -1649,6 +1654,7 @@ World' and ' rest'"
                                     (#\t (vector-push-extend #\Tab result))
                                     (#\r (vector-push-extend #\Return result))
                                     (#\\ (vector-push-extend #\\ result))
+                                    (#\" (vector-push-extend #\" result))  ;; Handle escaped quotes
                                     (t (progn
                                          ;; For any other escape like \d, \s, etc., keep single backslash
                                          (vector-push-extend #\\ result)
@@ -1669,7 +1675,8 @@ World' and ' rest'"
                       (default-expr (when (cdr args) (trim (cadr args))))
                       ;; Evaluate and remove quotes from var name
                       (var-name-raw (eval-expr var-name-expr env))
-                      (var-name (if (stringp var-name-raw) var-name-raw var-name-expr))
+                      ;; Coerce to simple-string for posix-getenv (handles VECTOR CHARACTER type from eval-expr)
+                      (var-name (coerce (if (stringp var-name-raw) var-name-raw var-name-expr) 'simple-string))
                       ;; Evaluate default value if present
                       (default-val (when default-expr (eval-expr default-expr env)))
                       ;; Get environment variable
