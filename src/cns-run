@@ -68,6 +68,7 @@ MAX_ITERS=""
 TRACE_MODE=""
 STRICT_MODE=""
 FILE_ARG=""
+CNS_ARGS=()
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -88,7 +89,11 @@ while [ $# -gt 0 ]; do
             shift
             ;;
         *)
-            FILE_ARG="$1"
+            if [ -z "$FILE_ARG" ]; then
+                FILE_ARG="$1"
+            else
+                CNS_ARGS+=("$1")
+            fi
             shift
             ;;
     esac
@@ -117,6 +122,18 @@ if [ -n "$STRICT_MODE" ]; then
     SBCL_CMD+="(setf *strict-mode* t) "
 fi
 
-# Run the CNS file directly
-SBCL_CMD+="(load-cns-file \"$FILE_ARG\"))"
+# Build CLI args list
+if [ ${#CNS_ARGS[@]} -gt 0 ]; then
+    ARGS_LIST="(list"
+    for arg in "${CNS_ARGS[@]}"; do
+        # Escape quotes in argument
+        escaped_arg="${arg//\"/\\\"}"
+        ARGS_LIST+=" \"$escaped_arg\""
+    done
+    ARGS_LIST+=")"
+    SBCL_CMD+="(load-cns-file \"$FILE_ARG\" $ARGS_LIST))"
+else
+    SBCL_CMD+="(load-cns-file \"$FILE_ARG\"))"
+fi
+
 sbcl --noinform --load "$CNS_LISP" --eval "$SBCL_CMD" --quit

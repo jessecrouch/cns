@@ -1,0 +1,33 @@
+Story: CLI Greeter Tool - Demonstrates practical CLI argument usage
+
+Given:
+  name: String = ARG("--name", "World")
+  greeting: String = ARG("--greeting", "Hello")
+  shout: Boolean = HAS_FLAG("--shout")
+  count: String = ARG("--count", "1")
+  times: Number = 0
+
+Step 1 → Parse count as number
+  Then: times becomes PARSE_INT count
+  Because: Convert string to number
+
+Step 2 → Build the greeting message
+  Then: message becomes greeting + ", " + name + "!"
+  Because: Construct full greeting
+
+Step 3 → Apply shouting if flag is set
+  If shout = true
+    Then: message becomes UPPERCASE message
+    Because: User requested shouting
+
+Step 4 → Display greeting the specified number of times
+  Then: counter becomes 0
+  
+Step 5 → Print greeting
+  If counter < times
+    Effect: Print message
+    Then: counter becomes counter + 1
+    Then: repeat from Step 5
+
+End:
+  Return: "Greeter complete"

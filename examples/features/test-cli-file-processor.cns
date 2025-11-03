@@ -1,0 +1,64 @@
+Story: File Processor - Advanced CLI argument handling
+
+Given:
+  input_file: String = ARGS[0]
+  output_file: String = ARG("--output", "output.txt")
+  uppercase: Boolean = HAS_FLAG("--uppercase")
+  lowercase: Boolean = HAS_FLAG("--lowercase")
+  prefix: String = ARG("--prefix", "")
+  suffix: String = ARG("--suffix", "")
+  verbose: Boolean = HAS_FLAG("--verbose")
+  content: String = ""
+  processed: String = ""
+
+Step 1 → Validate input file is provided
+  If input_file = ""
+    Effect: Print "Error: No input file specified"
+    Effect: Print "Usage: ./cns-run test-cli-file-processor.cns <input_file> [options]"
+    Effect: Print "Options:"
+    Effect: Print "  --output <file>    Output file (default: output.txt)"
+    Effect: Print "  --uppercase        Convert to uppercase"
+    Effect: Print "  --lowercase        Convert to lowercase"
+    Effect: Print "  --prefix <text>    Add prefix to each line"
+    Effect: Print "  --suffix <text>    Add suffix to each line"
+    Effect: Print "  --verbose          Show processing details"
+    Then: go to End
+
+Step 2 → Read input file
+  If verbose = true
+    Effect: Print "Reading from: {input_file}"
+  
+  Then: content becomes READ FROM FILE input_file
+
+Step 3 → Apply transformations
+  Then: processed becomes content
+  
+  If uppercase = true
+    If verbose = true
+      Effect: Print "Applying uppercase transformation"
+    Then: processed becomes UPPERCASE processed
+  
+  If lowercase = true
+    If verbose = true
+      Effect: Print "Applying lowercase transformation"
+    Then: processed becomes LOWERCASE processed
+  
+  If prefix != ""
+    If verbose = true
+      Effect: Print "Adding prefix: {prefix}"
+    Then: processed becomes prefix + processed
+  
+  If suffix != ""
+    If verbose = true
+      Effect: Print "Adding suffix: {suffix}"
+    Then: processed becomes processed + suffix
+
+Step 4 → Write output file
+  If verbose = true
+    Effect: Print "Writing to: {output_file}"
+  
+  Effect: WRITE processed TO FILE output_file
+  Effect: Print "Processed {input_file} -> {output_file}"
+
+End:
+  Return: "Processing complete"

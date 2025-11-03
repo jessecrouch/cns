@@ -19,6 +19,8 @@ Generate a complete CNS program that solves this task.
 | Split string | `SPLIT text BY "\n"` | `SPLIT(text, "\n")`, `text.split()` |
 | Join list | `JOIN items WITH ","` | `JOIN(items, ",")`, `",".join()` |
 | Replace text | `REPLACE "old" WITH "new" IN text` | `REPLACE(text, "old", "new")` |
+| Parse to integer | `PARSE_INT text` | `INT(text)`, `parseInt()` |
+| Parse to float | `PARSE_FLOAT text` | `FLOAT(text)`, `parseFloat()` |
 | **Lists** |
 | Get length | `LENGTH OF items` | `LEN(items)`, `items.length`, `SIZE(items)` |
 | Get first item | `FIRST FROM items` | `items[0]`, `items at 0`, `HEAD(items)` |
@@ -29,9 +31,9 @@ Generate a complete CNS program that solves this task.
 | Parse JSON | `PARSE JSON response GET "key"` | `JSON.parse()`, `PARSE(response)` |
 | Nested field | `PARSE JSON data GET "user.name"` | `data["user"]["name"]` |
 | **Files** |
-| Read file | `READ FROM FILE "path"` | `READ("path")`, `READFILE("path")` |
-| Write file | `Effect: WRITE "data" TO FILE "path"` | `WRITE("data", "path")` |
-| Append file | `Effect: APPEND "data" TO FILE "path"` | `APPEND("data", "path")` |
+| Read file | `READ FROM FILE "path"` or `READ FROM FILE variable` | `READ("path")`, `READFILE("path")` |
+| Write file | `Effect: WRITE content TO FILE "path"` | `WRITE("data", "path")` |
+| Append file | `Effect: APPEND content TO FILE "path"` | `APPEND("data", "path")` |
 | **HTTP** |
 | GET request | `Effect: HTTP GET from url into response` | `GET(url)`, `HTTP.GET()` |
 | POST request | `Effect: HTTP POST to url with body data into response` | `POST(url, data)` |
@@ -42,9 +44,13 @@ Generate a complete CNS program that solves this task.
 | Read request | `Effect: Network read` | `READ()`, `RECV()` |
 | Send response | `Effect: Send response to client` | `SEND(response)` |
 | Close connection | `Effect: Close connection client_socket` | `CLOSE(socket)` |
+| **CLI Arguments** |
+| Positional arg | `ARGS[0]`, `ARGS[1]` | `sys.argv[1]`, `$1` |
+| Named argument | `ARG("--port", "8080")` | `argparse`, `getopts` |
+| Boolean flag | `HAS_FLAG("--verbose")` | `--verbose` check |
 | **Environment/System** |
-| Get env var | ❌ Not available | `ENV()`, `os.getenv()` |
-| Run shell | ❌ Not available | `SHELL()`, `system()` |
+| Get env var | `ENV("VAR_NAME", "default")` | `os.getenv()`, `$VAR` |
+| Run shell | `Effect: SHELL "command" INTO output` | `system()`, `exec()` |
 | **Comparisons** |
 | Equals | `If: x = 5` | `If: x == 5` |
 | Not equals | `If: NOT (x = 5)` | `If: x != 5`, `If: x <> 5` |
@@ -61,6 +67,9 @@ Generate a complete CNS program that solves this task.
 | Random 0-1 | `RANDOM` | `RANDOM()`, `Math.random()` |
 | Random range | `RANDOM FROM 1 TO 10` | `RANDOM(1, 10)`, `randint()` |
 | Modulo | `x % y` | `MOD(x, y)` |
+| **Functions** |
+| Define function | `Story: FuncName (function)` | `def func():`, `function func()` |
+| Call function | `result becomes FuncName(arg1, arg2)` | `func(arg1, arg2)` |
 
 ---
 
@@ -86,8 +95,9 @@ Before submitting your CNS code, verify:
 
 **Variables:**
 - [ ] All variables declared in `Given:` section
-- [ ] Types specified: Integer, String, List, Map, Socket
+- [ ] Types specified: Integer, String, List, Map, Socket, Boolean
 - [ ] Auto-populated variables NOT declared (REQUEST_METHOD, REQUEST_PATH, etc.)
+- [ ] CLI args accessed via ARGS[], ARG(), HAS_FLAG() - not declared as variables
 - [ ] No array indexing syntax (`arr[0]` or `arr at 0`)
 
 **Effects:**
@@ -505,6 +515,181 @@ Then: json becomes "{\"name\":\"" + name + "\",\"age\":" + age + "}"
 
 ---
 
+## CLI Arguments
+
+### Positional Arguments: `ARGS[n]`
+
+Access command-line arguments by position (zero-based):
+
+```cns
+Given:
+  source: String = ARGS[0]      # First argument
+  dest: String = ARGS[1]        # Second argument
+```
+
+Usage: `./cns-run script.cns input.txt output.txt`
+
+**Behavior**:
+- Returns empty string `""` if index out of bounds
+- Zero-based indexing (first argument is `ARGS[0]`)
+
+### Named Arguments: `ARG("--flag", "default")`
+
+Named arguments with optional defaults:
+
+```cns
+Given:
+  port: String = ARG("--port", "8080")
+  host: String = ARG("--host", "localhost")
+```
+
+Usage: `./cns-run script.cns --port 3000 --host 0.0.0.0`
+
+**Supports both syntaxes**:
+- `--port 3000` (space-separated)
+- `--port=3000` (equals syntax)
+
+**Behavior**:
+- Returns default value if flag not provided
+- Returns empty string if no default and flag absent
+
+### Boolean Flags: `HAS_FLAG("--flag")`
+
+Check if a flag is present:
+
+```cns
+Given:
+  verbose: Boolean = HAS_FLAG("--verbose")
+  debug: Boolean = HAS_FLAG("--debug")
+```
+
+Usage: `./cns-run script.cns --verbose`
+
+**Behavior**:
+- Returns `true` if flag present
+- Returns `false` if flag absent
+
+### Type Conversion
+
+CLI arguments are strings - convert with:
+
+```cns
+# String to integer
+Then: port_num becomes PARSE_INT port_str
+
+# String to float
+Then: rate_num becomes PARSE_FLOAT rate_str
+```
+
+---
+
+## Functions
+
+Functions are reusable Stories marked with `(function)` tag.
+
+### Defining a Function
+
+```cns
+Story: Multiply (function)
+
+Given:
+  a: Integer        # First parameter
+  b: Integer        # Second parameter
+  result: Integer = 0
+
+Step 1 → Calculate product
+  Because: Multiply the two numbers
+  Then: result becomes a * b
+
+End: Return result
+```
+
+**Key points**:
+- Add `(function)` after function name
+- First N variables in `Given:` become parameters (in order)
+- `End: Return value` specifies return value
+- Functions can be defined in any order
+
+### Calling a Function
+
+```cns
+Story: Main Program
+
+Given:
+  answer: Integer
+
+Step 1 → Call multiply
+  Because: Calculate product
+  Then: answer becomes Multiply(10, 20)
+
+End: Return answer
+```
+
+**Syntax**: `FunctionName(arg1, arg2, ...)`
+
+### Multiple Functions Per File
+
+Use `---` to separate multiple stories:
+
+```cns
+Story: Add (function)
+Given:
+  x: Integer
+  y: Integer
+End: Return x + y
+
+---
+
+Story: Multiply (function)
+Given:
+  a: Integer
+  b: Integer
+End: Return a * b
+
+---
+
+Story: Main
+Given:
+  result: Integer
+Step 1 → Calculate
+  Then: result becomes Add(Multiply(2, 3), 5)
+End: Return result
+```
+
+**Entry point**: Story WITHOUT `(function)` tag, or first story if all have `(function)`
+
+### Recursion
+
+Functions can call themselves:
+
+```cns
+Story: Factorial (function)
+
+Given:
+  n: Integer
+  result: Integer = 1
+
+Step 1 → Base case
+  Because: Factorial of 0 or 1 is 1
+  If: n <= 1
+    Then: go to End
+
+Step 2 → Recursive case
+  Because: n! = n * (n-1)!
+  Then: result becomes n * Factorial(n - 1)
+
+End: Return result
+```
+
+### Scope Rules
+
+- **Parameters** are local to the function
+- **Local variables** declared in Given: are local
+- **No global variables** - functions cannot access caller's variables
+- **Pass by value** - function receives copy of arguments
+
+---
+
 ## Common Patterns
 
 ### Pattern 1: Loop with Accumulator
@@ -793,6 +978,21 @@ End: Return count
     - ❌ Don't: `POW 2 3` → Use `POW 2 TO 3`
     - ❌ Don't: `ABS -5` → Use `ABS OF -5`
     - ✅ Do: Always include keywords (OF, TO, AND)
+
+13. ❌ Using variables in file paths
+    - ❌ Old behavior: `FILE log_file` (no longer works)
+    - ✅ New: File operations support variables: `WRITE content TO FILE filepath`
+    - ✅ Also: `READ FROM FILE filepath` where filepath is a variable
+
+14. ❌ Wrong CLI argument syntax
+    - ❌ Don't: `ARG("port")` without default → Use `ARG("--port", "8080")`
+    - ❌ Don't: `ARGS(0)` → Use `ARGS[0]` with square brackets
+    - ❌ Don't: `IF_FLAG("--verbose")` → Use `HAS_FLAG("--verbose")`
+
+15. ❌ Wrong function syntax
+    - ❌ Don't: `Story: Func` → Use `Story: Func (function)` for functions
+    - ❌ Don't: `Func arg1 arg2` → Use `Func(arg1, arg2)` with parentheses
+    - ❌ Don't: `End:` → Use `End: Return value` in functions
 
 ---
 

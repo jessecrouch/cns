@@ -211,12 +211,12 @@ End: Return variable
 - **[CHANGELOG.md](CHANGELOG.md)** - Version history
 
 ### Language Reference
-- **[SYNTAX.md](SYNTAX.md)** - Complete CNS reference (single source of truth, optimized for LLMs)
-- **[FUNCTIONS.md](docs/guides/FUNCTIONS.md)** - Reusable code patterns
+- **[SYNTAX.md](SYNTAX.md)** - Complete CNS reference (includes functions, CLI args, all features - single source of truth for LLMs)
 
 ### Guides
 - **[LLM-INTEGRATION.md](docs/guides/LLM-INTEGRATION.md)** - Using CNS with LLMs
 - **[TRACE-MODE.md](docs/guides/TRACE-MODE.md)** - Debugging guide
+- **[CLI-ARGUMENTS.md](docs/guides/CLI-ARGUMENTS.md)** - Command-line arguments (v1.8.0) - see SYNTAX.md for quick reference
 
 ### Development
 - **[ROADMAP.md](docs/development/ROADMAP.md)** - Development roadmap

@@ -145,6 +145,7 @@
 (defvar *trace-mode* nil "Enable trace mode with execution visibility")
 (defvar *max-iterations* 10000 "Maximum iterations before throwing error (prevents infinite loops)")
 (defvar *iteration-counter* 0 "Current iteration count")
+(defvar *cli-args* '() "Command-line arguments passed to the CNS program")
 
 (defun make-cns-error (type message &key cause fix example context)
   "Create a structured, LLM-friendly error message.
@@ -1595,28 +1596,84 @@ World' and ' rest'"
                    (coerce result 'string))))
               
               ;; Environment variable: ENV("VAR_NAME") or ENV("VAR_NAME", "default") (MUST come before function call!)
-              ((starts-with (string-upcase trimmed) "ENV(")
-               (let* ((rest (subseq trimmed 4))
-                      (close-paren (position #\) rest :from-end t))
-                      (args-str (if close-paren (subseq rest 0 close-paren) rest))
-                      (args (split-string args-str #\,))
-                      (var-name-expr (trim (car args)))
-                      (default-expr (when (cdr args) (trim (cadr args))))
-                      ;; Evaluate and remove quotes from var name
-                      (var-name-raw (eval-expr var-name-expr env))
-                      ;; Coerce to simple-string for posix-getenv (handles VECTOR CHARACTER type from eval-expr)
-                      (var-name (coerce (if (stringp var-name-raw) var-name-raw var-name-expr) 'simple-string))
-                      ;; Evaluate default value if present
-                      (default-val (when default-expr (eval-expr default-expr env)))
-                      ;; Get environment variable
-                      (env-val (sb-ext:posix-getenv var-name)))
-                 (if env-val
-                     env-val
-                     (or default-val ""))))
+               ((starts-with (string-upcase trimmed) "ENV(")
+                (let* ((rest (subseq trimmed 4))
+                       (close-paren (position #\) rest :from-end t))
+                       (args-str (if close-paren (subseq rest 0 close-paren) rest))
+                       (args (split-string args-str #\,))
+                       (var-name-expr (trim (car args)))
+                       (default-expr (when (cdr args) (trim (cadr args))))
+                       ;; Evaluate and remove quotes from var name
+                       (var-name-raw (eval-expr var-name-expr env))
+                       ;; Coerce to simple-string for posix-getenv (handles VECTOR CHARACTER type from eval-expr)
+                       (var-name (coerce (if (stringp var-name-raw) var-name-raw var-name-expr) 'simple-string))
+                       ;; Evaluate default value if present
+                       (default-val (when default-expr (eval-expr default-expr env)))
+                       ;; Get environment variable
+                       (env-val (sb-ext:posix-getenv var-name)))
+                  (if env-val
+                      env-val
+                      (or default-val ""))))
+              
+              ;; CLI Arguments: ARG("--flag") or ARG("--flag", "default")
+               ((starts-with (string-upcase trimmed) "ARG(")
+                (let* ((rest (subseq trimmed 4))
+                       (close-paren (position #\) rest :from-end t))
+                       (args-str (if close-paren (subseq rest 0 close-paren) rest))
+                       (args (split-string args-str #\,))
+                       (arg-name-expr (trim (car args)))
+                       (default-expr (when (cdr args) (trim (cadr args))))
+                       ;; Evaluate and remove quotes from arg name
+                       (arg-name (eval-expr arg-name-expr env))
+                       ;; Evaluate default value if present
+                       (default-val (when default-expr (eval-expr default-expr env))))
+                  ;; Search for --flag value or --flag=value pattern
+                  (let ((found nil)
+                        (result (or default-val "")))
+                    (loop for i from 0 below (length *cli-args*)
+                          for arg = (nth i *cli-args*)
+                          do (cond
+                               ;; Exact match followed by value: --flag value
+                               ((and (string= arg arg-name)
+                                     (< (1+ i) (length *cli-args*))
+                                     (not (starts-with (nth (1+ i) *cli-args*) "-")))
+                                (setf result (nth (1+ i) *cli-args*))
+                                (setf found t)
+                                (return))
+                               ;; Equals syntax: --flag=value
+                               ((starts-with arg (concatenate 'string arg-name "="))
+                                (setf result (subseq arg (1+ (length arg-name))))
+                                (setf found t)
+                                (return))))
+                    result)))
+              
+              ;; CLI Arguments: HAS_FLAG("--verbose")
+               ((starts-with (string-upcase trimmed) "HAS_FLAG(")
+                (let* ((rest (subseq trimmed 9))
+                       (close-paren (position #\) rest :from-end t))
+                       (arg-expr (if close-paren (trim (subseq rest 0 close-paren)) (trim rest)))
+                       ;; Evaluate and remove quotes from flag name
+                       (flag-name (eval-expr arg-expr env)))
+                  ;; Check if flag exists in CLI args
+                  (if (member flag-name *cli-args* :test #'string=)
+                      t
+                      nil)))
+              
+              ;; CLI Arguments: ARGS[n] - positional argument access
+               ((and (starts-with (string-upcase trimmed) "ARGS[")
+                     (position #\] trimmed))
+                (let* ((bracket-end (position #\] trimmed))
+                       (index-expr (trim (subseq trimmed 5 bracket-end)))
+                       (index (eval-expr index-expr env)))
+                  (if (and (numberp index) 
+                           (>= index 0) 
+                           (< index (length *cli-args*)))
+                      (nth index *cli-args*)
+                      "")))
               
               ;; Date/Time: NOW() - returns current universal time
-              ((string= (string-upcase trimmed) "NOW()")
-               (get-universal-time))
+               ((string= (string-upcase trimmed) "NOW()")
+                (get-universal-time))
               
               ;; Date/Time: TIMESTAMP() - returns ISO 8601 formatted current time
               ((string= (string-upcase trimmed) "TIMESTAMP()")
@@ -1867,25 +1924,22 @@ World' and ' rest'"
                   (t (let* ((json-expr (eval-expr rest env)))
                        (parse-json-full json-expr))))))
             
-             ;; File reading: READ FROM FILE "filepath" (MUST come before - operator!)
+             ;; File reading: READ FROM FILE "filepath" or READ FROM FILE variable (MUST come before - operator!)
              ((starts-with (string-upcase trimmed) "READ FROM FILE ")
               (let* ((filepath-expr (trim (subseq trimmed 15)))
-                     ;; Remove quotes if present
-                     (filepath (if (and (> (length filepath-expr) 1)
-                                       (char= (char filepath-expr 0) #\")
-                                       (char= (char filepath-expr (1- (length filepath-expr))) #\"))
-                                  (subseq filepath-expr 1 (1- (length filepath-expr)))
-                                  filepath-expr)))
-                (handler-case
-                    (with-open-file (stream filepath :direction :input :if-does-not-exist nil)
-                      (if stream
-                          (let ((contents (make-string (file-length stream))))
-                            (read-sequence contents stream)
-                            contents)
-                          ""))
-                  (error (e)
-                    (format *error-output* "File read error: ~A~%" e)
-                    ""))))
+                     ;; Evaluate the expression (handles both quoted strings and variables)
+                     (filepath (eval-expr filepath-expr env)))
+                (when (stringp filepath)
+                  (handler-case
+                      (with-open-file (stream filepath :direction :input :if-does-not-exist nil)
+                        (if stream
+                            (let ((contents (make-string (file-length stream))))
+                              (read-sequence contents stream)
+                              contents)
+                            ""))
+                    (error (e)
+                      (format *error-output* "File read error: ~A~%" e)
+                      "")))))
             
              ;; String operation: text STARTS WITH "prefix"
              ((search " STARTS WITH " (string-upcase trimmed))
@@ -2026,6 +2080,26 @@ World' and ' rest'"
                 (if (stringp str-val)
                     (string-downcase str-val)
                     "")))
+            
+             ;; Type conversion: PARSE_INT text - convert string to integer
+             ((starts-with (string-upcase trimmed) "PARSE_INT ")
+              (let* ((rest (trim (subseq trimmed 10)))
+                     (str-val (eval-expr rest env)))
+                (if (stringp str-val)
+                    (handler-case
+                        (parse-integer (trim str-val))
+                      (error () 0))
+                    (if (numberp str-val) str-val 0))))
+            
+             ;; Type conversion: PARSE_FLOAT text - convert string to float
+             ((starts-with (string-upcase trimmed) "PARSE_FLOAT ")
+              (let* ((rest (trim (subseq trimmed 12)))
+                     (str-val (eval-expr rest env)))
+                (if (stringp str-val)
+                    (handler-case
+                        (read-from-string (trim str-val))
+                      (error () 0.0))
+                    (if (numberp str-val) str-val 0.0))))
             
              ;; String operation: REPLACE "search" WITH "replacement" IN text
              ((starts-with (string-upcase trimmed) "REPLACE ")
@@ -2542,42 +2616,46 @@ World' and ' rest'"
       (let* ((rest (trim (subseq trimmed 6)))
              (to-pos (search " TO " (string-upcase rest))))
         (when to-pos
-          (let* ((content (trim (subseq rest 0 to-pos)))
-                 ;; Remove quotes if present
-                 (unquoted (if (and (> (length content) 1)
-                                   (char= (char content 0) #\")
-                                   (char= (char content (1- (length content))) #\"))
-                              (subseq content 1 (1- (length content)))
-                              content))
-                 (filepath (trim (subseq rest (+ to-pos 4))))
-                 (expanded (substitute-vars unquoted env)))
-            (with-open-file (stream filepath :direction :output 
-                                   :if-exists :supersede
-                                   :if-does-not-exist :create)
-              (write-line expanded stream))
-            (when verbose
-              (format t "  Effect: Write to ~A~%" filepath))))))
+          (let* ((content-expr (trim (subseq rest 0 to-pos)))
+                 ;; Evaluate content expression (handles variables or quoted strings)
+                 (content-val (eval-expr content-expr env))
+                 (filepath-expr (trim (subseq rest (+ to-pos 4))))
+                 ;; Check for "FILE" keyword after TO
+                 (filepath-clean (if (starts-with (string-upcase filepath-expr) "FILE ")
+                                    (trim (subseq filepath-expr 5))
+                                    filepath-expr))
+                 ;; Evaluate filepath (handles variables or quoted strings)
+                 (filepath (eval-expr filepath-clean env)))
+            (when (and (stringp content-val) (stringp filepath))
+              (with-open-file (stream filepath :direction :output 
+                                     :if-exists :supersede
+                                     :if-does-not-exist :create)
+                (write-string content-val stream))
+              (when verbose
+                (format t "  Effect: Write to FILE ~A~%" filepath)))))))
      
      ;; Append to file
      ((starts-with (string-upcase trimmed) "APPEND ")
       (let* ((rest (trim (subseq trimmed 7)))
              (to-pos (search " TO " (string-upcase rest))))
         (when to-pos
-          (let* ((content (trim (subseq rest 0 to-pos)))
-                 ;; Remove quotes if present
-                 (unquoted (if (and (> (length content) 1)
-                                   (char= (char content 0) #\")
-                                   (char= (char content (1- (length content))) #\"))
-                              (subseq content 1 (1- (length content)))
-                              content))
-                 (filepath (trim (subseq rest (+ to-pos 4))))
-                 (expanded (substitute-vars unquoted env)))
-            (with-open-file (stream filepath :direction :output 
-                                   :if-exists :append
-                                   :if-does-not-exist :create)
-              (write-line expanded stream))
-            (when verbose
-              (format t "  Effect: Append to ~A~%" filepath))))))
+          (let* ((content-expr (trim (subseq rest 0 to-pos)))
+                 ;; Evaluate content expression (handles variables or quoted strings)
+                 (content-val (eval-expr content-expr env))
+                 (filepath-expr (trim (subseq rest (+ to-pos 4))))
+                 ;; Check for "FILE" keyword after TO
+                 (filepath-clean (if (starts-with (string-upcase filepath-expr) "FILE ")
+                                    (trim (subseq filepath-expr 5))
+                                    filepath-expr))
+                 ;; Evaluate filepath (handles variables or quoted strings)
+                 (filepath (eval-expr filepath-clean env)))
+            (when (and (stringp content-val) (stringp filepath))
+              (with-open-file (stream filepath :direction :output 
+                                     :if-exists :append
+                                     :if-does-not-exist :create)
+                (write-string content-val stream))
+              (when verbose
+                (format t "  Effect: Append to FILE ~A~%" filepath)))))))
      
       ;; Socket: Create socket (REAL implementation)
       ((starts-with (string-upcase trimmed) "CREATE SOCKET ")
@@ -4343,8 +4421,11 @@ Please fix the code to resolve this error. Output only the corrected CNS code.
 ;;; Convenience Functions
 ;;; ============================================================================
 
-(defun load-cns-file (filepath)
-  "Load and execute a CNS file."
+(defun load-cns-file (filepath &optional args)
+  "Load and execute a CNS file with optional CLI arguments."
+  ;; Set global CLI args if provided
+  (when args
+    (setf *cli-args* args))
   (with-open-file (stream filepath)
     (let ((code (make-string (file-length stream))))
       (read-sequence code stream)

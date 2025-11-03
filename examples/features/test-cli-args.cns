@@ -1,0 +1,34 @@
+Story: Test CLI Arguments - Positional, Named, and Flags
+
+Given:
+  name: String = ARGS[0]
+  age: String = ARGS[1]
+  port: String = ARG("--port", "8080")
+  host: String = ARG("--host", "localhost")
+  verbose: Boolean = HAS_FLAG("--verbose")
+  debug: Boolean = HAS_FLAG("--debug")
+
+Step 1 → Display positional arguments
+  Effect: Print "Positional Arguments:"
+  Effect: Print "  Name: {name}"
+  Effect: Print "  Age: {age}"
+
+Step 2 → Display named arguments
+  Effect: Print ""
+  Effect: Print "Named Arguments:"
+  Effect: Print "  Port: {port}"
+  Effect: Print "  Host: {host}"
+
+Step 3 → Display flags
+  Effect: Print ""
+  Effect: Print "Flags:"
+  If verbose = true
+    Then: Print "  --verbose: ENABLED"
+  Otherwise: Print "  --verbose: DISABLED"
+  
+  If debug = true
+    Then: Print "  --debug: ENABLED"
+  Otherwise: Print "  --debug: DISABLED"
+
+End:
+  Return: "Demonstration complete"

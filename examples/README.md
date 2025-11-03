@@ -519,8 +519,9 @@ HTTP GET from url into response with status code status
 
 **Language Documentation:**
 - [QUICKSTART.md](../QUICKSTART.md) - 5-minute tutorial
+- [SYNTAX.md](../SYNTAX.md) - Complete language reference (includes functions, CLI args, all features)
 - [CNSC Guide](../docs/guides/CNSC-COMPACT.md) - Compact format reference
-- [Functions Guide](../docs/guides/FUNCTIONS.md) - Function syntax
+- [CLI Arguments](../docs/guides/CLI-ARGUMENTS.md) - Command-line arguments (v1.8.0)
 - [CHANGELOG.md](../CHANGELOG.md) - Feature history
 
 **Installation:**
