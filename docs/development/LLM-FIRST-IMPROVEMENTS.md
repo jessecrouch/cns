@@ -444,10 +444,12 @@ Step M → Continue
 - [x] Add state snapshot on error (in cns-error-iteration-limit)
 - [x] Fast detection: 1 sec vs 60 sec timeout (60x improvement)
 
-### Phase 5: Trace Mode ⚠️ PARTIAL
+### Phase 5: Trace Mode ✅ COMPLETE
 - [x] Add `--trace` flag (flag parsing complete in cns-run)
-- [ ] Smart output (first 10, then every Nth) - function exists, needs integration
-- [ ] Loop detection warnings - needs integration
+- [x] Smart output (first 10, then every 10th iteration)
+- [x] Variable display (shows up to 5 key variables per step)
+- [x] Integration in both story and function execution loops
+- [ ] Loop detection warnings - future enhancement
 - [ ] Interactive continue prompt - future enhancement
 
 ### Phase 6: Documentation ✅ COMPLETE

@@ -256,15 +256,22 @@ To increase limit: ./cns-run --max-iterations ~A yourfile.cns"
   (when (and *strict-mode* (null value) expr)
     (error (cns-error-nil-value var-name expr))))
 
-(defun trace-step (step-num label)
-  "Output trace information for a step if trace mode is enabled."
+(defun trace-step (step-num label env)
+  "Output trace information for a step if trace mode is enabled.
+   Shows iteration count, step number, label, and key variables."
   (when *trace-mode*
     (when (or (<= *iteration-counter* 10)
               (zerop (mod *iteration-counter* 10)))
-      (format t "[Iter ~A] Step ~A" *iteration-counter* step-num)
+      (format t "~%[Iter ~A] Step ~A" *iteration-counter* step-num)
       (when (and label (not (string= label "")))
         (format t " → ~A" label))
-      (format t "~%"))))
+      ;; Show up to 5 key variables
+      (let ((var-count 0))
+        (maphash (lambda (k v)
+                   (when (< var-count 5)
+                     (format t "~%  ~A = ~A" k (if (null v) "NIL" v))
+                     (incf var-count)))
+                 env)))))
 
 (defun parse-json-value (json-str key)
   "Simple JSON parser to extract a value by key (LEGACY - use parse-json-full for new code).
@@ -1331,6 +1338,7 @@ World' and ' rest'"
                   (let* ((step (nth pc steps))
                          (step-num (cadr step))
                          (step-body (cddr step))
+                         (action (cadr (assoc 'action step-body)))
                          (if-node (assoc 'if step-body))
                          (otherwise-pos (position 'otherwise step-body :key #'car))
                          ;; Split step-body into if-branch and otherwise-branch
@@ -1347,8 +1355,11 @@ World' and ' rest'"
                          (otherwise-then-clauses (mapcar #'cadr (remove-if-not (lambda (x) (eq (car x) 'then)) 
                                                                                otherwise-branch-body)))
                          (otherwise-effects (mapcar #'cadr (remove-if-not (lambda (x) (eq (car x) 'effect)) 
-                                                                          otherwise-branch-body)))
+                                                                           otherwise-branch-body)))
                          (otherwise-clause (cadr (assoc 'otherwise step-body))))
+                    
+                    ;; Trace execution if enabled
+                    (trace-step step-num action func-env)
                     
                     ;; Handle conditional
                     (cond
@@ -3765,6 +3776,9 @@ World' and ' rest'"
               
               ;; Set current step for error reporting
               (setf *current-step* step-num)
+              
+              ;; Trace execution if enabled
+              (trace-step step-num action env)
               
               (when verbose
                 ;; Display step - handle actions, conditionals, and for-each

@@ -85,7 +85,7 @@ cd cns-starter
 - ✅ String helpers (TRIM, UPPERCASE, LOWERCASE, REPLACE, JOIN, LENGTH_OF)
 - ✅ CSV support (read/write with headers)
 
-**Phase C - Language Improvements** (IN PROGRESS) 🚧
+**Phase C - Language Improvements** ✅ COMPLETE!
 - ✅ Shell execution (SHELL command with output capture)
 - ✅ Basic git operations (status, diff, checkout, add, commit, clone)
 - ✅ Advanced git operations (branch management, unified diffs, commit log, merge)
@@ -95,6 +95,7 @@ cd cns-starter
 - ✅ Strict mode NIL enforcement (`Story: Name [strict]` for immediate failures)
 - ✅ Expression auto-fix (literal-first expressions like `3 * n` work automatically)
 - ✅ Iteration safety (10K limit, 60x faster infinite loop detection)
+- ✅ Trace mode (`--trace` flag with smart output: first 10, then every 10th iteration)
 - ✅ LLM-friendly documentation (EXPRESSION-LIMITATIONS.md, CONTROL-FLOW-RULES.md)
 
 **Result**: Making CNS the easiest language for LLMs to read, write, and debug

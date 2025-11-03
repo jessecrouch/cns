@@ -1,0 +1,17 @@
+Story: Test Trace with Many Iterations
+
+Given:
+  counter: Integer = 25
+  result: Integer = 0
+
+Step 1 → Count down from 25
+  Because: Test trace mode with many iterations (shows first 10, then every 10th)
+  Then: counter becomes counter - 1
+  Then: result becomes result + counter
+  If: counter > 0
+    Then: repeat from Step 1
+  Otherwise:
+    Then: go to End
+
+End: Return result
+  Because: Sum of 0 to 24
