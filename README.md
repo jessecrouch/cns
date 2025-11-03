@@ -45,6 +45,8 @@ cd cns-starter
 - **Narrative syntax** - Code reads like a story, matches how LLMs think
 - **Explicit causality** - Every step explains "why" with `Because:` clauses
 - **No implicit magic** - State changes are declared, not hidden
+- **Iteration safety** - Fast infinite loop detection (1 sec vs 60 sec timeout)
+- **LLM-friendly docs** - [Expression limitations](docs/language/EXPRESSION-LIMITATIONS.md) and [control flow rules](docs/language/CONTROL-FLOW-RULES.md) with copy-paste examples
 
 ### Zero Dependencies
 - **No package managers** - No pip, npm, cargo, or composer needed
@@ -247,6 +249,9 @@ cd cns
 # Run any CNS program (verbose or compact format)
 ./cns-run examples/factorial.cns      # Verbose format
 ./cns-run examples/fibonacci.cnsc     # Compact format (auto-expands)
+
+# Set iteration limit (prevents infinite loops, default: 10000)
+./cns-run --max-iterations 1000 examples/my-program.cns
 
 # Validate syntax (both formats supported)
 ./src/cns-validate examples/webserver.cns
