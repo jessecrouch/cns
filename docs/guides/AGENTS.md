@@ -26,9 +26,20 @@
 ### 1. LLM-First Development
 
 CNS is **optimized for LLM comprehension**. Every decision should prioritize:
-- **Token efficiency** - Compact representations, minimal duplication
-- **Clarity** - Explicit causality, narrative structure
+- **Clarity** - Explicit causality, narrative structure  
 - **Learnability** - Patterns over syntax, examples over specs
+- **Predictability** - Consistent rules, helpful error messages
+
+⚠️ **CRITICAL: Expression Rules for LLMs**
+
+When generating CNS code, follow these non-negotiable rules:
+
+1. **ALWAYS Variable-First**: `n * 3` not `3 * n` (literal-first returns NIL!)
+2. **One Operator Per Line**: Split `n * 3 + 1` into two steps
+3. **No Parentheses**: Use temp variables instead of `(a + b) * c`
+4. **When in doubt, split it out**: More steps = fewer bugs
+
+📖 See [`docs/language/EXPRESSION-LIMITATIONS.md`](../language/EXPRESSION-LIMITATIONS.md) for complete reference
 
 ### 2. Test-Driven Changes
 
