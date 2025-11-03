@@ -77,7 +77,7 @@ Before submitting your CNS code, verify:
 
 **Syntax:**
 - [ ] Comparisons use `=` not `==`
-- [ ] Booleans are `TRUE`/`FALSE` (uppercase, not True/False)
+- [ ] Booleans support `TRUE`/`FALSE`, `True`/`False`, or `true`/`false` (all work)
 - [ ] All control flow (`go to`, `repeat from`) inside If/Otherwise blocks
 - [ ] No literal-first expressions (`n * 3` not `3 * n`)
 - [ ] No multi-operator math (`x * 3 + 1` split into two lines)
@@ -153,6 +153,8 @@ Given:
 ```
 
 **Types**: Integer, String, List, Map, Socket, Boolean
+
+**Boolean values**: `TRUE`/`FALSE` (recommended), `True`/`False`, or `true`/`false` (all supported for LLM compatibility)
 
 **Rules:**
 - ALL variables must be declared before use
@@ -254,15 +256,18 @@ Then: result becomes a + product  # Now: a + (b*c)
 ## Comparison Operators
 
 ```cns
-If: x = 5           # Equal (single =, not ==)
+If: x = 5           # Equal (single = recommended)
+If: x == 5          # Equal (double == also supported for LLM compatibility)
 If: x > 10          # Greater than
 If: x < 100         # Less than
 If: x >= 50         # Greater or equal
 If: x <= 200        # Less or equal
-If: NOT (x = 5)     # Not equal (no != operator)
+If: x != 5          # Not equal (supported for LLM compatibility)
+If: NOT (x = 5)     # Not equal (alternative syntax)
 ```
 
-**CRITICAL**: Use `=` for comparison, NOT `==`
+**BOTH WORK**: Use `=` or `==` for equality (both supported)
+**BOTH WORK**: Use `!=` or `NOT (x = y)` for inequality (both supported)
 
 ---
 
@@ -725,8 +730,9 @@ End: Return count
    - ❌ Don't: `If: x == 5`
 
 2. ❌ Using `True`/`False` instead of `TRUE`/`FALSE`
-   - ✅ Use: `flag: Boolean = TRUE`
-   - ❌ Don't: `flag: Boolean = True`
+   - ✅ Use: `flag: Boolean = TRUE` (recommended)
+   - ✅ Also works: `flag: Boolean = True` (LLM-friendly)
+   - ✅ Also works: `flag: Boolean = true` (LLM-friendly)
 
 3. ❌ Putting control flow outside If/Otherwise blocks
    - ✅ Use: `If: done\n  Then: go to End`

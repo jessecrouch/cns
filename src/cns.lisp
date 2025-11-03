@@ -2402,9 +2402,15 @@ World' and ' rest'"
                      (* (gethash (trim (cadr parts)) env)
                         (gethash (trim (fourth parts)) env)))))
            
-            ;; Boolean literals
-            ((string-equal trimmed "TRUE") t)
-            ((string-equal trimmed "FALSE") nil)
+            ;; Boolean literals (support TRUE, True, true for LLM-friendliness)
+            ((or (string-equal trimmed "TRUE")
+                 (string-equal trimmed "True")
+                 (string-equal trimmed "true")) 
+             t)
+            ((or (string-equal trimmed "FALSE")
+                 (string-equal trimmed "False")
+                 (string-equal trimmed "false"))
+             nil)
             ((string-equal trimmed "T") t)
             ((string-equal trimmed "NIL") nil)
             

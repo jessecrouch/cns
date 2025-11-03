@@ -17,15 +17,19 @@
   severity  ; :error, :warning
   message   ; Human-readable error message
   line      ; Line number (if applicable)
-  context)  ; Additional context
+  context   ; Additional context
+  fix       ; Suggested fix (if applicable)
+  example)  ; Example of correct usage (if applicable)
 
-(defun make-error (type severity message &key line context)
+(defun make-error (type severity message &key line context fix example)
   "Helper to create validation error."
   (make-validation-error :type type 
                           :severity severity 
                           :message message 
                           :line line 
-                          :context context))
+                          :context context
+                          :fix fix
+                          :example example))
 
 ;;; ============================================================================
 ;;; Structure Validators
@@ -36,28 +40,40 @@
   (if (search "Story:" code)
       nil
       (list (make-error :missing-element :error
-                       "Missing required 'Story:' declaration at the beginning"))))
+                       "Missing required 'Story:' declaration at the beginning"
+                       :fix "Add 'Story:' line at the beginning of your CNS file"
+                       :example "Story: Calculate factorial of a number"))))
 
 (defun validate-has-given (code)
   "Check if CNS code has a Given: section."
   (if (search "Given:" code)
       nil
       (list (make-error :missing-element :warning
-                       "Missing 'Given:' section - no variables declared"))))
+                       "Missing 'Given:' section - no variables declared"
+                       :fix "Add 'Given:' section after Story: if you need variables"
+                       :example "Given:
+  n: Integer = 5
+  result: Integer = 1"))))
 
 (defun validate-has-steps (code)
   "Check if CNS code has at least one Step."
   (if (search "Step" code)
       nil
       (list (make-error :missing-element :error
-                       "Missing 'Step' declarations - program has no logic"))))
+                       "Missing 'Step' declarations - program has no logic"
+                       :fix "Add at least one Step with logic"
+                       :example "Step 1 → Perform action
+  Because: We need to process the data
+  Then: result becomes n * 2"))))
 
 (defun validate-has-end (code)
   "Check if CNS code has an End: section."
   (if (search "End:" code)
       nil
       (list (make-error :missing-element :error
-                       "Missing required 'End:' section"))))
+                       "Missing required 'End:' section"
+                       :fix "Add 'End:' line at the end of your CNS file"
+                       :example "End: Return result"))))
 
 (defun validate-has-because-clauses (code)
   "Check if CNS code has Because: clauses for causality."
@@ -96,7 +112,9 @@
           (push (make-error :syntax :error
                            "Step declaration missing arrow (→)"
                            :line line-num
-                           :context trimmed)
+                           :context trimmed
+                           :fix "Add → arrow between step number and description"
+                           :example "Step 1 → Perform action")
                 errors))))
     (nreverse errors)))
 
@@ -186,6 +204,11 @@
           (vars '())
           (in-string nil)
           (cleaned-expr ""))
+      
+      ;; Skip Because: clauses entirely - they are documentation, not code
+      (when (starts-with (string-upcase trimmed) "BECAUSE:")
+        (return-from extract-variables-from-expr '()))
+      
       ;; First, remove all string literals from the expression
       (loop for i from 0 below (length trimmed)
             for char = (char trimmed i)
@@ -275,6 +298,8 @@
         
         ;; Check Then clauses and track assignments
         (dolist (clause (cddr node))
+          ;; Skip Because: clauses - they are documentation, not code
+          ;; Only process Then clauses
           (when (and (listp clause) (eql (car clause) 'then))
             (let ((then-str (cadr clause)))
               (when then-str
@@ -294,17 +319,21 @@
                                          (member var builtin-vars :test #'string-equal))
                                 (push (make-error :semantic :error
                                                  (format nil "Variable '~A' used before declaration in Step ~D" var step-num)
-                                                 :context then-str)
+                                                 :context then-str
+                                                 :fix (format nil "Add to Given section: ~A: Type = initial_value" var)
+                                                 :example (format nil "Given:~%  ~A: Integer = 0" var))
                                       errors)))))))
                     ;; Not an assignment, check all variables
                     (let ((vars (extract-variables-from-expr then-str)))
-                      (dolist (var vars)
+                       (dolist (var vars)
                         (unless (or (member var declared-vars :test #'string-equal)
                                    (member var assigned-vars :test #'string-equal)
                                    (member var builtin-vars :test #'string-equal))
                           (push (make-error :semantic :error
                                            (format nil "Variable '~A' used before declaration in Step ~D" var step-num)
-                                           :context then-str)
+                                           :context then-str
+                                           :fix (format nil "Add to Given section: ~A: Type = initial_value" var)
+                                           :example (format nil "Given:~%  ~A: Integer = 0" var))
                                 errors)))))))))))
     
     (nreverse errors)))
@@ -347,7 +376,10 @@
                     (when (and step-num (not (member step-num step-numbers)))
                       (push (make-error :logic :error
                                        (format nil "References non-existent Step ~D" step-num)
-                                       :context text)
+                                       :context text
+                                       :fix (format nil "Create Step ~D or reference an existing step" step-num)
+                                       :example "If: condition
+  Then: repeat from Step 1")
                             errors))))
                 ;; Check for "go to Step N"
                 (when (search "go to Step" text)
@@ -356,9 +388,82 @@
                     (when (and step-num (not (member step-num step-numbers)))
                       (push (make-error :logic :error
                                        (format nil "References non-existent Step ~D" step-num)
-                                       :context text)
+                                       :context text
+                                       :fix (format nil "Create Step ~D or reference an existing step" step-num)
+                                       :example "If: condition
+  Then: go to End")
                             errors))))))))))
     (nreverse errors)))
+
+(defparameter *valid-effect-patterns*
+  '(;; I/O Effects
+    "^PRINT\\s+"
+    "^PRINT$"
+    "^LOG\\s+"
+    
+    ;; HTTP Effects
+    "^HTTP\\s+GET\\s+FROM\\s+"
+    "^HTTP\\s+POST\\s+TO\\s+"
+    "^HTTP\\s+PUT\\s+TO\\s+"
+    "^HTTP\\s+DELETE\\s+TO\\s+"
+    
+    ;; Network/Socket Effects
+    "^CREATE\\s+SOCKET\\s+"
+    "^ACCEPT\\s+CONNECTION\\s+"
+    "^NETWORK\\s+READ"
+    "^SEND\\s+.+\\s+TO\\s+CLIENT"
+    "^SEND\\s+.+\\s+TO\\s+"
+    "^CLOSE\\s+CONNECTION"
+    "^CLOSE\\s+SOCKET"
+    
+    ;; File Effects
+    "^WRITE\\s+.+\\s+TO\\s+FILE"
+    "^WRITE\\s+.+\\s+TO\\s+"
+    "^APPEND\\s+.+\\s+TO\\s+FILE"
+    "^APPEND\\s+.+\\s+TO\\s+"
+    "^READ\\s+FROM\\s+FILE"
+    
+    ;; Database Effects
+    "^DATABASE\\s+CONNECT\\s+"
+    "^DATABASE\\s+EXECUTE\\s+"
+    "^DATABASE\\s+QUERY\\s+"
+    "^DB\\s+CONNECT\\s+"
+    "^DB\\s+EXECUTE\\s+"
+    "^DB\\s+QUERY\\s+"
+    
+    ;; CSV Effects
+    "^CSV\\s+WRITE\\s+"
+    "^CSV\\s+READ\\s+"
+    "^WRITE\\s+CSV\\s+"
+    "^READ\\s+CSV\\s+"
+    
+    ;; Shell Effects
+    "^SHELL\\s+"
+    "^SHELL$"
+    
+    ;; Git Effects
+    "^GIT\\s+STATUS\\s+"
+    "^GIT\\s+DIFF\\s+"
+    "^GIT\\s+CHECKOUT\\s+"
+    "^GIT\\s+ADD\\s+"
+    "^GIT\\s+COMMIT\\s+"
+    "^GIT\\s+CLONE\\s+"
+    "^GIT\\s+BRANCH\\s+"
+    "^GIT\\s+LOG\\s+"
+    "^GIT\\s+MERGE\\s+"
+    
+    ;; Search Effects
+    "^FIND\\s+"
+    "^GREP\\s+"
+    
+    ;; List Effects
+    "^ADD\\s+.+\\s+TO\\s+LIST\\s+"
+    "^REMOVE\\s+.+\\s+FROM\\s+LIST\\s+"
+    
+    ;; General patterns that might appear in effects
+    "^.+\\s+INTO\\s+.+$")
+  "Valid effect patterns based on the CNS interpreter implementation.
+   Patterns are regular expressions tested against uppercase effect strings.")
 
 (defun validate-effects (ast)
   "Check that effects are properly declared and valid."
@@ -367,58 +472,29 @@
       (when (and (listp node) (eql (car node) 'step))
         (dolist (clause (cddr node))
           (when (and (listp clause) (eql (car clause) 'effect))
-            (let ((effect-str (cadr clause)))
-               ;; Check for common effect patterns
-              (let ((effect-upper (string-upcase effect-str)))
-                (cond
-                  ;; Network effects should specify socket
-                  ((or (search "ACCEPT CONNECTION" effect-upper)
-                       (search "SEND" effect-upper)
-                       (search "CREATE SOCKET" effect-upper))
-                   ;; Valid network effect
-                   nil)
-                  ;; File effects should specify filename
-                  ((or (search "WRITE TO FILE" effect-upper)
-                       (search "READ FROM FILE" effect-upper)
-                       (search "READ" effect-upper))
-                   ;; Valid file effect
-                   nil)
-                  ;; CSV effects
-                  ((or (search "CSV WRITE" effect-upper)
-                       (search "CSV READ" effect-upper))
-                   ;; Valid CSV effect
-                   nil)
-                  ;; List effects
-                  ((or (search "ADD" effect-upper)
-                       (search "TO LIST" effect-upper))
-                   ;; Valid list effect
-                   nil)
-                  ;; Shell effects
-                  ((search "SHELL" effect-upper)
-                   ;; Valid shell effect
-                   nil)
-                  ;; HTTP effects
-                  ((or (search "HTTP" effect-upper)
-                       (search "GET" effect-upper)
-                       (search "POST" effect-upper))
-                   ;; Valid HTTP effect
-                   nil)
-                  ;; Git effects
-                  ((or (search "GIT" effect-upper)
-                       (search "FIND" effect-upper)
-                       (search "GREP" effect-upper))
-                   ;; Valid git/search effect
-                   nil)
-                  ;; Print effects
-                  ((search "PRINT" effect-upper)
-                   ;; Valid print effect
-                   nil)
-                  ;; Unknown effect - warning
-                  (t
-                   (push (make-error :semantic :warning
-                                    (format nil "Unrecognized effect pattern: ~A" effect-str)
-                                    :context effect-str)
-                         errors)))))))))
+            (let* ((effect-str (cadr clause))
+                   (effect-upper (string-upcase effect-str))
+                   (matched nil))
+              ;; Try to match against known effect patterns using regex if available
+              (dolist (pattern *valid-effect-patterns*)
+                (when (if *regex-enabled*
+                          ;; Use regex matching if cl-ppcre is available
+                          (handler-case
+                              (funcall (symbol-function (intern "SCAN" :cl-ppcre))
+                                      pattern effect-upper)
+                            (error () nil))
+                          ;; Fall back to simple string search
+                          (search (substitute #\Space #\\ pattern) effect-upper))
+                  (setf matched t)
+                  (return)))
+              ;; If no pattern matched, give a warning (not an error)
+              (unless matched
+                (push (make-error :semantic :warning
+                                 (format nil "Unrecognized effect pattern: ~A~%~
+                                             This may be valid but doesn't match known patterns." 
+                                         effect-str)
+                                 :context effect-str)
+                      errors)))))))
     (nreverse errors)))
 
 ;;; ============================================================================
@@ -481,7 +557,7 @@
 ;;; ============================================================================
 
 (defun print-validation-error (err &optional (stream t))
-  "Print a validation error in a readable format."
+  "Print a validation error in a readable format with suggestions and examples."
   (format stream "~A: ~A~%"
           (case (validation-error-severity err)
             (:error "ERROR")
@@ -490,7 +566,12 @@
   (when (validation-error-line err)
     (format stream "  Line ~D~%" (validation-error-line err)))
   (when (validation-error-context err)
-    (format stream "  Context: ~A~%" (validation-error-context err))))
+    (format stream "  Context: ~A~%" (validation-error-context err)))
+  (when (validation-error-fix err)
+    (format stream "  Fix: ~A~%" (validation-error-fix err)))
+  (when (validation-error-example err)
+    (format stream "  Example:~%~{    ~A~%~}" 
+            (split-string (validation-error-example err) #\Newline))))
 
 (defun print-validation-results (is-valid errors warnings &optional (stream t))
   "Print validation results in a user-friendly format."
