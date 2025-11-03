@@ -242,7 +242,7 @@ rm src/cns.lisp.backup-*
 # Use the automated LLM test harness
 python3 scripts/llm-tester.py \
   --task "Write a CNS program that calculates factorial of 5" \
-  --template prompts/detailed-template.md \
+  --template SYNTAX.md \
   --provider grok \
   --retries 3
 
@@ -558,14 +558,14 @@ git commit -m "Repository cleanup: reduce context bloat
 
 ```bash
 # 1. Identify affected docs
-# Language change → docs/language/*.md AND prompts/detailed-template.md
+# Language change → SYNTAX.md (single source of truth)
 # Testing change → docs/development/TESTING.md
 # Feature change → docs/guides/*.md
 
 # 2. Update in SAME commit as code change
 # ... edit docs/language/SYNTAX.md ...
 
-# 3. **CRITICAL**: Update prompts/detailed-template.md for language changes
+# 3. **CRITICAL**: Update SYNTAX.md for language changes
 # This is the SINGLE SOURCE OF TRUTH for LLM code generation
 # Add new functions to:
 #   - Quick Reference lookup table (lines 10-56)
@@ -582,7 +582,7 @@ git commit -m "Repository cleanup: reduce context bloat
 ./test-all-examples.sh
 
 # 7. Commit together
-git add src/cns.lisp docs/language/SYNTAX.md prompts/detailed-template.md examples/features/test-*.cns
+git add src/cns.lisp SYNTAX.md examples/features/test-*.cns
 git commit -m "Add feature X with documentation
 
 - Code: <description>
@@ -597,7 +597,7 @@ When adding or modifying CNS language features, you MUST update:
 - [ ] `src/cns.lisp` - Implementation
 - [ ] `src/cns-validator.lisp` - Validation rules (if needed)
 - [ ] `docs/language/SYNTAX.md` - Reference documentation
-- [ ] **`prompts/detailed-template.md`** - LLM template (CRITICAL!)
+- [ ] **`SYNTAX.md`** - LLM template (CRITICAL!)
 - [ ] `examples/features/test-*.cns` - Working examples
 - [ ] Test with LLM: `python3 scripts/llm-tester.py --task "Use new feature"`
 

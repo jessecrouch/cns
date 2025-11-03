@@ -13,10 +13,10 @@ CNS is designed to be LLM-friendly, making it easier for AI models to:
 
 ### Components
 
-1. **Prompt Templates** (`prompts/`)
-   - Comprehensive generation template with rules and examples
-   - Quick template for simple tasks
-   - Customizable for different use cases
+1. **Syntax Template** (`SYNTAX.md`)
+   - Single comprehensive reference at project root
+   - Complete rules and examples
+   - Optimized for LLM code generation
 
 2. **Validation System** (in `cns.lisp`)
    - `validate-cns`: Check AST for completeness
@@ -37,12 +37,12 @@ CNS is designed to be LLM-friendly, making it easier for AI models to:
 
 ### Step 1: Prepare the Prompt
 
-Use the template from `prompts/webserver-template.md` or `prompts/quick-template.md`:
+Use the template from `SYNTAX.md`:
 
 ```
 Task: Create a webserver on port 8080 that responds with "Hello"
 
-[Insert template here with {TASK} replaced]
+[Insert SYNTAX.md here with {TASK} replaced]
 ```
 
 ### Step 2: Get LLM Response

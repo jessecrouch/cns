@@ -211,7 +211,7 @@ End: Return variable
 - **[CHANGELOG.md](CHANGELOG.md)** - Version history
 
 ### Language Reference
-- **[LLM Template](prompts/detailed-template.md)** - Complete CNS reference (single source of truth)
+- **[SYNTAX.md](SYNTAX.md)** - Complete CNS reference (single source of truth, optimized for LLMs)
 - **[FUNCTIONS.md](docs/guides/FUNCTIONS.md)** - Reusable code patterns
 
 ### Guides

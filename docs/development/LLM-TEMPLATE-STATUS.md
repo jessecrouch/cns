@@ -7,7 +7,7 @@
 
 ## Executive Summary
 
-CNS now has a **single comprehensive LLM-first template** at `prompts/detailed-template.md` that achieves:
+CNS now has a **single comprehensive LLM-first template** at `SYNTAX.md` that achieves:
 
 - **100% validation pass rate** with Grok-2 on complex network programming
 - **0 syntax errors** on first generation attempt
@@ -160,7 +160,7 @@ Overall: VALID (ready for execution)
 ## File Organization
 
 ### Primary Template
-**`prompts/detailed-template.md`** (830 lines)
+**`SYNTAX.md`** (830 lines) - Located at project root
 - Single comprehensive reference
 - Function lookup table
 - Validation checklist
@@ -168,19 +168,11 @@ Overall: VALID (ready for execution)
 - Common patterns
 - ✅/❌ examples throughout
 
-### Supporting Files
-**`prompts/README.md`**
-- How to use the template
-- Link to detailed-template.md
-- Design philosophy
-
-**`prompts/cns-system-prompt.md`** (195 lines)
-- DEPRECATED - marked for removal
-- Old format, incomplete
-- Updated with deprecation notice
-
-**`prompts/quick-template.md`** (13 lines)
-- DEPRECATED - use detailed-template.md instead
+### Deprecated Files (Removed)
+**`prompts/` directory** - Completely removed
+- Old system prompts removed
+- Quick template removed
+- All content consolidated into SYNTAX.md
 
 ### Documentation Structure
 ```
@@ -316,7 +308,7 @@ But: ✅ Use: If: x = 5
 
 1. **Copy entire template**
    ```bash
-   cat prompts/detailed-template.md
+   cat SYNTAX.md
    ```
 
 2. **Replace task placeholder**
@@ -343,7 +335,7 @@ But: ✅ Use: If: x = 5
 ```bash
 # Prepare prompt
 sed 's/{TASK}/Create an HTTP server on port 8080 that logs all requests to a file/' \
-  prompts/detailed-template.md > /tmp/prompt.txt
+  SYNTAX.md > /tmp/prompt.txt
 
 # Send to LLM (manually or via API)
 # ... LLM generates code ...
@@ -427,18 +419,14 @@ All criteria met:
 ## Maintenance
 
 ### Keep Updated
-- `prompts/detailed-template.md` - Primary template
+- `SYNTAX.md` - Primary template at project root
 - Test regularly with Grok, GPT-4, Claude
 - Add new built-ins to function table when added to interpreter
 
-### Deprecate
-- `prompts/cns-system-prompt.md` - Consider deleting
-- `prompts/quick-template.md` - Consider deleting
-
 ### Preserve
-- `docs/language/SYNTAX.md` - Human-friendly reference
 - `examples/` - Working code examples
 - Test suite - Verify nothing breaks
+- Archive documentation for historical reference
 
 ---
 
@@ -459,7 +447,7 @@ CNS now has a **production-ready comprehensive LLM template** that:
 
 **Status**: ✅ **PRODUCTION READY**
 
-**Location**: `prompts/detailed-template.md`
+**Location**: `SYNTAX.md` (project root)
 
 **Size**: 830 lines
 

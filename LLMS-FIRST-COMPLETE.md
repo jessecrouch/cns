@@ -24,7 +24,7 @@ CNS is now a **truly LLM-first programming language** with:
 ## What Makes CNS LLM-First?
 
 ### 1. Single Source of Truth
-**One file contains everything**: `prompts/detailed-template.md`
+**One file contains everything**: `SYNTAX.md`
 
 No need to reference multiple docs, no cross-file dependencies, completely self-contained.
 
@@ -98,7 +98,7 @@ Documentation files:     -83% (6 → 1)
 
 ## Key Components
 
-### The Template: `prompts/detailed-template.md`
+### The Template: `SYNTAX.md`
 
 **830 lines** organized as:
 
@@ -229,8 +229,9 @@ Effect: WRITE "data" TO FILE # Explicit file write
 - System prompts
 
 **After**:
-- prompts/detailed-template.md (one comprehensive file)
+- SYNTAX.md (one comprehensive file at project root)
 - docs/language/ archived (2025-11-03)
+- prompts/ directory removed (deprecated)
 
 ---
 
@@ -323,7 +324,7 @@ CNS Project
 
 **Step 1**: Get the template
 ```bash
-cat prompts/detailed-template.md
+cat SYNTAX.md
 ```
 
 **Step 2**: Replace task placeholder
@@ -352,7 +353,7 @@ cat prompts/detailed-template.md
 ```bash
 # Create task-specific prompt
 sed 's/{TASK}/Create a TODO list API with SQLite/' \
-  prompts/detailed-template.md > task.txt
+  SYNTAX.md > task.txt
 
 # Send to LLM (get code)
 # ... LLM generates code ...
@@ -508,7 +509,7 @@ CNS demonstrates that a language can be **designed for LLMs first**:
 
 ## Resources
 
-- **Template**: `prompts/detailed-template.md` (SINGLE SOURCE OF TRUTH)
+- **Template**: `SYNTAX.md` (SINGLE SOURCE OF TRUTH)
 - **Examples**: `examples/` (90+ working programs)
 - **This Guide**: `LLMS-FIRST-COMPLETE.md` (you are here)
 - **Status Report**: `docs/development/LLM-TEMPLATE-STATUS.md`

@@ -74,7 +74,7 @@ OPENROUTER_API_KEY=your-key-here
 ```bash
 ./scripts/llm-tester.py \
   --task "Write a function to check if a number is prime" \
-  --template prompts/detailed-template.md
+  --template SYNTAX.md
 ```
 
 **Custom test name and retries:**
@@ -100,8 +100,8 @@ OPENROUTER_API_KEY=your-key-here
 | `--name` | Test name for output files | Derived from task |
 | `--provider` | LLM provider (grok, openai, claude, openrouter) | `grok` |
 | `--model` | Model name (provider-specific) | Provider default |
-| `--template` | Prompt template file | `prompts/quick-template.md` |
-| `--system-prompt` | System prompt file | `prompts/cns-system-prompt.md` |
+| `--template` | Prompt template file | `SYNTAX.md` |
+| `--system-prompt` | System prompt file | `SYNTAX.md` |
 | `--retries` | Max retry attempts | `3` |
 | `--timeout` | Execution timeout (seconds) | `5` |
 | `--api-key` | API key (overrides .env) | From .env |
@@ -233,7 +233,7 @@ Primarily for internal development and benchmarking.
 # Test complex task with retries
 ./scripts/llm-tester.py \
   --task "Build REST API with JSON responses" \
-  --template prompts/detailed-template.md \
+  --template SYNTAX.md \
   --retries 5
 ```
 
@@ -274,32 +274,27 @@ ls -lh tests/llm-tests/results/factorial-*
 
 ---
 
-## Prompt Templates
+## Syntax Template
 
-### quick-template.md
+### SYNTAX.md
 
-Minimal prompt for simple tasks. Good for:
+Complete CNS reference at project root. Contains:
+- Complete CNS syntax reference
+- Function lookup table
+- Expression rules and limitations
+- Common patterns and examples
+- Best practices
+- Validation checklist
+
+Good for all tasks:
 - Basic algorithms
 - Simple data transformations
-- Quick prototypes
-
-### detailed-template.md
-
-Comprehensive prompt with examples. Good for:
 - Complex applications
 - Multi-step workflows
 - Edge case handling
 
-### cns-system-prompt.md
-
-System-level instructions for the LLM. Contains:
-- Complete CNS syntax reference
-- Expression rules and limitations
-- Common patterns and examples
-- Best practices
-
 **Customization:**
-Create your own templates in `prompts/` directory. Use `{TASK}` placeholder for task injection.
+Use `{TASK}` placeholder for task injection. The template is comprehensive enough for all use cases.
 
 ---
 
