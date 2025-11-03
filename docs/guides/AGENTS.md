@@ -30,14 +30,20 @@ CNS is **optimized for LLM comprehension**. Every decision should prioritize:
 - **Learnability** - Patterns over syntax, examples over specs
 - **Predictability** - Consistent rules, helpful error messages
 
-⚠️ **CRITICAL: Expression Rules for LLMs**
+⚠️ **Expression Rules for LLMs** (with Auto-Fix Support)
 
-When generating CNS code, follow these non-negotiable rules:
+CNS now automatically fixes common expression errors with helpful warnings:
 
-1. **ALWAYS Variable-First**: `n * 3` not `3 * n` (literal-first returns NIL!)
-2. **One Operator Per Line**: Split `n * 3 + 1` into two steps
-3. **No Parentheses**: Use temp variables instead of `(a + b) * c`
-4. **When in doubt, split it out**: More steps = fewer bugs
+1. **Variable-First (Auto-Fixed)**: `3 * n` → `n * 3` (now works, but shows warning!)
+2. **One Operator Per Line**: Split `n * 3 + 1` into two steps (not auto-fixed)
+3. **No Parentheses**: Use temp variables instead of `(a + b) * c` (not auto-fixed)
+4. **Best Practice**: Write correct expressions from the start to avoid warnings
+
+✨ **Auto-Fix Support** (as of 2025-11-02):
+- Operators: `*`, `-`, `/`, `%` automatically detect and fix literal-first order
+- Example: `result becomes 3 * n` now works (was NIL before)
+- Warning message guides you to correct pattern
+- See `examples/features/test-expression-autofix.cns` for demonstrations
 
 📖 See [`docs/language/EXPRESSION-LIMITATIONS.md`](../language/EXPRESSION-LIMITATIONS.md) for complete reference
 

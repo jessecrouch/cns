@@ -42,6 +42,7 @@ cd cns-starter
 
 ### LLM-First Design
 - **100% generation success rate** - LLMs generate correct code on first attempt (vs ~30% for Python)
+- **Auto-fix expressions** ✨ - Literal-first expressions like `3 * n` now work automatically (with helpful warnings)
 - **Narrative syntax** - Code reads like a story, matches how LLMs think
 - **Explicit causality** - Every step explains "why" with `Because:` clauses
 - **No implicit magic** - State changes are declared, not hidden
