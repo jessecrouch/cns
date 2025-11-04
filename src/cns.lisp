@@ -2007,9 +2007,7 @@ World' and ' rest'"
             ;; Arithmetic: division (n / 2 or 20 / n both work!)
             ((and (search "/" trimmed)
                   ;; Make sure it's not a quoted string
-                  (not (and (> (length trimmed) 1)
-                           (char= (char trimmed 0) #\")
-                           (char= (char trimmed (1- (length trimmed))) #\"))))
+                  (not (quoted-string-p trimmed)))
              (let ((parts (split-string trimmed #\/)))
                (floor (/ (eval-expr (trim (car parts)) env)
                          (eval-expr (trim (cadr parts)) env)))))
@@ -2017,9 +2015,7 @@ World' and ' rest'"
              ;; Arithmetic: modulo (n % 2 or 10 % n both work!)
              ((and (search "%" trimmed)
                    ;; Make sure it's not a quoted string
-                   (not (and (> (length trimmed) 1)
-                            (char= (char trimmed 0) #\")
-                            (char= (char trimmed (1- (length trimmed))) #\"))))
+                   (not (quoted-string-p trimmed)))
               (let ((parts (split-string trimmed #\%)))
                 (mod (eval-expr (trim (car parts)) env)
                      (eval-expr (trim (cadr parts)) env))))
