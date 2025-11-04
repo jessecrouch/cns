@@ -84,6 +84,14 @@
   "Operator precedence table. Higher levels are evaluated first.
    Standard math precedence: * / % > + - > < > <= >= > == != =")
 
+(defun get-operator-precedence (op)
+  "Get precedence level for operator OP (char or string). Returns NIL if not found."
+  (loop for entry in *operator-precedence*
+        for level = (getf entry :level)
+        for ops = (getf entry :ops)
+        when (member op ops :test #'equal)
+        return level))
+
 ;;; ============================================================================
 ;;; Helper Functions
 ;;; ============================================================================
