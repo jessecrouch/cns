@@ -674,6 +674,28 @@
             (error () 0.0))
           (if (numberp str-val) str-val 0.0)))))
 
+(defun can-parse-read-from-file-p (trimmed)
+  "Check if TRIMMED is a READ FROM FILE operation."
+  (starts-with (string-upcase trimmed) "READ FROM FILE "))
+
+(defun try-read-from-file (trimmed env)
+  "Parse and evaluate READ FROM FILE operation."
+  (when (can-parse-read-from-file-p trimmed)
+    (let* ((filepath-expr (trim (subseq trimmed 15)))
+           ;; Evaluate the expression (handles both quoted strings and variables)
+           (filepath (eval-expr filepath-expr env)))
+      (when (stringp filepath)
+        (handler-case
+            (with-open-file (stream filepath :direction :input :if-does-not-exist nil)
+              (if stream
+                  (let ((contents (make-string (file-length stream))))
+                    (read-sequence contents stream)
+                    contents)
+                  ""))
+          (error (e)
+            (format *error-output* "File read error: ~A~%" e)
+            ""))))))
+
 (defun try-comparison-simple (trimmed op-char comparison-fn env)
   "Try to parse TRIMMED as a comparison with 1-char operator (<, >, =).
    Returns (values result t) if successful, (values nil nil) if operator not found.
@@ -2570,21 +2592,8 @@ World' and ' rest'"
                        (parse-json-full json-expr))))))
             
              ;; File reading: READ FROM FILE "filepath" or READ FROM FILE variable (MUST come before - operator!)
-             ((starts-with (string-upcase trimmed) "READ FROM FILE ")
-              (let* ((filepath-expr (trim (subseq trimmed 15)))
-                     ;; Evaluate the expression (handles both quoted strings and variables)
-                     (filepath (eval-expr filepath-expr env)))
-                (when (stringp filepath)
-                  (handler-case
-                      (with-open-file (stream filepath :direction :input :if-does-not-exist nil)
-                        (if stream
-                            (let ((contents (make-string (file-length stream))))
-                              (read-sequence contents stream)
-                              contents)
-                            ""))
-                    (error (e)
-                      (format *error-output* "File read error: ~A~%" e)
-                      "")))))
+             ((can-parse-read-from-file-p trimmed)
+              (try-read-from-file trimmed env))
             
              ;; String operation: text STARTS WITH "prefix"
              ((can-parse-starts-with-p trimmed)
