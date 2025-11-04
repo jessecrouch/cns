@@ -511,6 +511,26 @@
             (format *error-output* "CSV READ error: ~A~%" e)
             '()))))))
 
+(defun can-parse-find-in-list-p (trimmed)
+  "Check if TRIMMED is a FIND IN LIST operation."
+  (starts-with (string-upcase trimmed) "FIND IN LIST "))
+
+(defun try-find-in-list (trimmed env)
+  "Parse and evaluate FIND IN LIST operation."
+  (when (can-parse-find-in-list-p trimmed)
+    (let* ((rest (trim (subseq trimmed 13)))
+           (where-pos (search " WHERE " (string-upcase rest))))
+      (if where-pos
+          (let* ((list-var (trim (subseq rest 0 where-pos)))
+                 (condition (trim (subseq rest (+ where-pos 7))))
+                 (list-val (gethash list-var env)))
+            ;; Simple WHERE clause: key = value
+            ;; For now, just return first item (simplified for MVP)
+            (if (and list-val (listp list-val) (> (length list-val) 0))
+                (car list-val)
+                nil))
+          nil))))
+
 (defun can-parse-format-time-p (trimmed)
   "Check if TRIMMED is a FORMAT TIME operation."
   (and (starts-with (string-upcase trimmed) "FORMAT TIME ")
@@ -2798,25 +2818,14 @@ World' and ' rest'"
              ;; This is around line 1730, right after "becomes" and before number parsing
              ;; This allows "3 * n" to parse correctly as multiplication instead of just "3"
              
-              ;; NOTE: LENGTH OF operation is handled by can-parse-length-of-p helper (line ~391)
-              ;; It handles both LENGTH_OF and LENGTH OF forms
+             ;; NOTE: LENGTH OF operation is handled by can-parse-length-of-p helper (line ~391)
+             ;; It handles both LENGTH_OF and LENGTH OF forms
              
               ;; List operation: FIND IN LIST {list_var} WHERE {key} = {value}
-             ((starts-with (string-upcase trimmed) "FIND IN LIST ")
-              (let* ((rest (trim (subseq trimmed 13)))
-                     (where-pos (search " WHERE " (string-upcase rest))))
-                (if where-pos
-                    (let* ((list-var (trim (subseq rest 0 where-pos)))
-                           (condition (trim (subseq rest (+ where-pos 7))))
-                           (list-val (gethash list-var env)))
-                      ;; Simple WHERE clause: key = value
-                      ;; For now, just return first item (simplified for MVP)
-                      (if (and list-val (listp list-val) (> (length list-val) 0))
-                          (car list-val)
-                          nil))
-                    nil)))
-            
-             ;; List operations: get item at index (0-based)
+             ((can-parse-find-in-list-p trimmed)
+              (try-find-in-list trimmed env))
+             
+              ;; List operations: get item at index (0-based)
              ((search " AT " (string-upcase trimmed))
               (let* ((at-pos (search " AT " (string-upcase trimmed)))
                      (list-expr (trim (subseq trimmed 0 at-pos)))
