@@ -41,34 +41,36 @@ cd cns-starter
 
 ## Current Features (v1.7.0)
 
-**I/O & Networking**
-- HTTP/HTTPS client (GET/POST)
-- TCP sockets (server/client)
-- File operations (read/write/append)
-- Shell execution (capture output/errors)
+### I/O & Networking
+- ✅ HTTP/HTTPS client (GET/POST with headers, JSON)
+- ✅ TCP sockets (server/client for custom protocols)
+- ✅ File operations (read/write/append)
+- ✅ Shell execution (capture output/errors/exit codes)
 
-**Data Processing**
-- JSON (nested objects, arrays, dot notation)
-- CSV (read/write with headers)
-- Regex (MATCHES, EXTRACT with groups)
-- Strings (split, trim, replace, join, case)
-- Lists & Maps (add, remove, iterate, filter)
-- Date/Time (NOW, TIMESTAMP, FORMAT, arithmetic)
+### Data Processing
+- ✅ JSON (nested objects, arrays, dot notation)
+- ✅ CSV (read/write with headers)
+- ✅ Regex (MATCHES, EXTRACT with capture groups)
+- ✅ Strings (split, trim, replace, join, uppercase/lowercase)
+- ✅ Lists & Maps (add, remove, iterate, where filters)
+- ✅ Date/Time (TIMESTAMP, FORMAT TIME, arithmetic)
+- ✅ Math (SQRT, POW, ABS, ROUND, FLOOR, CEIL, MIN, MAX, RANDOM)
 
-**System Integration**
-- Environment variables
-- SQLite database
-- Git operations (status, diff, commit, merge, log)
-- File search (FIND, GREP)
+### System Integration
+- ✅ Environment variables (ENV function)
+- ✅ SQLite database (CONNECT, EXECUTE, QUERY)
+- ✅ Git operations (status, diff, commit, branch, merge, log)
+- ✅ File search (FIND by pattern, GREP by content)
 
-**Language Features**
-- Functions with recursion
-- If/Otherwise conditionals
-- Loops (repeat from)
-- Error handling
-- Strict mode (NIL safety)
-- Trace mode (execution debugging)
-- Validation mode (pre-runtime checks)
+### Developer Experience
+- ✅ Functions with recursion
+- ✅ If/Otherwise conditionals
+- ✅ Loops (repeat from, indexed iteration)
+- ✅ Error handling (Error section)
+- ✅ Strict mode (NIL safety checks)
+- ✅ Trace mode (step-by-step debugging)
+- ✅ Validation mode (pre-runtime syntax checking)
+- ✅ Expression auto-fix (literal-first patterns)
 
 ---
 
@@ -189,15 +191,24 @@ End: Return variable
 
 ## Language Coverage
 
-**Current:** ~65% of general-purpose capabilities  
-**Target v2.0:** 90%+ completeness
+**Current:** ~70% of general-purpose capabilities  
+**Target v2.0:** 85%+ completeness
 
-### What's Missing (Coming Soon)
-- CLI argument parsing (`v1.8.0`)
-- Process management (`v1.8.0`)
-- File system operations (`v1.8.0`)
-- Advanced list/map operations (`v1.9.0`)
-- Math functions (SQRT, POW, etc.) (`v1.9.0`)
+### Coming Soon
+- **v1.8.0** (Next 1-2 weeks)
+  - CLI argument parsing (ARGS, ARG, HAS_FLAG)
+  - Process management (background jobs, signals)
+  - File system operations (LIST_FILES, DELETE, RENAME)
+
+- **v1.9.0** (Next 2-4 weeks)
+  - Advanced list operations (SORT, REVERSE, UNIQUE, SLICE)
+  - Map enhancements (KEYS, VALUES, MERGE)
+  - String utilities (PAD, STRIP, URL_ENCODE)
+
+- **v2.0.0** (Next 2-3 months)
+  - Production polish and optimization
+  - Real-world application validation
+  - Multi-LLM testing (GPT-4, Claude, Llama)
 
 **[See full roadmap →](docs/development/ROADMAP.md)**
 
@@ -211,12 +222,12 @@ End: Return variable
 - **[CHANGELOG.md](CHANGELOG.md)** - Version history
 
 ### Language Reference
-- **[SYNTAX.md](SYNTAX.md)** - Complete CNS reference (includes functions, CLI args, all features - single source of truth for LLMs)
+- **[SYNTAX.md](SYNTAX.md)** - Complete CNS reference (830 lines, single source of truth for LLMs)
 
 ### Guides
 - **[LLM-INTEGRATION.md](docs/guides/LLM-INTEGRATION.md)** - Using CNS with LLMs
-- **[TRACE-MODE.md](docs/guides/TRACE-MODE.md)** - Debugging guide
-- **[CLI-ARGUMENTS.md](docs/guides/CLI-ARGUMENTS.md)** - Command-line arguments (v1.8.0) - see SYNTAX.md for quick reference
+- **[TRACE-MODE.md](docs/guides/TRACE-MODE.md)** - Debugging with trace mode
+- **[AGENTS.md](docs/guides/AGENTS.md)** - Building automation agents
 
 ### Development
 - **[ROADMAP.md](docs/development/ROADMAP.md)** - Development roadmap
@@ -239,7 +250,12 @@ End: Return variable
 - **v1.2.0** - Regex + Date/Time
 - **v1.1.0** - JSON + Environment variables
 
-**Development velocity:** 7 releases in 6 days (10x faster than planned)
+**Development velocity:** 7 major releases in 6 days
+
+### Why These Numbers Matter
+- **87.5% pass rate** - Only timeouts are expected (web servers run indefinitely)
+- **100% LLM success** - Validated with Grok-2 on complex HTTP logger task
+- **10x velocity** - Achieved 7 releases in time originally planned for 1
 
 ---
 
@@ -286,7 +302,7 @@ Step 2 → Parse response
 End: Done
 ```
 
-**[See all 90+ examples →](examples/)**
+**[See all 35+ examples →](examples/)**
 
 ---
 

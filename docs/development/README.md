@@ -1,102 +1,60 @@
 # CNS Development Documentation
 
-**Purpose**: Internal development guides for LLM agents and contributors working on CNS itself.
+**Purpose**: Internal development guides for contributors and LLM agents working on CNS itself.
+
+**Last Updated**: November 3, 2025
 
 ---
 
-## Core Development Guides
+## Essential Reading
 
-### Essential Reading
+### **[ROADMAP.md](ROADMAP.md)** ⭐
+- Current status: v1.7.0 (Production Ready)
+- Next priorities: CLI args, process management, file system ops
+- Feature timeline and coverage goals
+- Development velocity: 7 releases in 6 days
 
-**[LISP-DEBUGGING-GUIDE.md](LISP-DEBUGGING-GUIDE.md)** ⭐ **CRITICAL**
-- **Read before modifying `src/cns.lisp`**
-- Real-world methodology for debugging Common Lisp parentheses issues
-- Case study from If/Otherwise fix
-- Proven techniques that actually work
-
-**[TESTING.md](TESTING.md)**
+### **[TESTING.md](TESTING.md)** ⭐
 - Test infrastructure and validation system
-- Running regression tests
+- Running regression tests (28/32 passing)
 - Adding new tests
 - Test coverage strategy
 
-**[ROADMAP.md](ROADMAP.md)**
-- Current development direction (Phase C focus)
-- Feature priorities
-- Version history and velocity
+### **[LISP-DEBUGGING-GUIDE.md](LISP-DEBUGGING-GUIDE.md)** ⭐ **CRITICAL**
+- **Read before modifying `src/cns.lisp`**
+- Real-world methodology for debugging Common Lisp
+- Proven techniques from actual bug fixes
+- Binary search + structural tracing approach
 
 ---
 
-## Language & Implementation
+## Language Reference
 
-**[QUICK-REFERENCE-IF-OTHERWISE.md](QUICK-REFERENCE-IF-OTHERWISE.md)**
+### **[QUICK-REFERENCE-IF-OTHERWISE.md](QUICK-REFERENCE-IF-OTHERWISE.md)**
 - If/Otherwise syntax quick reference
 - Working patterns and common mistakes
 - Waterfall pattern for multiple conditions
 - Known limitations and workarounds
 
-**[LLM-FIRST-IMPROVEMENTS.md](LLM-FIRST-IMPROVEMENTS.md)**
-- Strategic improvements to make CNS easier for LLMs
-- Better error messages, validation mode, strict mode
-- Expression limitations documentation
-- Priority roadmap for LLM-focused features
-
 ---
 
-## Architecture
+## Current State (v1.7.0)
 
-**[Refactoring Session - November 3, 2025](../archive/2025-11/REFACTORING-SESSION-2025-11-03.md)** ⭐ **NEW**
-- Major interpreter refactoring complete
-- Extracted 15 effect handlers from monolithic `apply-effect` function
-- Helper function pattern established for all effect categories
-- 100% test pass rate (37/37 tests)
-- ~1,050 lines of helpers, -950 lines of inline code
+### Features Complete
+- ✅ HTTP/HTTPS, TCP sockets, file I/O
+- ✅ JSON, CSV, regex, date/time
+- ✅ SQLite database
+- ✅ Shell execution, git operations
+- ✅ File search (FIND, GREP)
+- ✅ Math functions (SQRT, POW, etc.)
+- ✅ Strict mode, trace mode, validation mode
+- ✅ LLM-first design (100% success with Grok-2)
 
-**Effect Handler Pattern:**
-```lisp
-(defun can-handle-CATEGORY-effect-p (trimmed)
-  "Check if TRIMMED is a CATEGORY effect."
-  (let ((upper (string-upcase trimmed)))
-    (or (starts-with upper "COMMAND1 ")
-        (starts-with upper "COMMAND2 ")
-        ...)))
-
-(defun handle-CATEGORY-effect (trimmed env verbose)
-  "Execute CATEGORY effect.
-   Supports: COMMAND1, COMMAND2, ..."
-  (when (can-handle-CATEGORY-effect-p trimmed)
-    (let ((upper (string-upcase trimmed)))
-      (cond
-        ((starts-with upper "COMMAND1") ...)
-        ((starts-with upper "COMMAND2") ...)
-        (t nil)))))
-```
-
-**When adding new effects:**
-1. Follow the pattern above
-2. Add helper after line ~2646 in `src/cns.lisp`
-3. Call helper from `apply-effect` function
-4. Add comprehensive tests
-5. Update this documentation
-
----
-
-## Recent Work
-
-**[PHASE-1-REORGANIZATION-COMPLETE.md](PHASE-1-REORGANIZATION-COMPLETE.md)**
-- Repository cleanup session (10MB → 3.5MB)
-- 65% size reduction, consolidated docs
-- Context for current structure
-
-**[PHASE-2-EXAMPLES-COMPLETE.md](PHASE-2-EXAMPLES-COMPLETE.md)**
-- Examples reorganization (92 → 42 files)
-- Three-tier structure (core/features/advanced)
-- Comprehensive pattern guide creation
-
-**[TEST-RESULTS-2025-11-02.md](TEST-RESULTS-2025-11-02.md)**
-- Recent comprehensive test results
-- Bugs fixed: String literal initialization, If/Otherwise in functions
-- Known limitations documented
+### Test Status
+- **28/32 tests passing (87.5%)**
+- 4 expected timeouts (web servers)
+- 100% validation success
+- Zero false positives from validator
 
 ---
 
@@ -104,75 +62,90 @@
 
 ### Before Modifying Interpreter
 
-1. **Read** [LISP-DEBUGGING-GUIDE.md](LISP-DEBUGGING-GUIDE.md)
-2. **Backup** `cp src/cns.lisp src/cns.lisp.backup-$(date +%Y%m%d)`
-3. **Test frequently** `sbcl --non-interactive --load src/cns.lisp`
-4. **Use version control** Commit after each working change
+1. **Read** [LISP-DEBUGGING-GUIDE.md](LISP-DEBUGGING-GUIDE.md) first
+2. **Run tests** to establish baseline: `./tests/run-all-tests.sh`
+3. **Make changes** incrementally
+4. **Test after each change** - never batch changes
+5. **Commit working code** frequently
 
 ### Common Development Tasks
 
-| Task | Guide | Command |
-|------|-------|---------|
-| Add new feature | [ROADMAP.md](ROADMAP.md) | See current priorities |
-| Debug Lisp parens | [LISP-DEBUGGING-GUIDE.md](LISP-DEBUGGING-GUIDE.md) | Binary search + structural tracing |
-| Run tests | [TESTING.md](TESTING.md) | `./tests/run-validation-tests.sh` |
-| Add test | [TESTING.md](TESTING.md) | Add to `tests/` with `# STARTER` tag |
-| Validate syntax | | `./cns-validate examples/file.cns` |
+| Task | Command | Notes |
+|------|---------|-------|
+| Run all tests | `./test-all-examples.sh` | Expect 28/32 pass |
+| Run validation tests | `./tests/run-validation-tests.sh` | Should be 100% |
+| Validate single file | `./cns-validate file.cns` | Check syntax |
+| Run with trace mode | `./cns-run --trace file.cns` | Debug execution |
+| Run with strict mode | `./cns-run --strict file.cns` | NIL safety |
+| Load interpreter | `sbcl --load src/cns.lisp` | Interactive testing |
+
+### Adding New Features
+
+**Standard Process:**
+1. Design the syntax (check SYNTAX.md for consistency)
+2. Add to interpreter (`src/cns.lisp`)
+3. Add to validator (`src/cns-validator.lisp`)
+4. Create examples (`examples/features/`)
+5. Write tests
+6. Update SYNTAX.md
+7. Update ROADMAP.md if it's a major feature
 
 ### Documentation Standards
 
-**For session docs** (like PHASE-1-REORGANIZATION-COMPLETE.md):
-- Clear "Status" section (In Progress / Complete)
-- "What", "Why", "How" structure
-- Code examples and test results
-- Note breaking changes
-- Update this README with link
+**Critical docs** (keep forever):
+- ROADMAP.md - Development direction
+- TESTING.md - Test infrastructure
+- LISP-DEBUGGING-GUIDE.md - Debugging methodology
+- QUICK-REFERENCE-*.md - Language features
 
-**For feature docs** (like QUICK-REFERENCE.md):
-- Quick reference at top
-- Examples of working patterns
-- Common mistakes with ❌ Wrong / ✅ Right
-- Known limitations clearly documented
+**Session docs** (archive when complete):
+- Move to `docs/archive/2025-11/` when work is done
+- Keep only if historical context is valuable
+- Delete if information is incorporated elsewhere
 
 ---
 
-## Archived Work
+## Next Steps (v1.8.0)
 
-**Automation agent experiments** (paused, see docs/archive/):
-- Built language detection and automation prototypes
-- Determined CNS needed better LLM tooling first
-- Shifted focus to LLM-first improvements (Phase C)
-- Now complete with trace mode and validation
+### Immediate Priorities
+1. **CLI Arguments** - ARGS[0], ARG("--flag", "default"), HAS_FLAG
+2. **Process Management** - Background jobs, signals, wait
+3. **File System** - LIST_FILES, DELETE, RENAME, metadata
 
-**If/Otherwise fix** (completed, integrated into v1.7.0):
-- Both story and function interpreters now support If/Otherwise correctly
-- Documented in QUICK-REFERENCE-IF-OTHERWISE.md
-- Session summaries deleted (work complete)
+### Implementation Approach
+- Follow existing patterns (see git/shell/file operations)
+- Add comprehensive examples
+- Test with LLMs during development
+- Update SYNTAX.md immediately
+- Maintain 100% backward compatibility
 
 ---
 
-## Repository Context
+## Project Structure
 
-This `/docs/development/` directory is part of a **Phase 1-2 reorganization** to optimize CNS for LLM-first development:
+```
+docs/development/
+├── README.md                          ← You are here
+├── ROADMAP.md                         ← Development timeline
+├── TESTING.md                         ← Test infrastructure
+├── LISP-DEBUGGING-GUIDE.md           ← Debugging guide
+└── QUICK-REFERENCE-IF-OTHERWISE.md   ← Language feature guide
+```
 
-- **Phase 1** (Complete): Repository cleanup (10MB → 3.3MB)
-- **Phase 2** (Complete): Examples consolidation (92 → 42 files)
-- **Phase 3** (Current): Documentation restructure
-- **Phase 4** (Next): Final validation and commit
-
-See PHASE-1 and PHASE-2 docs for complete reorganization context.
+**Archived**: All old session notes moved to `docs/archive/2025-11/`
 
 ---
 
 ## Related Documentation
 
-- **User guides**: `/docs/guides/` - Feature guides for CNS users
-- **Language reference**: `/docs/language/` - Syntax and patterns (Phase 3)
-- **Installation**: `/docs/install/` - Setup guides
-- **Archive**: `/docs/archive/` - Historical experiments
+- **Language Reference**: `/SYNTAX.md` - Complete CNS reference (830 lines)
+- **User Guides**: `/docs/guides/` - LLM integration, trace mode, agents
+- **Installation**: `/docs/install/` - Dependencies and setup
+- **Examples**: `/examples/` - 35+ working programs
+- **Archive**: `/docs/archive/` - Historical session notes
 
 ---
 
-*Last Updated: 2025-11-02*  
-*Files: 9 essential docs (down from 19)*  
-*Focus: LLM-readable development guides*
+*Maintained by: CNS Development Team*  
+*Last Major Update: November 3, 2025*  
+*Current Version: v1.7.0 (Production Ready)*
