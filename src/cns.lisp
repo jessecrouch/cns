@@ -2490,7 +2490,161 @@ World' and ' rest'"
           (progn
             (when verbose
               (format t "  Effect: SHELL (invalid syntax)~%"))
-            t)))))
+              t)))))
+
+;; ADD TO LIST effect helper
+(defun can-handle-add-to-list-effect-p (trimmed)
+  "Check if TRIMMED is an ADD TO LIST effect."
+  (search " TO LIST " (string-upcase trimmed)))
+
+(defun handle-add-to-list-effect (trimmed env verbose)
+  "Execute ADD TO LIST effect."
+  (when (can-handle-add-to-list-effect-p trimmed)
+    (let* ((to-pos (search " TO LIST " (string-upcase trimmed)))
+           (value-expr (trim (subseq trimmed 0 to-pos)))
+           (list-var (trim (subseq trimmed (+ to-pos 9))))
+           ;; Handle "ADD" prefix if present
+           (clean-value-expr (if (starts-with (string-upcase value-expr) "ADD ")
+                                (trim (subseq value-expr 4))
+                                value-expr))
+           (value (eval-expr clean-value-expr env))
+           (current-list (gethash list-var env)))
+      (if current-list
+          (setf (gethash list-var env) (append current-list (list value)))
+          (setf (gethash list-var env) (list value)))
+      (when verbose
+        (format t "  Effect: Added ~A to list ~A~%" value list-var))
+      t)))
+
+;; REMOVE FROM LIST effect helper
+(defun can-handle-remove-from-list-effect-p (trimmed)
+  "Check if TRIMMED is a REMOVE FROM LIST effect."
+  (search " FROM LIST " (string-upcase trimmed)))
+
+(defun handle-remove-from-list-effect (trimmed env verbose)
+  "Execute REMOVE FROM LIST effect."
+  (when (can-handle-remove-from-list-effect-p trimmed)
+    (let* ((from-pos (search " FROM LIST " (string-upcase trimmed)))
+           (value-expr (trim (subseq trimmed 0 from-pos)))
+           (list-var (trim (subseq trimmed (+ from-pos 11))))
+           ;; Handle "REMOVE" prefix if present
+           (clean-value-expr (if (starts-with (string-upcase value-expr) "REMOVE ")
+                                (trim (subseq value-expr 7))
+                                value-expr))
+           (value (eval-expr clean-value-expr env))
+           (current-list (gethash list-var env)))
+      (when current-list
+        (setf (gethash list-var env) (remove value current-list :test #'equal)))
+      (when verbose
+        (format t "  Effect: Removed ~A from list ~A~%" value list-var))
+      t)))
+
+;; HTTP GET effect helper
+(defun can-handle-http-get-effect-p (trimmed)
+  "Check if TRIMMED is an HTTP GET effect."
+  (starts-with (string-upcase trimmed) "HTTP GET"))
+
+(defun handle-http-get-effect (trimmed env verbose)
+  "Execute HTTP GET effect."
+  (when (can-handle-http-get-effect-p trimmed)
+    (let* ((rest (trim (subseq trimmed 8)))
+           (rest-upper (string-upcase rest))
+           ;; Handle both "from" at start and " from " in middle
+           (from-pos (or (and (starts-with rest-upper "FROM ") 0)
+                        (search " FROM " rest-upper)))
+           (into-pos (search " INTO " rest-upper)))
+      (when (and (numberp from-pos) into-pos)
+        (let* ((from-skip (if (= from-pos 0) 5 6))  ; "FROM " vs " FROM "
+               (url-expr (trim (subseq rest (+ from-pos from-skip) into-pos)))
+               (target-var (trim (subseq rest (+ into-pos 6))))
+               ;; Evaluate URL expression to resolve variables
+               (url (eval-expr url-expr env)))
+          ;; Remove quotes from URL if present
+          (when (and (stringp url) (> (length url) 1)
+                    (char= (char url 0) #\")
+                    (char= (char url (1- (length url))) #\"))
+            (setf url (subseq url 1 (1- (length url)))))
+          
+          (when verbose
+            (format t "  Effect: HTTP GET from ~A~%" url))
+          
+          (handler-case
+              (multiple-value-bind (status headers body)
+                  (http-request url :method "GET")
+                ;; Store response in target variable
+                (setf (gethash target-var env) body)
+                ;; Store metadata in special variables
+                (setf (gethash "HTTP_STATUS" env) status)
+                (setf (gethash "HTTP_HEADERS" env) headers)
+                (when verbose
+                  (format t "  Effect: HTTP GET completed (status ~D, ~A bytes)~%" 
+                          status (length body)))
+                t)
+            (error (e)
+              (setf (gethash target-var env) "")
+              (when verbose
+                (format t "  Effect: HTTP GET failed: ~A~%" e))
+              t)))))))
+
+;; HTTP POST effect helper
+(defun can-handle-http-post-effect-p (trimmed)
+  "Check if TRIMMED is an HTTP POST effect."
+  (starts-with (string-upcase trimmed) "HTTP POST"))
+
+(defun handle-http-post-effect (trimmed env verbose)
+  "Execute HTTP POST effect."
+  (when (can-handle-http-post-effect-p trimmed)
+    (let* ((rest (trim (subseq trimmed 9)))
+           (rest-upper (string-upcase rest))
+           ;; Handle both "to" at start and " to " in middle
+           (to-pos (or (and (starts-with rest-upper "TO ") 0)
+                      (search " TO " rest-upper)))
+           (with-pos (search " WITH " rest-upper))
+           (into-pos (search " INTO " rest-upper)))
+      (when (and (numberp to-pos) into-pos)
+        (let* ((to-skip (if (= to-pos 0) 3 4))  ; "TO " vs " TO "
+               (url-expr (if with-pos
+                            (trim (subseq rest (+ to-pos to-skip) with-pos))
+                            (trim (subseq rest (+ to-pos to-skip) into-pos))))
+               (body-expr (when with-pos
+                           (trim (subseq rest (+ with-pos 6) into-pos))))
+               (target-var (trim (subseq rest (+ into-pos 6))))
+               ;; Evaluate expressions
+               (url (eval-expr url-expr env))
+               (body (when body-expr (eval-expr body-expr env))))
+          
+          ;; Remove quotes from URL if present
+          (when (and (stringp url) (> (length url) 1)
+                    (char= (char url 0) #\")
+                    (char= (char url (1- (length url))) #\"))
+            (setf url (subseq url 1 (1- (length url)))))
+          
+          ;; Remove quotes from body if it's a literal string
+          (when (and body (stringp body) (> (length body) 1)
+                    (char= (char body 0) #\")
+                    (char= (char body (1- (length body))) #\"))
+            (setf body (subseq body 1 (1- (length body)))))
+          
+          (when verbose
+            (format t "  Effect: HTTP POST to ~A~%" url))
+          
+          (handler-case
+              (multiple-value-bind (status headers response-body)
+                  (http-request url :method "POST" :body body)
+                ;; Store response in target variable
+                (setf (gethash target-var env) response-body)
+                ;; Store metadata
+                (setf (gethash "HTTP_STATUS" env) status)
+                (setf (gethash "HTTP_HEADERS" env) headers)
+                (when verbose
+                  (format t "  Effect: HTTP POST completed (status ~D, ~A bytes)~%" 
+                          status (length response-body)))
+                t)
+            (error (e)
+              (setf (gethash target-var env) "")
+              (when verbose
+                (format t "  Effect: HTTP POST failed: ~A~%" e))
+              t)))))))
 
 ;;; ============================================================================
 ;;; Expression Evaluator - Helper Functions
@@ -3308,7 +3462,11 @@ World' and ' rest'"
                 (format t "  Effect: Network read (no stream available)~%")))))
       
       ;; HTTP GET: Effect: HTTP GET from "url" into variable  
-      ((starts-with (string-upcase trimmed) "HTTP GET")
+      ((can-handle-http-get-effect-p trimmed)
+       (handle-http-get-effect trimmed env verbose))
+      
+      ;; OLD HTTP GET CODE - now in helper
+      ((nil
        (let* ((rest (trim (subseq trimmed 8)))
               (rest-upper (string-upcase rest))
               ;; Handle both "from" at start and " from " in middle
@@ -3347,7 +3505,11 @@ World' and ' rest'"
                    (format t "  Effect: HTTP GET failed: ~A~%" e))))))))
       
       ;; HTTP POST: Effect: HTTP POST to "url" with body_var into response_var
-      ((starts-with (string-upcase trimmed) "HTTP POST")
+      ((can-handle-http-post-effect-p trimmed)
+       (handle-http-post-effect trimmed env verbose))
+      
+      ;; OLD HTTP POST CODE - now in helper
+      ((nil
        (let* ((rest (trim (subseq trimmed 9)))
               (rest-upper (string-upcase rest))
               ;; Handle both "to" at start and " to " in middle
@@ -3565,37 +3727,12 @@ World' and ' rest'"
                     (format t "  Effect: Send (no stream available)~%")))))))))
       
        ;; List operation: ADD {value} TO LIST {list_var}
-       ((search " TO LIST " (string-upcase trimmed))
-        (let* ((to-pos (search " TO LIST " (string-upcase trimmed)))
-               (value-expr (trim (subseq trimmed 0 to-pos)))
-               (list-var (trim (subseq trimmed (+ to-pos 9))))
-               ;; Handle "ADD" prefix if present
-               (clean-value-expr (if (starts-with (string-upcase value-expr) "ADD ")
-                                    (trim (subseq value-expr 4))
-                                    value-expr))
-               (value (eval-expr clean-value-expr env))
-               (current-list (gethash list-var env)))
-          (if current-list
-              (setf (gethash list-var env) (append current-list (list value)))
-              (setf (gethash list-var env) (list value)))
-          (when verbose
-            (format t "  Effect: Added ~A to list ~A~%" value list-var))))
+       ((can-handle-add-to-list-effect-p trimmed)
+        (handle-add-to-list-effect trimmed env verbose))
       
        ;; List operation: REMOVE {value} FROM LIST {list_var}
-       ((search " FROM LIST " (string-upcase trimmed))
-        (let* ((from-pos (search " FROM LIST " (string-upcase trimmed)))
-               (value-expr (trim (subseq trimmed 0 from-pos)))
-               (list-var (trim (subseq trimmed (+ from-pos 11))))
-               ;; Handle "REMOVE" prefix if present
-               (clean-value-expr (if (starts-with (string-upcase value-expr) "REMOVE ")
-                                    (trim (subseq value-expr 7))
-                                    value-expr))
-               (value (eval-expr clean-value-expr env))
-               (current-list (gethash list-var env)))
-          (when current-list
-            (setf (gethash list-var env) (remove value current-list :test #'equal)))
-          (when verbose
-            (format t "  Effect: Removed ~A from list ~A~%" value list-var))))
+       ((can-handle-remove-from-list-effect-p trimmed)
+        (handle-remove-from-list-effect trimmed env verbose))
       
        ;; Socket: Close socket (REAL implementation)
        ((starts-with (string-upcase trimmed) "CLOSE SOCKET")
