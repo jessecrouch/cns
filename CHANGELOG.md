@@ -17,6 +17,52 @@ All notable changes to the CNS (Cause-and-Effect Narrative Script) language.
 
 ---
 
+## [1.8.0] - 2025-11-03
+
+### Changed - Major Refactoring
+- **Interpreter architecture overhaul**: Extracted 15 effect handlers from monolithic `apply-effect` function
+- Improved code organization and maintainability (+1050 helper lines, -950 inline lines)
+- Enhanced readability for future contributors
+
+### Extracted Effect Handlers
+- **File operations**: FIND (recursive file discovery with glob patterns)
+- **Text search**: GREP (regex content search across files)
+- **Shell integration**: SHELL command execution with I/O capture
+- **Version control**: GIT operations (9 subcommands: CLONE, STATUS, CHECKOUT, DIFF, ADD, COMMIT, BRANCH, MERGE, LOG)
+- **Data export**: CSV WRITE with headers and formatting
+- **Database**: DB CONNECT, DB EXECUTE, DB QUERY (SQLite integration)
+- **Networking**: Socket operations (CREATE, BIND, ACCEPT, READ/WRITE, SEND, CLOSE)
+- **HTTP**: GET/POST requests (previously extracted)
+- **Data structures**: List operations (previously extracted)
+
+### Fixed
+- Critical syntax error: Missing closing parentheses in database and socket helper functions
+- Function load order ensuring all symbols defined before use
+
+### Quality Assurance
+- **100% test pass rate**: All 37 tests passing (9 core, 23 features, 1 advanced, 4 LLM suite)
+- Zero regressions from refactoring
+- All feature areas validated and working
+
+### Developer Experience
+- Cleaner codebase structure for contributors
+- Each effect type now has focused, documented helper functions
+- Easier to add new effects following established pattern
+- Improved debugging with isolated effect handlers
+
+### Maintenance
+- Removed stale backup files (`cns.lisp.backup`, `cns.lisp.new2`)
+- Enhanced `.gitignore` for backup, temp, and database files
+- Cleaner repository structure
+
+### Impact
+- Foundation for future scalability
+- Easier onboarding for new contributors
+- Maintains 100% backward compatibility
+- No API changes or user-facing modifications
+
+---
+
 ## [1.7.0] - 2025-11-01
 
 ### Added
@@ -236,4 +282,4 @@ All features are additive. Existing programs continue to work without modificati
 
 **Maintained by:** CNS Development Team  
 **License:** MIT  
-**Last Updated:** November 2, 2025
+**Last Updated:** November 3, 2025
