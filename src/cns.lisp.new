@@ -72,12 +72,6 @@
 ;;; Helper Functions
 ;;; ============================================================================
 
-(defun quoted-string-p (str)
-  "Check if STR is a quoted string (starts and ends with double quotes)."
-  (and (> (length str) 1)
-       (char= (char str 0) #\")
-       (char= (char str (1- (length str))) #\")))
-
 (defun split-string (str delimiter)
   "Split string by delimiter into list."
   (let ((result '())
@@ -1590,12 +1584,6 @@ World' and ' rest'"
                                   (incf i))))
                    (coerce result 'string))))
               
-              ;; Filepath literal: /path/to/file.txt (absolute paths starting with /)
-              ;; This prevents filepaths from being split on operators like - or .
-              ((and (> (length trimmed) 0)
-                    (char= (char trimmed 0) #\/))
-               trimmed)
-              
               ;; Environment variable: ENV("VAR_NAME") or ENV("VAR_NAME", "default") (MUST come before function call!)
                ((starts-with (string-upcase trimmed) "ENV(")
                 (let* ((rest (subseq trimmed 4))
@@ -1819,23 +1807,16 @@ World' and ' rest'"
              ;; ========================================================================
              ;; COMPARISON OPERATORS - Must come BEFORE arithmetic operators!
              ;; This allows "n % 2 = 0" to be parsed as comparison, not modulo then error
-             ;; BUT: Don't match operators inside quoted strings
              ;; ========================================================================
              
            ;; Comparison: n ≤ 1 (less than or equal, Unicode) - BEFORE < check
-             ((and (search "≤" trimmed)
-                   (not (and (> (length trimmed) 1)
-                            (char= (char trimmed 0) #\")
-                            (char= (char trimmed (1- (length trimmed))) #\"))))
+             ((search "≤" trimmed)
               (let ((parts (split-string trimmed #\≤)))
                 (<= (eval-expr (trim (car parts)) env)
                     (eval-expr (trim (cadr parts)) env))))
              
              ;; Comparison: n <= 1 (less than or equal, ASCII) - BEFORE < check
-             ((and (search "<=" trimmed)
-                   (not (and (> (length trimmed) 1)
-                            (char= (char trimmed 0) #\")
-                            (char= (char trimmed (1- (length trimmed))) #\"))))
+             ((search "<=" trimmed)
               (let* ((pos (search "<=" trimmed))
                      (left (subseq trimmed 0 pos))
                      (right (subseq trimmed (+ pos 2))))
@@ -1843,19 +1824,13 @@ World' and ' rest'"
                     (eval-expr (trim right) env))))
              
              ;; Comparison: n ≥ 1 (greater than or equal, Unicode) - BEFORE > check
-             ((and (search "≥" trimmed)
-                   (not (and (> (length trimmed) 1)
-                            (char= (char trimmed 0) #\")
-                            (char= (char trimmed (1- (length trimmed))) #\"))))
+             ((search "≥" trimmed)
               (let ((parts (split-string trimmed #\≥)))
                 (>= (eval-expr (trim (car parts)) env)
                     (eval-expr (trim (cadr parts)) env))))
              
              ;; Comparison: n >= 1 (greater than or equal, ASCII) - BEFORE > check
-             ((and (search ">=" trimmed)
-                   (not (and (> (length trimmed) 1)
-                            (char= (char trimmed 0) #\")
-                            (char= (char trimmed (1- (length trimmed))) #\"))))
+             ((search ">=" trimmed)
               (let* ((pos (search ">=" trimmed))
                      (left (subseq trimmed 0 pos))
                      (right (subseq trimmed (+ pos 2))))
@@ -1863,29 +1838,20 @@ World' and ' rest'"
                     (eval-expr (trim right) env))))
            
            ;; Comparison: n > 1 (must come AFTER >= check)
-            ((and (position #\> trimmed)
-                  (not (and (> (length trimmed) 1)
-                           (char= (char trimmed 0) #\")
-                           (char= (char trimmed (1- (length trimmed))) #\"))))
+            ((position #\> trimmed)
              (let ((parts (split-string trimmed #\>)))
                (> (eval-expr (trim (car parts)) env)
                   (eval-expr (trim (cadr parts)) env))))
             
             ;; Comparison: n < 1 (must come AFTER <= check)
-            ((and (position #\< trimmed)
-                  (not (and (> (length trimmed) 1)
-                           (char= (char trimmed 0) #\")
-                           (char= (char trimmed (1- (length trimmed))) #\"))))
+            ((position #\< trimmed)
              (let ((parts (split-string trimmed #\<)))
                (< (eval-expr (trim (car parts)) env)
                   (eval-expr (trim (cadr parts)) env))))
             
              ;; Comparison: n == 1 (double equals - MUST come before single =)
                ;; Handles both numeric and boolean comparisons
-               ((and (search "==" trimmed)
-                     (not (and (> (length trimmed) 1)
-                              (char= (char trimmed 0) #\")
-                              (char= (char trimmed (1- (length trimmed))) #\"))))
+               ((search "==" trimmed)
                 (let* ((pos (search "==" trimmed))
                        (left-val (eval-expr (trim (subseq trimmed 0 pos)) env))
                        (right-val (eval-expr (trim (subseq trimmed (+ pos 2))) env)))
@@ -1897,10 +1863,7 @@ World' and ' rest'"
              
              ;; Comparison: n != 1 (not equal with exclamation)
                ;; Handles both numeric and boolean comparisons
-               ((and (search "!=" trimmed)
-                     (not (and (> (length trimmed) 1)
-                              (char= (char trimmed 0) #\")
-                              (char= (char trimmed (1- (length trimmed))) #\"))))
+               ((search "!=" trimmed)
                 (let* ((pos (search "!=" trimmed))
                        (left-val (eval-expr (trim (subseq trimmed 0 pos)) env))
                        (right-val (eval-expr (trim (subseq trimmed (+ pos 2))) env)))
@@ -1912,10 +1875,7 @@ World' and ' rest'"
              
              ;; Comparison: n ≠ 1 (not equal)
                ;; Handles both numeric and boolean comparisons
-               ((and (search "≠" trimmed)
-                     (not (and (> (length trimmed) 1)
-                              (char= (char trimmed 0) #\")
-                              (char= (char trimmed (1- (length trimmed))) #\"))))
+               ((search "≠" trimmed)
                 (let* ((parts (split-string trimmed #\≠))
                        (left-val (eval-expr (trim (car parts)) env))
                        (right-val (eval-expr (trim (cadr parts)) env)))
@@ -1929,9 +1889,6 @@ World' and ' rest'"
               ;; Make sure = is not part of <=, >=, ==, "becomes", " AND ", or " OR "
               ;; Handles both numeric and boolean comparisons
               ((and (position #\= trimmed)
-                    (not (and (> (length trimmed) 1)
-                             (char= (char trimmed 0) #\")
-                             (char= (char trimmed (1- (length trimmed))) #\")))
                     (not (search "==" trimmed))
                     (not (search "!=" trimmed))
                     (not (search "<=" trimmed))
@@ -1951,36 +1908,17 @@ World' and ' rest'"
              ;; ========================================================================
              ;; ARITHMETIC OPERATORS - Must come AFTER comparisons but BEFORE literals!
              ;; This allows "3 * n" to work while "n % 2 = 0" is handled as comparison
-             ;; BUT: Don't match operators inside quoted strings like "YYYY-MM-DD"
              ;; ========================================================================
              
              ;; Arithmetic: multiplication (n * 3 or 3 * n both work now!)
-            ((and (search "*" trimmed)
-                  ;; Make sure it's not a quoted string
-                  (not (quoted-string-p trimmed)))
+            ((search "*" trimmed)
              (let ((parts (split-string trimmed #\*)))
                (* (eval-expr (trim (car parts)) env)
                   (eval-expr (trim (cadr parts)) env))))
             
             ;; Arithmetic: subtraction (n - 1 or 10 - n both work!)
             ;; BUT: Don't match negative numbers like "-42" (minus at start with no left operand)
-            ;; AND: Don't match inside quoted strings like "YYYY-MM-DD"
-            ;; AND: Don't match in complex expressions like FORMAT TIME ... WITH "..."
-            ;; AND: Don't match in filepaths like "/tmp/cns-test.txt"
             ((and (search "-" trimmed)
-                  ;; Make sure it's not a quoted string
-                  (not (and (> (length trimmed) 1)
-                           (char= (char trimmed 0) #\")
-                           (char= (char trimmed (1- (length trimmed))) #\")))
-                  ;; Skip if it looks like a filepath (starts with /)
-                  (not (and (> (length trimmed) 0)
-                           (char= (char trimmed 0) #\/)))
-                  ;; Skip if it starts with a keyword that might contain operators in arguments
-                  (not (starts-with (string-upcase trimmed) "FORMAT TIME "))
-                  (not (starts-with (string-upcase trimmed) "ADD DAYS "))
-                  (not (starts-with (string-upcase trimmed) "ADD HOURS "))
-                  (not (starts-with (string-upcase trimmed) "ADD MINUTES "))
-                  (not (starts-with (string-upcase trimmed) "REPLACE "))
                   ;; Make sure there's something before the minus sign (not just whitespace)
                   (let ((minus-pos (position #\- trimmed)))
                     (and minus-pos
@@ -2007,21 +1945,13 @@ World' and ' rest'"
                                   values)))))
             
             ;; Arithmetic: division (n / 2 or 20 / n both work!)
-            ((and (search "/" trimmed)
-                  ;; Make sure it's not a quoted string
-                  (not (and (> (length trimmed) 1)
-                           (char= (char trimmed 0) #\")
-                           (char= (char trimmed (1- (length trimmed))) #\"))))
+            ((search "/" trimmed)
              (let ((parts (split-string trimmed #\/)))
                (floor (/ (eval-expr (trim (car parts)) env)
                          (eval-expr (trim (cadr parts)) env)))))
             
              ;; Arithmetic: modulo (n % 2 or 10 % n both work!)
-             ((and (search "%" trimmed)
-                   ;; Make sure it's not a quoted string
-                   (not (and (> (length trimmed) 1)
-                            (char= (char trimmed 0) #\")
-                            (char= (char trimmed (1- (length trimmed))) #\"))))
+             ((search "%" trimmed)
               (let ((parts (split-string trimmed #\%)))
                 (mod (eval-expr (trim (car parts)) env)
                      (eval-expr (trim (cadr parts)) env))))

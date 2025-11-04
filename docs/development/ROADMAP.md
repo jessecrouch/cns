@@ -1,9 +1,25 @@
 # CNS Development Roadmap
 
-**Last Updated:** November 1, 2025  
+**Last Updated:** November 3, 2025  
 **Current Version:** v1.7.0 - File Search Operations  
 **Current Coverage:** 65% of general-purpose language capabilities  
 **Development Velocity:** 10x faster than original plan (7 releases in 6 days)
+
+## ⚠️ CRITICAL DECISION (Nov 3, 2025)
+
+**Phase D development is ON HOLD for architecture refactoring.**
+
+The interpreter has outgrown its initial single-pass string-parsing architecture. Before adding more features, we need to refactor the core `eval-expr` and `apply-effect` functions to:
+- Extract helper predicates (eliminate code duplication)
+- Build explicit operator precedence table
+- Reduce "guard explosion" on every operator
+- Make adding new features easier and safer
+
+**Timeline:** 2-4 weeks incremental refactoring  
+**Approach:** Surgical, test-driven, one feature at a time  
+**Blocking:** All Phase D features (CLI args, process management, etc.)
+
+See "⚠️ CRITICAL: Architecture Refactoring" section below for details.
 
 ---
 
@@ -92,10 +108,107 @@
 - v1.7.0: File search (FIND) + content search (GREP)
 - LLM-First Improvements: Error messages, validation, strict mode, trace mode, documentation
 
-### 🚧 Next Steps (Phase D Planning)
+### ⚠️ CRITICAL: Architecture Refactoring (PRIORITY INTERRUPT)
+
+**Decision Date:** November 3, 2025  
+**Status:** 🔴 BLOCKING - Must be addressed before Phase D features  
+**Timeline:** 2-4 weeks incremental refactoring
+
+#### The Problem
+
+The interpreter has **outgrown its initial architecture**. Two "god functions" (`eval-expr` at 562 lines and `apply-effect` at 871 lines) contain 31% of the entire codebase and use order-dependent pattern matching that makes every new feature harder to add.
+
+**Symptoms we're experiencing:**
+- Order of pattern matching matters critically (filepaths broke because of operator precedence)
+- Every operator needs 3-8 guards to avoid false matches
+- Adding new operators requires understanding all 50+ existing patterns
+- "Guard explosion" - new constructs require updating ALL operators
+- No explicit precedence table (precedence is implicit in code order)
+
+**Grade:** C+ (works but not maintainable)  
+**Root cause:** Single-pass string-munching without tokenization
+
+#### Required Refactoring (Incremental, Test-Driven)
+
+**⚠️ CRITICAL RULE: This must be done SURGICALLY**
+- Run tests after EVERY change
+- Verify one feature at a time
+- Commit working code frequently
+- Never break existing functionality
+- If tests fail, revert and try smaller steps
+
+**Week 1: Extract Helper Predicates (4-6 hours)**
+```lisp
+(defun quoted-string-p (str) ...)
+(defun filepath-p (str) ...)
+(defun datetime-expr-p (str) ...)
+(defun should-skip-operator-p (str) ...)
+```
+
+**Action items:**
+1. Create helper functions for common guards
+2. Replace all duplicated guard code with function calls
+3. Run full test suite after each extraction
+4. Document each helper function clearly
+
+**Week 2-3: Extract Operator Handlers (8-16 hours)**
+```lisp
+(defun try-binary-operator (trimmed op-char op-fn env) ...)
+(defun eval-arithmetic (op left right env) ...)
+(defun eval-comparison (op left right env) ...)
+```
+
+**Action items:**
+1. Extract arithmetic operators into helper function
+2. Test arithmetic still works (run all examples)
+3. Extract comparison operators into helper function
+4. Test comparisons still work (run all examples)
+5. Verify all 36 tests still pass
+
+**Week 3-4: Build Precedence Table (16-24 hours)**
+```lisp
+(defvar *binary-operators*
+  '((#\* . (:precedence 40 :fn * :name "multiplication"))
+    (#\+ . (:precedence 30 :fn + :name "addition"))
+    (#\= . (:precedence 10 :fn equal :name "equality"))
+    ...))
+```
+
+**Action items:**
+1. Define operator metadata table with explicit precedence
+2. Implement precedence-based operator matching
+3. Migrate one operator at a time to new system
+4. Run tests after EACH operator migration
+5. Document the precedence levels clearly
+
+**Success Criteria:**
+- All 36 tests continue to pass
+- Adding new operator takes 2 minutes instead of 30
+- Precedence is explicit and documented
+- No duplicated guard logic
+- Code is more maintainable
+
+**Future (Month 3+): Full Tokenizer/Parser Rewrite (40-80 hours)**
+
+Only after the above is stable and all tests pass:
+- Build proper tokenizer (converts source to tokens)
+- Build AST-based parser (tokens to abstract syntax tree)
+- Separate evaluator (evaluates AST)
+- Better error messages with position tracking
+
+**See detailed guides:**
+- `docs/development/ARCHITECTURE-CRITIQUE.md` - Full analysis
+- `docs/development/REFACTORING-GUIDE.md` - Concrete code examples
+- `docs/development/CRITIQUE-SUMMARY.md` - Executive summary
+- `docs/development/ARCHITECTURE-COMPARISON.txt` - Visual diagrams
+
+---
+
+### 🚧 Next Steps (Phase D - ON HOLD until refactoring complete)
 
 #### v1.8.0: CLI Arguments & Process Management (3-5 days)
 **Goal:** Complete command-line tool capabilities
+**Status:** ⏸️ PAUSED - Architecture refactoring must complete first
 
 **Features:**
 1. **Command-line arguments**

@@ -1,0 +1,174 @@
+# VISUAL COMPARISON: Current vs. Better Architecture
+
+## CURRENT ARCHITECTURE
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         INPUT: "3 * n + 5"                      │
+└─────────────────────────────────────────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                        eval-expr (562 lines)                    │
+│  ┌───────────────────────────────────────────────────────────┐ │
+│  │ Try pattern 1: String literal? (lines 1551-1585)          │ │
+│  │ Try pattern 2: Filepath? (lines 1587-1591)                │ │
+│  │ Try pattern 3: ENV()? (lines 1593-1611)                   │ │
+│  │ Try pattern 4: ARG()? (lines 1613-1650)                   │ │
+│  │ Try pattern 5: Function call? (lines ~1680-1700)          │ │
+│  │ Try pattern 6: SQRT? (lines 1718-1724)                    │ │
+│  │ Try pattern 7: POW? (lines 1726-1739)                     │ │
+│  │ Try pattern 8: ABS? (lines 1741-1747)                     │ │
+│  │ ... (40+ more patterns) ...                               │ │
+│  │ Try pattern 50: Variable lookup (line ~2050)              │ │
+│  └───────────────────────────────────────────────────────────┘ │
+│                                                                 │
+│  Problem: Each pattern needs guards to avoid matching wrong    │
+│  things. Adding pattern 51 requires updating patterns 1-50.    │
+└─────────────────────────────────────────────────────────────────┘
+                                 │
+                                 ▼
+                            RESULT: 8
+
+
+## BETTER ARCHITECTURE (Multi-Phase)
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         INPUT: "3 * n + 5"                      │
+└─────────────────────────────────────────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    PHASE 1: TOKENIZER (100 lines)               │
+│  ┌───────────────────────────────────────────────────────────┐ │
+│  │ Read chars: '3', ' ', '*', ' ', 'n', ' ', '+', ' ', '5'   │ │
+│  │ Group into tokens:                                         │ │
+│  │   - NUMBER(3)                                              │ │
+│  │   - OPERATOR(*)                                            │ │
+│  │   - IDENTIFIER(n)                                          │ │
+│  │   - OPERATOR(+)                                            │ │
+│  │   - NUMBER(5)                                              │ │
+│  └───────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    PHASE 2: PARSER (200 lines)                  │
+│  ┌───────────────────────────────────────────────────────────┐ │
+│  │ Build AST using precedence table:                         │ │
+│  │                                                             │ │
+│  │              (+)                Precedence:                │ │
+│  │             /   \               * = 40                     │ │
+│  │           (*)    5              + = 30                     │ │
+│  │          /   \                                             │ │
+│  │         3     n                                            │ │
+│  │                                                             │ │
+│  │ AST: (BINOP + (BINOP * (LIT 3) (VAR n)) (LIT 5))          │ │
+│  └───────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                   PHASE 3: EVALUATOR (50 lines)                 │
+│  ┌───────────────────────────────────────────────────────────┐ │
+│  │ Evaluate AST recursively:                                  │ │
+│  │   eval(BINOP +                                             │ │
+│  │        eval(BINOP * eval(LIT 3) eval(VAR n))               │ │
+│  │        eval(LIT 5))                                        │ │
+│  │                                                             │ │
+│  │ = eval(BINOP + eval(BINOP * 3 1) 5)     // n = 1           │ │
+│  │ = eval(BINOP + 3 5)                                        │ │
+│  │ = 8                                                        │ │
+│  └───────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+                                 │
+                                 ▼
+                            RESULT: 8
+
+
+## KEY DIFFERENCES
+
+┌──────────────────────┬─────────────────────┬──────────────────────┐
+│      ASPECT          │   CURRENT (Bad)     │   BETTER (Good)      │
+├──────────────────────┼─────────────────────┼──────────────────────┤
+│ Lines of code        │ 562 (one function)  │ 350 (3 functions)    │
+│ Complexity           │ O(n) pattern tries  │ O(log n) parsing     │
+│ Precedence           │ Implicit (order)    │ Explicit (table)     │
+│ Testability          │ Hard (end-to-end)   │ Easy (per phase)     │
+│ Debugging            │ "Which pattern?"    │ "Check AST/tokens"   │
+│ Adding operators     │ Modify 562 lines    │ Add to table         │
+│ Guard explosion      │ 8 guards per op     │ No guards needed     │
+│ Error messages       │ "undefined var"     │ "Expected + at pos"  │
+└──────────────────────┴─────────────────────┴──────────────────────┘
+
+
+## EXAMPLE: Adding New Operator "**" (exponentiation)
+
+### CURRENT APPROACH:
+1. Read all 562 lines of eval-expr
+2. Figure out where to insert (after * but before +?)
+3. Add guards to avoid matching "**" in strings, paths, etc.
+4. Hope you didn't break 50 other patterns
+5. Test everything
+
+### BETTER APPROACH:
+1. Add to precedence table: (** . 50)
+2. Add to parser: case **: return BINOP(**) 
+3. Done. 5 lines changed.
+
+
+## WHY ORDER MATTERS IN YOUR CODE (The Problem)
+
+In eval-expr, this order is CRITICAL:
+
+Position 1:  Quoted strings       → Must be first or "3 * 4" gets split
+Position 2:  Filepaths            → Must be before operators
+Position 10: Math functions       → Must be before operators  
+Position 20: Comparisons (=)      → Must be before arithmetic
+Position 30: Arithmetic (*)       → Must be before literals
+Position 40: Number literals      → Must be after operators
+Position 50: Variables            → Must be last (fallback)
+
+Adding something new? You need to understand ALL 50 positions.
+
+In multi-phase:
+- Tokenizer doesn't care about precedence
+- Parser has ONE precedence table
+- Evaluator doesn't care about syntax
+
+Each phase is independent!
+
+
+## ANALOGY: Restaurant Kitchen
+
+### YOUR CURRENT APPROACH (One Chef Does Everything):
+```
+┌──────────────────────────────────────────────────────┐
+│              Chef (eval-expr)                        │
+│                                                      │
+│  1. Check if order is dessert                       │
+│  2. Check if order is appetizer                     │
+│  3. Check if order is main course                   │
+│  4. Get ingredients from pantry                     │
+│  5. Chop vegetables                                 │
+│  6. Cook on stove                                   │
+│  7. Plate the dish                                  │
+│  8. Add garnish                                     │
+│  9. Deliver to customer                             │
+│                                                      │
+│  Problem: Chef is overwhelmed, bottleneck           │
+└──────────────────────────────────────────────────────┘
+```
+
+### BETTER APPROACH (Assembly Line):
+```
+┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌──────────┐
+│   Preparer  │→ │    Cook     │→ │   Plater    │→ │  Server  │
+│  (Tokenize) │  │   (Parse)   │  │  (Evaluate) │  │ (Return) │
+│             │  │             │  │             │  │          │
+│ Chop & prep │  │  Follow     │  │  Arrange    │  │  Deliver │
+│ ingredients │  │  recipe     │  │  on plate   │  │  result  │
+└─────────────┘  └─────────────┘  └─────────────┘  └──────────┘
+
+Each person has ONE job. Easy to train, easy to replace.
+```
+

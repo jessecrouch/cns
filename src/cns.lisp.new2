@@ -72,12 +72,6 @@
 ;;; Helper Functions
 ;;; ============================================================================
 
-(defun quoted-string-p (str)
-  "Check if STR is a quoted string (starts and ends with double quotes)."
-  (and (> (length str) 1)
-       (char= (char str 0) #\")
-       (char= (char str (1- (length str))) #\")))
-
 (defun split-string (str delimiter)
   "Split string by delimiter into list."
   (let ((result '())
@@ -1590,12 +1584,6 @@ World' and ' rest'"
                                   (incf i))))
                    (coerce result 'string))))
               
-              ;; Filepath literal: /path/to/file.txt (absolute paths starting with /)
-              ;; This prevents filepaths from being split on operators like - or .
-              ((and (> (length trimmed) 0)
-                    (char= (char trimmed 0) #\/))
-               trimmed)
-              
               ;; Environment variable: ENV("VAR_NAME") or ENV("VAR_NAME", "default") (MUST come before function call!)
                ((starts-with (string-upcase trimmed) "ENV(")
                 (let* ((rest (subseq trimmed 4))
@@ -1957,7 +1945,9 @@ World' and ' rest'"
              ;; Arithmetic: multiplication (n * 3 or 3 * n both work now!)
             ((and (search "*" trimmed)
                   ;; Make sure it's not a quoted string
-                  (not (quoted-string-p trimmed)))
+                  (not (and (> (length trimmed) 1)
+                           (char= (char trimmed 0) #\")
+                           (char= (char trimmed (1- (length trimmed))) #\"))))
              (let ((parts (split-string trimmed #\*)))
                (* (eval-expr (trim (car parts)) env)
                   (eval-expr (trim (cadr parts)) env))))
@@ -1966,15 +1956,11 @@ World' and ' rest'"
             ;; BUT: Don't match negative numbers like "-42" (minus at start with no left operand)
             ;; AND: Don't match inside quoted strings like "YYYY-MM-DD"
             ;; AND: Don't match in complex expressions like FORMAT TIME ... WITH "..."
-            ;; AND: Don't match in filepaths like "/tmp/cns-test.txt"
             ((and (search "-" trimmed)
                   ;; Make sure it's not a quoted string
                   (not (and (> (length trimmed) 1)
                            (char= (char trimmed 0) #\")
                            (char= (char trimmed (1- (length trimmed))) #\")))
-                  ;; Skip if it looks like a filepath (starts with /)
-                  (not (and (> (length trimmed) 0)
-                           (char= (char trimmed 0) #\/)))
                   ;; Skip if it starts with a keyword that might contain operators in arguments
                   (not (starts-with (string-upcase trimmed) "FORMAT TIME "))
                   (not (starts-with (string-upcase trimmed) "ADD DAYS "))

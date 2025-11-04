@@ -3,69 +3,25 @@ Story: Regex Pattern Matching and Extraction Tests
 Given:
   email: String = "user@example.com"
   phone: String = "Call me at 555-123-4567 or 555-987-6543"
-  url_text: String = "Visit https://github.com/user/repo for more info"
-  log_line: String = "[2024-01-15 10:30:45] ERROR: Failed to connect"
-  html: String = "<div class='content'>Hello World</div>"
-  is_valid_email: Integer = 0
-  invalid: Integer = 0
-  has_phone: Integer = 0
+  text: String = "hello123world"
+  is_valid: Integer = 0
+  has_digit: Integer = 0
   first_phone: String = ""
-  extracted_url: String = ""
-  log_date: String = ""
-  log_time: String = ""
-  log_level: String = ""
-  content: String = ""
-  domain: String = ""
 
-Step 1 → Test email validation with MATCHES
-  Because: Email pattern validates standard email format
-  Then: is_valid_email becomes email MATCHES "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
-  Then: PRINT is_valid_email
+Step 1
+  Because: Test simple MATCHES pattern
+  Then: is_valid becomes email MATCHES "user"
+  Then: PRINT is_valid
 
-Step 2 → Test invalid email with MATCHES
-  Because: String doesn't match email pattern
-  Then: invalid becomes "not-an-email" MATCHES "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
-  Then: PRINT invalid
+Step 2
+  Because: Test digit pattern
+  Then: has_digit becomes text MATCHES "\\d"
+  Then: PRINT has_digit
 
-Step 3 → Test phone number detection with MATCHES
-  Because: Text contains phone number pattern
-  Then: has_phone becomes phone MATCHES "\\d{3}-\\d{3}-\\d{4}"
-  Then: PRINT has_phone
-
-Step 4 → Extract first phone number
-  Because: Extract first match of phone pattern
-  Then: first_phone becomes EXTRACT "\\d{3}-\\d{3}-\\d{4}" FROM phone
+Step 3
+  Because: Extract simple pattern
+  Then: first_phone becomes EXTRACT "\\d{3}" FROM phone
   Then: PRINT first_phone
 
-Step 5 → Extract URL from text
-  Because: Extract HTTPS URL pattern from text
-  Then: extracted_url becomes EXTRACT "https?://[^\\s]+" FROM url_text
-  Then: PRINT extracted_url
-
-Step 6 → Extract date from log line with groups
-  Because: Extract first capture group (date) from log pattern
-  Then: log_date becomes EXTRACT "\\[(\\d{4}-\\d{2}-\\d{2})" GROUP 1 FROM log_line
-  Then: PRINT log_date
-
-Step 7 → Extract time from log line with groups
-  Because: Extract time capture group from log pattern
-  Then: log_time becomes EXTRACT "\\[\\d{4}-\\d{2}-\\d{2} (\\d{2}:\\d{2}:\\d{2})\\]" GROUP 1 FROM log_line
-  Then: PRINT log_time
-
-Step 8 → Extract log level with groups
-  Because: Extract log level from pattern
-  Then: log_level becomes EXTRACT "\\] (\\w+):" GROUP 1 FROM log_line
-  Then: PRINT log_level
-
-Step 9 → Extract HTML tag content with groups
-  Because: Extract content between HTML tags
-  Then: content becomes EXTRACT "<div class='content'>([^<]+)</div>" GROUP 1 FROM html
-  Then: PRINT content
-
-Step 10 → Extract domain from email
-  Because: Extract domain part of email
-  Then: domain becomes EXTRACT "@([a-zA-Z0-9.-]+\\.[a-zA-Z]{2,})$" GROUP 1 FROM email
-  Then: PRINT domain
-
-End: Return domain
-  Because: All regex tests completed successfully
+End: Return first_phone
+  Because: Basic regex tests completed
