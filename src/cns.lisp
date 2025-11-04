@@ -98,6 +98,17 @@
       (filepath-p str)
       (datetime-or-string-expr-p str)))
 
+(defun try-binary-operator (trimmed op-char op-fn env)
+  "Try to parse TRIMMED as a binary operation with OP-CHAR, applying OP-FN.
+   Returns the result if successful, NIL if operator not found or should skip."
+  (when (and (search (string op-char) trimmed)
+             (not (should-skip-operator-p trimmed)))
+    (let ((parts (split-string trimmed op-char)))
+      (when (= (length parts) 2)
+        (funcall op-fn
+                 (eval-expr (trim (car parts)) env)
+                 (eval-expr (trim (cadr parts)) env))))))
+
 (defun split-string (str delimiter)
   "Split string by delimiter into list."
   (let ((result '())
@@ -1996,12 +2007,10 @@ World' and ' rest'"
                                   values)))))
             
             ;; Arithmetic: division (n / 2 or 20 / n both work!)
-            ((and (search "/" trimmed)
-                  ;; Make sure it's not a quoted string
-                  (not (quoted-string-p trimmed)))
-             (let ((parts (split-string trimmed #\/)))
-               (floor (/ (eval-expr (trim (car parts)) env)
-                         (eval-expr (trim (cadr parts)) env)))))
+            ((let ((result (try-binary-operator trimmed #\/ 
+                                                (lambda (a b) (floor (/ a b)))
+                                                env)))
+               (when result result)))
             
              ;; Arithmetic: modulo (n % 2 or 10 % n both work!)
              ((and (search "%" trimmed)
