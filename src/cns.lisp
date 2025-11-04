@@ -388,6 +388,20 @@
                       do (princ item s)))
               ""))))))
 
+(defun can-parse-length-of-p (trimmed)
+  "Check if TRIMMED is a LENGTH_OF operation."
+  (starts-with (string-upcase trimmed) "LENGTH_OF "))
+
+(defun try-length-of (trimmed env)
+  "Parse and evaluate LENGTH_OF operation."
+  (when (can-parse-length-of-p trimmed)
+    (let* ((rest (trim (subseq trimmed 10)))
+           (val (eval-expr rest env)))
+      (cond
+        ((stringp val) (length val))
+        ((listp val) (length val))
+        (t 0)))))
+
 (defun try-comparison-simple (trimmed op-char comparison-fn env)
   "Try to parse TRIMMED as a comparison with 1-char operator (<, >, =).
    Returns (values result t) if successful, (values nil nil) if operator not found.
@@ -2473,13 +2487,8 @@ World' and ' rest'"
               (try-join trimmed env))
             
              ;; String operation: LENGTH_OF text
-             ((starts-with (string-upcase trimmed) "LENGTH_OF ")
-              (let* ((rest (trim (subseq trimmed 10)))
-                     (val (eval-expr rest env)))
-                (cond
-                  ((stringp val) (length val))
-                  ((listp val) (length val))
-                  (t 0))))
+             ((can-parse-length-of-p trimmed)
+              (try-length-of trimmed env))
             
              ;; CSV operation: CSV READ "filepath"
              ;; Returns list of maps, where each map has header keys
