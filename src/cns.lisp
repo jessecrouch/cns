@@ -403,6 +403,39 @@
         ((listp val) (length val))
         (t 0)))))
 
+(defun can-parse-csv-read-p (trimmed)
+  "Check if TRIMMED is a CSV READ operation."
+  (starts-with (string-upcase trimmed) "CSV READ "))
+
+(defun try-csv-read (trimmed env)
+  "Parse and evaluate CSV READ operation."
+  (when (can-parse-csv-read-p trimmed)
+    (let* ((rest (trim (subseq trimmed 9)))
+           (filepath (eval-expr rest env)))
+      (when (stringp filepath)
+        (handler-case
+            (with-open-file (stream filepath :direction :input :if-does-not-exist nil)
+              (if stream
+                  (let ((header-line (read-line stream nil nil))
+                        (rows '()))
+                    (when header-line
+                      (let ((headers (mapcar #'trim (split-string header-line #\,))))
+                        ;; Read each data row
+                        (loop for line = (read-line stream nil nil)
+                              while line
+                              do (let* ((values (mapcar #'trim (split-string line #\,)))
+                                        (row (make-hash-table :test #'equal)))
+                                   ;; Create map from headers to values
+                                   (loop for header in headers
+                                         for value in values
+                                         do (setf (gethash header row) value))
+                                   (push row rows)))
+                        (nreverse rows))))
+                  '()))
+          (error (e)
+            (format *error-output* "CSV READ error: ~A~%" e)
+            '()))))))
+
 (defun can-parse-format-time-p (trimmed)
   "Check if TRIMMED is a FORMAT TIME operation."
   (and (starts-with (string-upcase trimmed) "FORMAT TIME ")
@@ -2714,37 +2747,12 @@ World' and ' rest'"
              ;; String operation: LENGTH_OF text
              ((can-parse-length-of-p trimmed)
               (try-length-of trimmed env))
-            
-             ;; CSV operation: CSV READ "filepath"
-             ;; Returns list of maps, where each map has header keys
-             ((starts-with (string-upcase trimmed) "CSV READ ")
-              (let* ((rest (trim (subseq trimmed 9)))
-                     (filepath (eval-expr rest env)))
-                (when (stringp filepath)
-                  (handler-case
-                      (with-open-file (stream filepath :direction :input :if-does-not-exist nil)
-                        (if stream
-                            (let ((header-line (read-line stream nil nil))
-                                  (rows '()))
-                              (when header-line
-                                (let ((headers (mapcar #'trim (split-string header-line #\,))))
-                                  ;; Read each data row
-                                  (loop for line = (read-line stream nil nil)
-                                        while line
-                                        do (let* ((values (mapcar #'trim (split-string line #\,)))
-                                                  (row (make-hash-table :test #'equal)))
-                                             ;; Create map from headers to values
-                                             (loop for header in headers
-                                                   for value in values
-                                                   do (setf (gethash header row) value))
-                                             (push row rows)))
-                                  (nreverse rows))))
-                            '()))
-                    (error (e)
-                      (format *error-output* "CSV READ error: ~A~%" e)
-                      '())))))
-            
-             ;; Date/Time: FORMAT TIME value WITH "format"
+             
+              ;; CSV operation: CSV READ "filepath"
+              ((can-parse-csv-read-p trimmed)
+               (try-csv-read trimmed env))
+             
+              ;; Date/Time: FORMAT TIME value WITH "format"
              ((can-parse-format-time-p trimmed)
               (try-format-time trimmed env))
             
