@@ -277,6 +277,23 @@
   (when (can-parse-trim-p trimmed)
     (try-string-operation trimmed 5 #'trim "" env)))
 
+(defun can-parse-starts-with-p (trimmed)
+  "Check if TRIMMED is a STARTS WITH operation."
+  (search " STARTS WITH " (string-upcase trimmed)))
+
+(defun try-starts-with (trimmed env)
+  "Parse and evaluate STARTS WITH operation."
+  (when (can-parse-starts-with-p trimmed)
+    (let* ((pos (search " STARTS WITH " (string-upcase trimmed)))
+           (str-expr (trim (subseq trimmed 0 pos)))
+           (prefix-expr (trim (subseq trimmed (+ pos 13))))
+           (str-val (eval-expr str-expr env))
+           (prefix-val (eval-expr prefix-expr env)))
+      (if (and (stringp str-val) (stringp prefix-val))
+          (and (>= (length str-val) (length prefix-val))
+               (string= (subseq str-val 0 (length prefix-val)) prefix-val))
+          nil))))
+
 (defun try-comparison-simple (trimmed op-char comparison-fn env)
   "Try to parse TRIMMED as a comparison with 1-char operator (<, >, =).
    Returns (values result t) if successful, (values nil nil) if operator not found.
@@ -2245,16 +2262,8 @@ World' and ' rest'"
                       "")))))
             
              ;; String operation: text STARTS WITH "prefix"
-             ((search " STARTS WITH " (string-upcase trimmed))
-              (let* ((pos (search " STARTS WITH " (string-upcase trimmed)))
-                     (str-expr (trim (subseq trimmed 0 pos)))
-                     (prefix-expr (trim (subseq trimmed (+ pos 13))))
-                     (str-val (eval-expr str-expr env))
-                     (prefix-val (eval-expr prefix-expr env)))
-                (if (and (stringp str-val) (stringp prefix-val))
-                    (and (>= (length str-val) (length prefix-val))
-                         (string= (subseq str-val 0 (length prefix-val)) prefix-val))
-                    nil)))
+             ((can-parse-starts-with-p trimmed)
+              (try-starts-with trimmed env))
             
              ;; String operation: text CONTAINS "substring"
              ((search " CONTAINS " (string-upcase trimmed))
