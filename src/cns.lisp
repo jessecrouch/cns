@@ -1935,20 +1935,12 @@ World' and ' rest'"
                 (when result result)))
              
              ;; Comparison: n ≥ 1 (greater than or equal, Unicode) - BEFORE > check
-             ((and (search "≥" trimmed)
-                   (not (quoted-string-p trimmed)))
-              (let ((parts (split-string trimmed #\≥)))
-                (>= (eval-expr (trim (car parts)) env)
-                    (eval-expr (trim (cadr parts)) env))))
+             ((let ((result (try-comparison-simple trimmed #\≥ #'>= env)))
+                (when result result)))
              
              ;; Comparison: n >= 1 (greater than or equal, ASCII) - BEFORE > check
-             ((and (search ">=" trimmed)
-                   (not (quoted-string-p trimmed)))
-              (let* ((pos (search ">=" trimmed))
-                     (left (subseq trimmed 0 pos))
-                     (right (subseq trimmed (+ pos 2))))
-                (>= (eval-expr (trim left) env)
-                    (eval-expr (trim right) env))))
+             ((let ((result (try-comparison-operator trimmed ">=" #'>= env)))
+                (when result result)))
            
            ;; Comparison: n > 1 (must come AFTER >= check)
             ((and (position #\> trimmed)
