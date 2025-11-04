@@ -1824,18 +1824,14 @@ World' and ' rest'"
              
            ;; Comparison: n ≤ 1 (less than or equal, Unicode) - BEFORE < check
              ((and (search "≤" trimmed)
-                   (not (and (> (length trimmed) 1)
-                            (char= (char trimmed 0) #\")
-                            (char= (char trimmed (1- (length trimmed))) #\"))))
+                   (not (quoted-string-p trimmed)))
               (let ((parts (split-string trimmed #\≤)))
                 (<= (eval-expr (trim (car parts)) env)
                     (eval-expr (trim (cadr parts)) env))))
              
              ;; Comparison: n <= 1 (less than or equal, ASCII) - BEFORE < check
              ((and (search "<=" trimmed)
-                   (not (and (> (length trimmed) 1)
-                            (char= (char trimmed 0) #\")
-                            (char= (char trimmed (1- (length trimmed))) #\"))))
+                   (not (quoted-string-p trimmed)))
               (let* ((pos (search "<=" trimmed))
                      (left (subseq trimmed 0 pos))
                      (right (subseq trimmed (+ pos 2))))
@@ -1844,18 +1840,14 @@ World' and ' rest'"
              
              ;; Comparison: n ≥ 1 (greater than or equal, Unicode) - BEFORE > check
              ((and (search "≥" trimmed)
-                   (not (and (> (length trimmed) 1)
-                            (char= (char trimmed 0) #\")
-                            (char= (char trimmed (1- (length trimmed))) #\"))))
+                   (not (quoted-string-p trimmed)))
               (let ((parts (split-string trimmed #\≥)))
                 (>= (eval-expr (trim (car parts)) env)
                     (eval-expr (trim (cadr parts)) env))))
              
              ;; Comparison: n >= 1 (greater than or equal, ASCII) - BEFORE > check
              ((and (search ">=" trimmed)
-                   (not (and (> (length trimmed) 1)
-                            (char= (char trimmed 0) #\")
-                            (char= (char trimmed (1- (length trimmed))) #\"))))
+                   (not (quoted-string-p trimmed)))
               (let* ((pos (search ">=" trimmed))
                      (left (subseq trimmed 0 pos))
                      (right (subseq trimmed (+ pos 2))))
@@ -1864,18 +1856,14 @@ World' and ' rest'"
            
            ;; Comparison: n > 1 (must come AFTER >= check)
             ((and (position #\> trimmed)
-                  (not (and (> (length trimmed) 1)
-                           (char= (char trimmed 0) #\")
-                           (char= (char trimmed (1- (length trimmed))) #\"))))
+                  (not (quoted-string-p trimmed)))
              (let ((parts (split-string trimmed #\>)))
                (> (eval-expr (trim (car parts)) env)
                   (eval-expr (trim (cadr parts)) env))))
             
             ;; Comparison: n < 1 (must come AFTER <= check)
             ((and (position #\< trimmed)
-                  (not (and (> (length trimmed) 1)
-                           (char= (char trimmed 0) #\")
-                           (char= (char trimmed (1- (length trimmed))) #\"))))
+                  (not (quoted-string-p trimmed)))
              (let ((parts (split-string trimmed #\<)))
                (< (eval-expr (trim (car parts)) env)
                   (eval-expr (trim (cadr parts)) env))))
@@ -1883,9 +1871,7 @@ World' and ' rest'"
              ;; Comparison: n == 1 (double equals - MUST come before single =)
                ;; Handles both numeric and boolean comparisons
                ((and (search "==" trimmed)
-                     (not (and (> (length trimmed) 1)
-                              (char= (char trimmed 0) #\")
-                              (char= (char trimmed (1- (length trimmed))) #\"))))
+                     (not (quoted-string-p trimmed)))
                 (let* ((pos (search "==" trimmed))
                        (left-val (eval-expr (trim (subseq trimmed 0 pos)) env))
                        (right-val (eval-expr (trim (subseq trimmed (+ pos 2))) env)))
@@ -1898,9 +1884,7 @@ World' and ' rest'"
              ;; Comparison: n != 1 (not equal with exclamation)
                ;; Handles both numeric and boolean comparisons
                ((and (search "!=" trimmed)
-                     (not (and (> (length trimmed) 1)
-                              (char= (char trimmed 0) #\")
-                              (char= (char trimmed (1- (length trimmed))) #\"))))
+                     (not (quoted-string-p trimmed)))
                 (let* ((pos (search "!=" trimmed))
                        (left-val (eval-expr (trim (subseq trimmed 0 pos)) env))
                        (right-val (eval-expr (trim (subseq trimmed (+ pos 2))) env)))
@@ -1913,9 +1897,7 @@ World' and ' rest'"
              ;; Comparison: n ≠ 1 (not equal)
                ;; Handles both numeric and boolean comparisons
                ((and (search "≠" trimmed)
-                     (not (and (> (length trimmed) 1)
-                              (char= (char trimmed 0) #\")
-                              (char= (char trimmed (1- (length trimmed))) #\"))))
+                     (not (quoted-string-p trimmed)))
                 (let* ((parts (split-string trimmed #\≠))
                        (left-val (eval-expr (trim (car parts)) env))
                        (right-val (eval-expr (trim (cadr parts)) env)))
@@ -1929,9 +1911,7 @@ World' and ' rest'"
               ;; Make sure = is not part of <=, >=, ==, "becomes", " AND ", or " OR "
               ;; Handles both numeric and boolean comparisons
               ((and (position #\= trimmed)
-                    (not (and (> (length trimmed) 1)
-                             (char= (char trimmed 0) #\")
-                             (char= (char trimmed (1- (length trimmed))) #\")))
+                    (not (quoted-string-p trimmed))
                     (not (search "==" trimmed))
                     (not (search "!=" trimmed))
                     (not (search "<=" trimmed))
