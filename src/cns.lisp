@@ -71,6 +71,23 @@
 ;;; ============================================================================
 ;;; Operator Precedence Table
 ;;; ============================================================================
+;;;
+;;; HOW TO ADD A NEW OPERATOR:
+;;; 
+;;; 1. Add it to the precedence table below at the appropriate level:
+;;;    - Level 50: Multiplicative (* / %)
+;;;    - Level 40: Additive (+ -)
+;;;    - Level 30: Relational (< > <= >=)
+;;;    - Level 20: Equality (== != =)
+;;;
+;;; 2. Use try-binary-operator helper for simple operators:
+;;;    ((let ((result (try-binary-operator trimmed #\^ #'expt env)))
+;;;       (when result result)))
+;;;
+;;; 3. For operators needing special handling, add custom guards before
+;;;    calling try-binary-operator (see subtraction operator for example)
+;;;
+;;; ============================================================================
 
 (defvar *operator-precedence*
   '(;; Multiplicative operators (highest precedence)
