@@ -1958,11 +1958,8 @@ World' and ' rest'"
               (try-comparison-operator trimmed ">=" #'>= env))
            
            ;; Comparison: n > 1 (must come AFTER >= check)
-            ((and (position #\> trimmed)
-                  (not (quoted-string-p trimmed)))
-             (let ((parts (split-string trimmed #\>)))
-               (> (eval-expr (trim (car parts)) env)
-                  (eval-expr (trim (cadr parts)) env))))
+            ((can-parse-comparison-simple-p trimmed #\>)
+             (try-comparison-simple trimmed #\> #'> env))
             
             ;; Comparison: n < 1 (must come AFTER <= check)
             ((and (position #\< trimmed)
