@@ -235,6 +235,48 @@
   (when (can-parse-boolean-not-p trimmed)
     (not (eval-expr (trim (subseq trimmed 4)) env))))
 
+;;; ============================================================================
+;;; String Operation Helpers
+;;; ============================================================================
+
+(defun try-string-operation (trimmed prefix-length string-fn default-value env)
+  "Generic helper for unary string operations (UPPERCASE, LOWERCASE, TRIM).
+   PREFIX-LENGTH is the length of the operation keyword (e.g., 10 for 'UPPERCASE ').
+   STRING-FN is the function to apply to the string value.
+   DEFAULT-VALUE is returned if the value is not a string."
+  (let* ((rest (trim (subseq trimmed prefix-length)))
+         (str-val (eval-expr rest env)))
+    (if (stringp str-val)
+        (funcall string-fn str-val)
+        default-value)))
+
+(defun can-parse-uppercase-p (trimmed)
+  "Check if TRIMMED is an UPPERCASE operation."
+  (starts-with (string-upcase trimmed) "UPPERCASE "))
+
+(defun try-uppercase (trimmed env)
+  "Parse and evaluate UPPERCASE operation."
+  (when (can-parse-uppercase-p trimmed)
+    (try-string-operation trimmed 10 #'string-upcase "" env)))
+
+(defun can-parse-lowercase-p (trimmed)
+  "Check if TRIMMED is a LOWERCASE operation."
+  (starts-with (string-upcase trimmed) "LOWERCASE "))
+
+(defun try-lowercase (trimmed env)
+  "Parse and evaluate LOWERCASE operation."
+  (when (can-parse-lowercase-p trimmed)
+    (try-string-operation trimmed 10 #'string-downcase "" env)))
+
+(defun can-parse-trim-p (trimmed)
+  "Check if TRIMMED is a TRIM operation."
+  (starts-with (string-upcase trimmed) "TRIM "))
+
+(defun try-trim (trimmed env)
+  "Parse and evaluate TRIM operation."
+  (when (can-parse-trim-p trimmed)
+    (try-string-operation trimmed 5 #'trim "" env)))
+
 (defun try-comparison-simple (trimmed op-char comparison-fn env)
   "Try to parse TRIMMED as a comparison with 1-char operator (<, >, =).
    Returns (values result t) if successful, (values nil nil) if operator not found.
@@ -2319,28 +2361,16 @@ World' and ' rest'"
                     nil)))
             
              ;; String operation: TRIM text
-             ((starts-with (string-upcase trimmed) "TRIM ")
-              (let* ((rest (trim (subseq trimmed 5)))
-                     (str-val (eval-expr rest env)))
-                (if (stringp str-val)
-                    (trim str-val)
-                    "")))
+             ((can-parse-trim-p trimmed)
+              (try-trim trimmed env))
             
              ;; String operation: UPPERCASE text
-             ((starts-with (string-upcase trimmed) "UPPERCASE ")
-              (let* ((rest (trim (subseq trimmed 10)))
-                     (str-val (eval-expr rest env)))
-                (if (stringp str-val)
-                    (string-upcase str-val)
-                    "")))
+             ((can-parse-uppercase-p trimmed)
+              (try-uppercase trimmed env))
             
              ;; String operation: LOWERCASE text
-             ((starts-with (string-upcase trimmed) "LOWERCASE ")
-              (let* ((rest (trim (subseq trimmed 10)))
-                     (str-val (eval-expr rest env)))
-                (if (stringp str-val)
-                    (string-downcase str-val)
-                    "")))
+             ((can-parse-lowercase-p trimmed)
+              (try-lowercase trimmed env))
             
              ;; Type conversion: PARSE_INT text - convert string to integer
              ((starts-with (string-upcase trimmed) "PARSE_INT ")
