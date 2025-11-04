@@ -504,9 +504,19 @@
                (mins-expr (trim (subseq rest (+ by-pos 4))))
                (time-val (eval-expr time-expr env))
                (mins-val (eval-expr mins-expr env)))
-          (if (and (numberp time-val) (numberp mins-val))
-              (+ time-val (* mins-val 60)) ; 60 seconds per minute
-              time-val))))))
+           (if (and (numberp time-val) (numberp mins-val))
+               (+ time-val (* mins-val 60)) ; 60 seconds per minute
+               time-val))))))
+
+(defun can-parse-random-p (trimmed)
+  "Check if TRIMMED is a standalone RANDOM operation."
+  (string-equal trimmed "RANDOM"))
+
+(defun try-random (trimmed env)
+  "Parse and evaluate standalone RANDOM operation."
+  (declare (ignore env))
+  (when (can-parse-random-p trimmed)
+    (random 1.0)))
 
 (defun can-parse-sqrt-p (trimmed)
   "Check if TRIMMED is a SQRT OF operation."
@@ -2397,8 +2407,8 @@ World' and ' rest'"
               (try-random-from-to trimmed env))
             
              ;; Math: RANDOM - random float between 0.0 and 1.0
-             ((string-equal trimmed "RANDOM")
-              (random 1.0))
+             ((can-parse-random-p trimmed)
+              (try-random trimmed env))
              
              ;; ========================================================================
              ;; COMPARISON OPERATORS - Must come BEFORE arithmetic operators!
