@@ -3255,6 +3255,316 @@ World' and ' rest'"
                   (format t "  Effect: CSV WRITE failed: ~A~%" e))
                 t))))))))
 
+;; Database operations effect helper
+(defun can-handle-database-effect-p (trimmed)
+  "Check if TRIMMED is a Database effect."
+  (let ((upper (string-upcase trimmed)))
+    (or (starts-with upper "DB CONNECT")
+        (starts-with upper "DB EXECUTE")
+        (starts-with upper "DB QUERY"))))
+
+(defun handle-database-effect (trimmed env verbose)
+  "Execute Database operations effect.
+   Supports: DB CONNECT, DB EXECUTE, DB QUERY"
+  (when (can-handle-database-effect-p trimmed)
+    (let ((upper (string-upcase trimmed)))
+      (cond
+        ;; DB CONNECT TO "filepath" AS db_name
+        ((starts-with upper "DB CONNECT")
+         (let* ((rest (trim (subseq trimmed 10)))
+                (rest-upper (string-upcase rest))
+                ;; Handle both " TO " and "TO " at start
+                (to-pos (or (and (starts-with rest-upper "TO ") 0)
+                           (search " TO " rest-upper)))
+                (as-pos (search " AS " rest-upper)))
+           (when (and (numberp to-pos) as-pos)
+             (let* ((to-skip (if (= to-pos 0) 3 4))  ; "TO " vs " TO "
+                    (filepath-expr (trim (subseq rest (+ to-pos to-skip) as-pos)))
+                    (db-name (trim (subseq rest (+ as-pos 4))))
+                    ;; Handle string literals directly without eval-expr to avoid parsing SQL operators
+                    (filepath (if (and (> (length filepath-expr) 1)
+                                      (char= (char filepath-expr 0) #\")
+                                      (char= (char filepath-expr (1- (length filepath-expr))) #\"))
+                                 (subseq filepath-expr 1 (1- (length filepath-expr)))
+                                 (eval-expr filepath-expr env))))
+               (when *db-enabled*
+                 (db-connect db-name filepath)
+                 (when verbose
+                   (format t "  Effect: Connected to database ~A at ~A~%" db-name filepath)))
+               (unless *db-enabled*
+                 (when verbose
+                   (format t "  Effect: DB CONNECT skipped (sqlite3 not available)~%")))
+               t))))
+        
+        ;; DB EXECUTE "SQL" AS db_name
+        ((starts-with upper "DB EXECUTE")
+         (let* ((rest (trim (subseq trimmed 10)))
+                (rest-upper (string-upcase rest)))
+           ;; Find the end of the SQL string first (closing quote)
+           (when (and (> (length rest) 0) (char= (char rest 0) #\"))
+             (let ((sql-end (position #\" rest :start 1)))
+               (when sql-end
+                 ;; Now look for AS after the SQL string (use uppercase for search)
+                 (let* ((after-sql-upper (subseq rest-upper (1+ sql-end)))
+                        (after-sql (subseq rest (1+ sql-end)))
+                        (as-pos (or (and (starts-with (trim after-sql-upper) "AS ") 0)
+                                   (search " AS " after-sql-upper))))
+                   (when (numberp as-pos)
+                     (let* ((sql (subseq rest 1 sql-end))  ; Extract SQL without quotes
+                            (as-skip (if (= as-pos 0) 3 4))
+                            (db-name (trim (subseq after-sql (+ as-pos as-skip)))))
+                       (when *db-enabled*
+                         (handler-case
+                             (progn
+                               (db-execute db-name sql)
+                               (when verbose
+                                 (format t "  Effect: Executed SQL on ~A~%" db-name)))
+                           (error (e)
+                             (when verbose
+                               (format t "  Effect: DB EXECUTE failed: ~A~%" e)))))
+                       (unless *db-enabled*
+                         (when verbose
+                           (format t "  Effect: DB EXECUTE skipped (sqlite3 not available)~%")))
+                       t)))))))
+        
+        ;; DB QUERY "SQL" AS db_name INTO var
+        ((starts-with upper "DB QUERY")
+         (let* ((rest (trim (subseq trimmed 8)))
+                (rest-upper (string-upcase rest)))
+           ;; Find the end of the SQL string first (closing quote)
+           (when (and (> (length rest) 0) (char= (char rest 0) #\"))
+             (let ((sql-end (position #\" rest :start 1)))
+               (when sql-end
+                 ;; Now look for AS and INTO after the SQL string (use uppercase for search)
+                 (let* ((after-sql-upper (subseq rest-upper (1+ sql-end)))
+                        (after-sql (subseq rest (1+ sql-end)))
+                        (as-pos (search " AS " after-sql-upper))
+                        (into-pos (search " INTO " after-sql-upper)))
+                   (when (and as-pos into-pos)
+                     (let* ((sql (subseq rest 1 sql-end))  ; Extract SQL without quotes
+                            (db-name (trim (subseq after-sql (+ as-pos 4) into-pos)))
+                            (target-var (trim (subseq after-sql (+ into-pos 6)))))
+                       (when *db-enabled*
+                         (handler-case
+                             (let ((result (db-query db-name sql)))
+                               (setf (gethash target-var env) result)
+                               (when verbose
+                                 (format t "  Effect: Queried database ~A, stored in ~A~%" db-name target-var)))
+                           (error (e)
+                             (setf (gethash target-var env) "")
+                             (when verbose
+                               (format t "  Effect: DB QUERY failed: ~A~%" e)))))
+                       (unless *db-enabled*
+                         (setf (gethash target-var env) "")
+                         (when verbose
+                           (format t "  Effect: DB QUERY skipped (sqlite3 not available)~%")))
+                       t))))))))
+        
+        (t nil)))))
+
+;; Socket operations effect helper
+(defun can-handle-socket-effect-p (trimmed)
+  "Check if TRIMMED is a Socket operation effect."
+  (let ((upper (string-upcase trimmed)))
+    (or (starts-with upper "CREATE SOCKET")
+        (starts-with upper "BIND SOCKET")
+        (starts-with upper "ACCEPT CONNECTION")
+        (starts-with upper "NETWORK READ")
+        (starts-with upper "NETWORK WRITE")
+        (starts-with upper "SEND ")
+        (starts-with upper "CLOSE SOCKET")
+        (starts-with upper "CLOSE CONNECTION"))))
+
+(defun handle-socket-effect (trimmed env verbose)
+  "Execute Socket operations effect.
+   Supports: CREATE SOCKET, BIND, ACCEPT CONNECTION, NETWORK READ/WRITE, SEND, CLOSE"
+  (when (can-handle-socket-effect-p trimmed)
+    (let ((upper (string-upcase trimmed)))
+      (cond
+        ;; CREATE SOCKET name ON port
+        ((starts-with upper "CREATE SOCKET ")
+         (let* ((rest (trim (subseq trimmed 14)))
+                (on-pos (search " ON " (string-upcase rest))))
+           (when on-pos
+             (let* ((socket-name (trim (subseq rest 0 on-pos)))
+                    (port-expr (trim (subseq rest (+ on-pos 4))))
+                    (port (eval-expr port-expr env)))
+               (handler-case
+                   (let ((socket (create-server-socket port)))
+                     (setf (gethash socket-name env) socket)
+                     (when verbose
+                       (format t "  Effect: Created REAL socket ~A on port ~A~%" socket-name port)))
+                 (error (e)
+                   (when verbose
+                     (format t "  Effect: Failed to create socket: ~A~%" e))))
+               t))))
+        
+        ;; BIND SOCKET (mostly handled by CREATE SOCKET)
+        ((starts-with upper "BIND SOCKET")
+         (when verbose
+           (format t "  Effect: Bind socket~%"))
+         t)
+        
+        ;; ACCEPT CONNECTION ON socket_name [INTO client_var]
+        ((starts-with upper "ACCEPT CONNECTION")
+         (let* ((rest (if (> (length trimmed) 17)
+                         (trim (subseq trimmed 17))
+                         ""))
+                (rest-upper (string-upcase rest))
+                (on-pos (cond
+                         ((starts-with rest-upper "ON ") 0)
+                         ((> (length rest-upper) 0) (search " ON " rest-upper))
+                         (t nil)))
+                (into-pos (when (> (length rest-upper) 0)
+                           (search " INTO " rest-upper))))
+           (if (numberp on-pos)
+               (let* ((skip-chars (if (= on-pos 0) 3 4))
+                      (socket-part (if into-pos
+                                      (trim (subseq rest (+ on-pos skip-chars) into-pos))
+                                      (trim (subseq rest (+ on-pos skip-chars)))))
+                      (client-var (when into-pos
+                                   (trim (subseq rest (+ into-pos 6)))))
+                      (server-socket (gethash socket-part env)))
+                 (if server-socket
+                     (handler-case
+                         (multiple-value-bind (client-socket client-stream)
+                             (accept-connection server-socket)
+                           (if client-var
+                               (progn
+                                 (setf (gethash client-var env) client-socket)
+                                 (setf (gethash "client_stream" env) client-stream))
+                               (progn
+                                 (setf (gethash "client_socket" env) client-socket)
+                                 (setf (gethash "client_stream" env) client-stream)))
+                           (when verbose
+                             (format t "  Effect: Accepted REAL connection from client~%")))
+                       (error (e)
+                         (when verbose
+                           (format t "  Effect: Failed to accept connection: ~A~%" e))))
+                     (when verbose
+                       (format t "  Effect: Accept connection (socket '~A' not found)~%" socket-part)))
+                 t)
+               (progn
+                 (when verbose
+                   (format t "  Effect: Accept connection (no socket specified)~%"))
+                 t))))
+        
+        ;; NETWORK READ [FROM source_var] [INTO target_var]
+        ((starts-with upper "NETWORK READ")
+         (let* ((rest (if (> (length trimmed) 12)
+                         (trim (subseq trimmed 12))
+                         ""))
+                (rest-upper (string-upcase rest))
+                (from-pos (search " FROM " rest-upper))
+                (into-pos (search " INTO " rest-upper))
+                (source-var (when from-pos
+                             (if into-pos
+                                 (trim (subseq rest (+ from-pos 6) into-pos))
+                                 (trim (subseq rest (+ from-pos 6))))))
+                (target-var (when into-pos
+                             (trim (subseq rest (+ into-pos 6)))))
+                (stream (if source-var
+                           (gethash source-var env)
+                           (gethash "client_stream" env))))
+           (if stream
+               (handler-case
+                   (let ((data (socket-receive stream)))
+                     (if target-var
+                         (setf (gethash target-var env) data)
+                         (setf (gethash "request_data" env) data))
+                     ;; Auto-parse HTTP request
+                     (when data
+                       (let ((parsed (parse-http-request data)))
+                         (when parsed
+                           (setf (gethash "REQUEST_METHOD" env) (getf parsed :method))
+                           (setf (gethash "REQUEST_PATH" env) (getf parsed :path))
+                           (setf (gethash "REQUEST_BODY" env) (or (getf parsed :body) ""))
+                           (setf (gethash "REQUEST_QUERY" env) (getf parsed :query-params))
+                           (setf (gethash "REQUEST_HEADERS" env) (getf parsed :headers)))))
+                     (when verbose
+                       (format t "  Effect: Read REAL network data (~A bytes)~%" 
+                               (if data (length data) 0))))
+                 (error (e)
+                   (when verbose
+                     (format t "  Effect: Failed to read from network: ~A~%" e))))
+               (when verbose
+                 (format t "  Effect: Network read (no stream available)~%")))
+           t))
+        
+        ;; NETWORK WRITE (simulated)
+        ((starts-with upper "NETWORK WRITE")
+         (when verbose
+           (format t "  Effect: Network write (simulated)~%"))
+         t)
+        
+        ;; SEND content TO target
+        ((starts-with upper "SEND ")
+         (let* ((rest (trim (subseq trimmed 5))))
+           (multiple-value-bind (content after-content is-quoted)
+               (if (and (> (length rest) 0) (char= (char rest 0) #\"))
+                   (multiple-value-bind (str rest-after) (extract-quoted-string rest)
+                     (values str rest-after t))
+                   (values nil rest nil))
+             (let* ((rest-to-parse (if is-quoted after-content rest))
+                    (to-pos (search " TO " (string-upcase rest-to-parse))))
+               (when to-pos
+                 (let* ((content-part (if is-quoted 
+                                         content
+                                         (trim (subseq rest-to-parse 0 to-pos))))
+                        (target (trim (subseq rest-to-parse (+ to-pos 4))))
+                        (final-content (if is-quoted
+                                          (substitute-vars content-part env)
+                                          (let ((var-value (gethash content-part env)))
+                                            (if var-value
+                                                (substitute-vars (format nil "~A" var-value) env)
+                                                content-part))))
+                        (stream (gethash "client_stream" env)))
+                   (if stream
+                       (handler-case
+                           (progn
+                             (socket-send stream final-content)
+                             (when verbose
+                               (format t "  Effect: Sent REAL data (~A bytes) to ~A~%" 
+                                       (length final-content) target)))
+                         (error (e)
+                           (when verbose
+                             (format t "  Effect: Failed to send: ~A~%" e))))
+                       (when verbose
+                         (format t "  Effect: Send (no stream available)~%")))
+                   t)))))
+        
+        ;; CLOSE SOCKET socket_name
+        ((starts-with upper "CLOSE SOCKET")
+         (let* ((socket-name (trim (subseq trimmed 13)))
+                (socket (gethash socket-name env)))
+           (when socket
+             (handler-case
+                 (progn
+                   (close-socket socket)
+                   (setf (gethash socket-name env) nil)
+                   (when verbose
+                     (format t "  Effect: Closed REAL socket ~A~%" socket-name)))
+               (error (e)
+                 (when verbose
+                   (format t "  Effect: Failed to close socket: ~A~%" e)))))
+           t))
+        
+        ;; CLOSE CONNECTION
+        ((starts-with upper "CLOSE CONNECTION")
+         (let ((client-socket (gethash "client_socket" env))
+               (client-stream (gethash "client_stream" env)))
+           (when client-stream
+             (ignore-errors (close client-stream)))
+           (when client-socket
+             (ignore-errors (close-socket client-socket)))
+           (setf (gethash "client_socket" env) nil)
+           (setf (gethash "client_stream" env) nil)
+           (when verbose
+             (format t "  Effect: Closed client connection~%"))
+           t))
+        
+        (t nil)))))
+
 ;; GREP effect helper
 (defun can-handle-grep-effect-p (trimmed)
   "Check if TRIMMED is a GREP effect."
@@ -4053,120 +4363,11 @@ World' and ' rest'"
      ;; Append to file
      ((can-handle-append-effect-p trimmed)
       (handle-append-effect trimmed env verbose))
-     
-      ;; Socket: Create socket (REAL implementation)
-      ((starts-with (string-upcase trimmed) "CREATE SOCKET ")
-       (let* ((rest (trim (subseq trimmed 14)))
-              (on-pos (search " ON " (string-upcase rest))))
-         (when on-pos
-           (let* ((socket-name (trim (subseq rest 0 on-pos)))
-                  (port-expr (trim (subseq rest (+ on-pos 4))))
-                  (port (eval-expr port-expr env)))
-             (handler-case
-                 (let ((socket (create-server-socket port)))
-                   ;; Store the actual socket object
-                   (setf (gethash socket-name env) socket)
-                   (when verbose
-                     (format t "  Effect: Created REAL socket ~A on port ~A~%" socket-name port)))
-               (error (e)
-                 (when verbose
-                   (format t "  Effect: Failed to create socket: ~A~%" e))))))))
       
-      ;; Socket: Bind socket (part of socket creation)
-      ((starts-with (string-upcase trimmed) "BIND SOCKET")
-       (when verbose
-         (format t "  Effect: Bind socket~%")))
-      
-      ;; Socket: Accept connection (REAL implementation)
-      ;; Supports: "Accept connection on X" or "Accept connection on X into Y"
-      ((starts-with (string-upcase trimmed) "ACCEPT CONNECTION")
-       (let* ((rest (if (> (length trimmed) 17)
-                       (trim (subseq trimmed 17))
-                       ""))
-              (rest-upper (string-upcase rest))
-              ;; Handle "on" at start or with leading space
-              (on-pos (cond
-                       ((starts-with rest-upper "ON ") 0)
-                       ((> (length rest-upper) 0) (search " ON " rest-upper))
-                       (t nil)))
-              (into-pos (when (> (length rest-upper) 0)
-                         (search " INTO " rest-upper))))
-         (if (numberp on-pos)
-             (let* ((skip-chars (if (= on-pos 0) 3 4))  ; "ON " vs " ON "
-                    (socket-part (if into-pos
-                                    (trim (subseq rest (+ on-pos skip-chars) into-pos))
-                                    (trim (subseq rest (+ on-pos skip-chars)))))
-                    (client-var (when into-pos
-                                 (trim (subseq rest (+ into-pos 6)))))
-                    (server-socket (gethash socket-part env)))
-               (if server-socket
-                   (handler-case
-                       (multiple-value-bind (client-socket client-stream)
-                           (accept-connection server-socket)
-                         ;; Store both socket and stream
-                         (if client-var
-                             ;; If "into Y" specified, use that variable name
-                             (progn
-                               (setf (gethash client-var env) client-socket)
-                               (setf (gethash "client_stream" env) client-stream))
-                             ;; Otherwise use default names
-                             (progn
-                               (setf (gethash "client_socket" env) client-socket)
-                               (setf (gethash "client_stream" env) client-stream)))
-                         (when verbose
-                           (format t "  Effect: Accepted REAL connection from client~%")))
-                     (error (e)
-                       (when verbose
-                         (format t "  Effect: Failed to accept connection: ~A~%" e))))
-                   (when verbose
-                     (format t "  Effect: Accept connection (socket '~A' not found)~%" socket-part))))
-             (when verbose
-               (format t "  Effect: Accept connection (no socket specified)~%")))))
-      
-       ;; Socket: Network read (REAL implementation)
-       ;; Supports: "Network read" or "Network read from X into Y"
-       ((starts-with (string-upcase trimmed) "NETWORK READ")
-        (let* ((rest (if (> (length trimmed) 12)
-                        (trim (subseq trimmed 12))
-                        ""))
-               (rest-upper (string-upcase rest))
-               (from-pos (search " FROM " rest-upper))
-               (into-pos (search " INTO " rest-upper))
-               (source-var (when from-pos
-                            (if into-pos
-                                (trim (subseq rest (+ from-pos 6) into-pos))
-                                (trim (subseq rest (+ from-pos 6))))))
-               (target-var (when into-pos
-                            (trim (subseq rest (+ into-pos 6)))))
-               (stream (if source-var
-                          (gethash source-var env)
-                          (gethash "client_stream" env))))
-          (if stream
-              (handler-case
-                  (let ((data (socket-receive stream)))
-                    ;; Store in target variable if specified, otherwise use request_data
-                    (if target-var
-                        (setf (gethash target-var env) data)
-                        (setf (gethash "request_data" env) data))
-                    ;; Auto-parse HTTP request and extract body
-                    (when data
-                      (let ((parsed (parse-http-request data)))
-                        (when parsed
-                          ;; Store method, path, and body as special variables
-                          (setf (gethash "REQUEST_METHOD" env) (getf parsed :method))
-                          (setf (gethash "REQUEST_PATH" env) (getf parsed :path))
-                          (setf (gethash "REQUEST_BODY" env) (or (getf parsed :body) ""))
-                          (setf (gethash "REQUEST_QUERY" env) (getf parsed :query-params))
-                          (setf (gethash "REQUEST_HEADERS" env) (getf parsed :headers)))))
-                    (when verbose
-                      (format t "  Effect: Read REAL network data (~A bytes)~%" 
-                              (if data (length data) 0))))
-                (error (e)
-                  (when verbose
-                    (format t "  Effect: Failed to read from network: ~A~%" e))))
-              (when verbose
-                (format t "  Effect: Network read (no stream available)~%")))))
-      
+      ;; Socket operations: CREATE, BIND, ACCEPT, NETWORK READ/WRITE, SEND, CLOSE
+      ((can-handle-socket-effect-p trimmed)
+       (handle-socket-effect trimmed env verbose))
+       
       ;; HTTP GET: Effect: HTTP GET from "url" into variable  
       ((can-handle-http-get-effect-p trimmed)
        (handle-http-get-effect trimmed env verbose))
@@ -4175,178 +4376,21 @@ World' and ' rest'"
       ((can-handle-http-post-effect-p trimmed)
        (handle-http-post-effect trimmed env verbose))
        
-        ;; Database: DB CONNECT TO "filepath" AS db_name
-        ((starts-with (string-upcase trimmed) "DB CONNECT")
-         (let* ((rest (trim (subseq trimmed 10)))
-                (rest-upper (string-upcase rest))
-                ;; Handle both " TO " and "TO " at start
-                (to-pos (or (and (starts-with rest-upper "TO ") 0)
-                           (search " TO " rest-upper)))
-                (as-pos (search " AS " rest-upper)))
-           (when (and (numberp to-pos) as-pos)
-             (let* ((to-skip (if (= to-pos 0) 3 4))  ; "TO " vs " TO "
-                    (filepath-expr (trim (subseq rest (+ to-pos to-skip) as-pos)))
-                    (db-name (trim (subseq rest (+ as-pos 4))))
-                    ;; Handle string literals directly without eval-expr to avoid parsing SQL operators
-                    (filepath (if (and (> (length filepath-expr) 1)
-                                      (char= (char filepath-expr 0) #\")
-                                      (char= (char filepath-expr (1- (length filepath-expr))) #\"))
-                                 (subseq filepath-expr 1 (1- (length filepath-expr)))
-                                 (eval-expr filepath-expr env))))
-               
-               (when *db-enabled*
-                 (db-connect db-name filepath)
-                 (format t "  Effect: Connected to database ~A at ~A~%" db-name filepath))
-               (unless *db-enabled*
-                 (format t "  Effect: DB CONNECT skipped (sqlite3 not available)~%"))))))
-       
-        ;; Database: DB EXECUTE "SQL" AS db_name
-        ((starts-with (string-upcase trimmed) "DB EXECUTE")
-         (let* ((rest (trim (subseq trimmed 10)))
-                (rest-upper (string-upcase rest)))
-           ;; Find the end of the SQL string first (closing quote)
-           (when (and (> (length rest) 0) (char= (char rest 0) #\"))
-             (let ((sql-end (position #\" rest :start 1)))
-               (when sql-end
-                 ;; Now look for AS after the SQL string (use uppercase for search)
-                 (let* ((after-sql-upper (subseq rest-upper (1+ sql-end)))
-                        (after-sql (subseq rest (1+ sql-end)))
-                        (as-pos (or (and (starts-with (trim after-sql-upper) "AS ") 0)
-                                   (search " AS " after-sql-upper))))
-                   (when (numberp as-pos)
-                     (let* ((sql (subseq rest 1 sql-end))  ; Extract SQL without quotes
-                            (as-skip (if (= as-pos 0) 3 4))
-                            (db-name (trim (subseq after-sql (+ as-pos as-skip)))))
-                       
-                       (when *db-enabled*
-                          (handler-case
-                              (progn
-                                (db-execute db-name sql)
-                                (when verbose
-                                  (format t "  Effect: Executed SQL on ~A~%" db-name)))
-                            (error (e)
-                              (when verbose
-                                (format t "  Effect: DB EXECUTE failed: ~A~%" e)))))
-                        (unless *db-enabled*
-                          (when verbose
-                            (format t "  Effect: DB EXECUTE skipped (sqlite3 not available)~%")))))))))))
-       
-         ;; Database: DB QUERY "SQL" AS db_name INTO var
-         ((starts-with (string-upcase trimmed) "DB QUERY")
-          (let* ((rest (trim (subseq trimmed 8)))
-                 (rest-upper (string-upcase rest)))
-            ;; Find the end of the SQL string first (closing quote)
-            (when (and (> (length rest) 0) (char= (char rest 0) #\"))
-              (let ((sql-end (position #\" rest :start 1)))
-                (when sql-end
-                  ;; Now look for AS and INTO after the SQL string (use uppercase for search)
-                  (let* ((after-sql-upper (subseq rest-upper (1+ sql-end)))
-                         (after-sql (subseq rest (1+ sql-end)))
-                         (as-pos (search " AS " after-sql-upper))
-                         (into-pos (search " INTO " after-sql-upper)))
-                    (when (and as-pos into-pos)
-                      (let* ((sql (subseq rest 1 sql-end))  ; Extract SQL without quotes
-                             (db-name (trim (subseq after-sql (+ as-pos 4) into-pos)))
-                             (target-var (trim (subseq after-sql (+ into-pos 6)))))
-                       
-                        (when *db-enabled*
-                          (handler-case
-                              (let ((result (db-query db-name sql)))
-                                (setf (gethash target-var env) result)
-                                (when verbose
-                                  (format t "  Effect: Queried database ~A, stored in ~A~%" db-name target-var)))
-                            (error (e)
-                              (setf (gethash target-var env) "")
-                              (when verbose
-                                (format t "  Effect: DB QUERY failed: ~A~%" e)))))
-                          (unless *db-enabled*
-                          (setf (gethash target-var env) "")
-                          (when verbose
-                            (format t "  Effect: DB QUERY skipped (sqlite3 not available)~%")))))))))))
+      ;; Database operations: DB CONNECT, DB EXECUTE, DB QUERY
+      ((can-handle-database-effect-p trimmed)
+       (handle-database-effect trimmed env verbose))
        
       ;; CSV WRITE: Write data to CSV file with headers
       ((can-handle-csv-write-effect-p trimmed)
        (handle-csv-write-effect trimmed env verbose))
        
-      ;; Socket: Network write
-      ((starts-with (string-upcase trimmed) "NETWORK WRITE")
-       (when verbose
-         (format t "  Effect: Network write (simulated)~%")))
+      ;; List operation: ADD {value} TO LIST {list_var}
+      ((can-handle-add-to-list-effect-p trimmed)
+       (handle-add-to-list-effect trimmed env verbose))
       
-       ;; Socket: Send response (REAL implementation)
-       ((starts-with (string-upcase trimmed) "SEND ")
-        (let* ((rest (trim (subseq trimmed 5))))
-           ;; First check if it's a quoted string or a variable
-           (multiple-value-bind (content after-content is-quoted)
-               (if (and (> (length rest) 0) (char= (char rest 0) #\"))
-                   (multiple-value-bind (str rest-after) (extract-quoted-string rest)
-                     (values str rest-after t))
-                   (values nil rest nil))
-            ;; Now find " TO " to determine target
-            (let* ((rest-to-parse (if is-quoted after-content rest))
-                   (to-pos (search " TO " (string-upcase rest-to-parse))))
-              (when to-pos
-                (let* ((content-part (if is-quoted 
-                                        content
-                                        (trim (subseq rest-to-parse 0 to-pos))))
-                       (target (trim (subseq rest-to-parse (+ to-pos 4))))
-                       ;; If not quoted, it's a variable name - look it up and apply interpolation
-                       (final-content (if is-quoted
-                                         (substitute-vars content-part env)
-                                         (let ((var-value (gethash content-part env)))
-                                           (if var-value
-                                               ;; Apply substitute-vars to handle {var} interpolation in the variable's value
-                                               (substitute-vars (format nil "~A" var-value) env)
-                                               content-part))))
-                       (stream (gethash "client_stream" env)))
-             (if stream
-                 (handler-case
-                     (progn
-                       (socket-send stream final-content)
-                       (when verbose
-                         (format t "  Effect: Sent REAL data (~A bytes) to ~A~%" 
-                                 (length final-content) target)))
-                   (error (e)
-                     (when verbose
-                       (format t "  Effect: Failed to send: ~A~%" e))))
-                  (when verbose
-                    (format t "  Effect: Send (no stream available)~%")))))))))
-      
-       ;; List operation: ADD {value} TO LIST {list_var}
-       ((can-handle-add-to-list-effect-p trimmed)
-        (handle-add-to-list-effect trimmed env verbose))
-      
-       ;; List operation: REMOVE {value} FROM LIST {list_var}
-       ((can-handle-remove-from-list-effect-p trimmed)
-        (handle-remove-from-list-effect trimmed env verbose))
-      
-       ;; Socket: Close socket (REAL implementation)
-       ((starts-with (string-upcase trimmed) "CLOSE SOCKET")
-        (let* ((socket-name (trim (subseq trimmed 13)))
-               (socket (gethash socket-name env)))
-          (when socket
-            (handler-case
-                (progn
-                  (close-socket socket)
-                  (setf (gethash socket-name env) nil)
-                 (when verbose
-                   (format t "  Effect: Closed REAL socket ~A~%" socket-name)))
-             (error (e)
-               (when verbose
-                 (format t "  Effect: Failed to close socket: ~A~%" e)))))))
-      
-      ;; Socket: Close connection
-      ((starts-with (string-upcase trimmed) "CLOSE CONNECTION")
-       (let ((client-socket (gethash "client_socket" env))
-             (client-stream (gethash "client_stream" env)))
-         (when client-stream
-           (ignore-errors (close client-stream)))
-         (when client-socket
-           (ignore-errors (close-socket client-socket)))
-         (setf (gethash "client_socket" env) nil)
-         (setf (gethash "client_stream" env) nil)
-         (when verbose
-           (format t "  Effect: Closed client connection~%"))))
+      ;; List operation: REMOVE {value} FROM LIST {list_var}
+      ((can-handle-remove-from-list-effect-p trimmed)
+       (handle-remove-from-list-effect trimmed env verbose))
       
       ;; FIND: Search for files by pattern
       ((can-handle-find-effect-p trimmed)
