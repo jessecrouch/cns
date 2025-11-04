@@ -200,6 +200,41 @@
        (not (search " AND " (string-upcase trimmed)))
        (not (search " OR " (string-upcase trimmed)))))
 
+(defun can-parse-boolean-or-p (trimmed)
+  "Check if TRIMMED can be parsed as boolean OR expression."
+  (search " OR " (string-upcase trimmed)))
+
+(defun try-boolean-or (trimmed env)
+  "Parse and evaluate boolean OR expression: a OR b"
+  (when (can-parse-boolean-or-p trimmed)
+    (let* ((pos (search " OR " (string-upcase trimmed)))
+           (left (subseq trimmed 0 pos))
+           (right (subseq trimmed (+ pos 4))))
+      (or (eval-expr (trim left) env)
+          (eval-expr (trim right) env)))))
+
+(defun can-parse-boolean-and-p (trimmed)
+  "Check if TRIMMED can be parsed as boolean AND expression."
+  (search " AND " (string-upcase trimmed)))
+
+(defun try-boolean-and (trimmed env)
+  "Parse and evaluate boolean AND expression: a AND b"
+  (when (can-parse-boolean-and-p trimmed)
+    (let* ((pos (search " AND " (string-upcase trimmed)))
+           (left (subseq trimmed 0 pos))
+           (right (subseq trimmed (+ pos 5))))
+      (and (eval-expr (trim left) env)
+           (eval-expr (trim right) env)))))
+
+(defun can-parse-boolean-not-p (trimmed)
+  "Check if TRIMMED can be parsed as boolean NOT expression."
+  (starts-with (string-upcase trimmed) "NOT "))
+
+(defun try-boolean-not (trimmed env)
+  "Parse and evaluate boolean NOT expression: NOT expr"
+  (when (can-parse-boolean-not-p trimmed)
+    (not (eval-expr (trim (subseq trimmed 4)) env))))
+
 (defun try-comparison-simple (trimmed op-char comparison-fn env)
   "Try to parse TRIMMED as a comparison with 1-char operator (<, >, =).
    Returns (values result t) if successful, (values nil nil) if operator not found.
@@ -2085,24 +2120,16 @@ World' and ' rest'"
              ;; They must come BEFORE arithmetic operators to avoid conflicts
            
              ;; Boolean: a OR b (LOWEST PRECEDENCE - check before AND and comparisons)
-             ((search " OR " (string-upcase trimmed))
-              (let* ((pos (search " OR " (string-upcase trimmed)))
-                     (left (subseq trimmed 0 pos))
-                     (right (subseq trimmed (+ pos 4))))
-                (or (eval-expr (trim left) env)
-                    (eval-expr (trim right) env))))
+             ((can-parse-boolean-or-p trimmed)
+              (try-boolean-or trimmed env))
            
              ;; Boolean: a AND b (check before comparisons, after OR)
-             ((search " AND " (string-upcase trimmed))
-              (let* ((pos (search " AND " (string-upcase trimmed)))
-                     (left (subseq trimmed 0 pos))
-                     (right (subseq trimmed (+ pos 5))))
-                (and (eval-expr (trim left) env)
-                     (eval-expr (trim right) env))))
+             ((can-parse-boolean-and-p trimmed)
+              (try-boolean-and trimmed env))
            
             ;; Boolean: NOT expression (unary prefix operator)
-            ((starts-with (string-upcase trimmed) "NOT ")
-             (not (eval-expr (trim (subseq trimmed 4)) env)))
+            ((can-parse-boolean-not-p trimmed)
+             (try-boolean-not trimmed env))
            
              ;; JSON parsing: PARSE JSON {json_string} GET "key" or GET "path.to.value[0]"
              ((starts-with (string-upcase trimmed) "PARSE JSON ")
