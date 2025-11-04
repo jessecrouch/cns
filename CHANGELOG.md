@@ -9,9 +9,86 @@ All notable changes to the CNS (Cause-and-Effect Narrative Script) language.
 
 ## [Unreleased]
 
-### Planned for v2.0.0
-- Process management (background jobs, signals, wait)
+### Planned for Future Releases
 - Production polish and performance optimization
+- Advanced error recovery mechanisms
+- Performance profiling and optimization
+
+---
+
+## [2.0.0] - 2025-11-04
+
+### Added - Process Management
+
+**Background Job Execution** (Expression form):
+- **SHELL "command" BACKGROUND INTO pid**: Launch command in background
+  - `Then: job_id becomes SHELL "sleep 10" BACKGROUND INTO pid`
+  - Returns process ID (PID) immediately without waiting
+  - Stores PID in specified variable via INTO clause
+  - Process runs independently of CNS script execution
+  - Enables parallel execution of long-running tasks
+
+**Process Control Operations** (Expression forms):
+- **KILL pid [WITH signal]**: Send signal to process
+  - `Then: result becomes KILL job_id` - Default SIGTERM (15)
+  - `Then: result becomes KILL job_id WITH SIGKILL` - Force kill (signal 9)
+  - `Then: result becomes KILL job_id WITH SIGTERM` - Graceful termination (15)
+  - `Then: result becomes KILL job_id WITH SIGINT` - Interrupt (2)
+  - `Then: result becomes KILL job_id WITH SIGHUP` - Hangup (1)
+  - Returns TRUE on success, NIL on failure
+  - SIGKILL (9) immediately removes process from tracking
+
+- **WAIT FOR pid [WITH TIMEOUT seconds]**: Wait for process completion
+  - `Then: exit_code becomes WAIT FOR job_id` - Wait indefinitely
+  - `Then: exit_code becomes WAIT FOR job_id WITH TIMEOUT 10` - Wait with timeout
+  - Returns exit code (0 for success) when process completes
+  - Returns NIL if timeout expires before completion
+  - Blocks execution until process finishes or timeout
+  - Automatically removes completed processes from tracking
+
+- **STATUS OF pid**: Check process status
+  - `Then: status becomes STATUS OF job_id`
+  - Returns "running" if process is active
+  - Returns "completed" if process finished
+  - Returns "not-found" if PID not tracked or already cleaned up
+  - Non-blocking status check
+
+### Use Cases
+- **Parallel execution**: Run multiple tasks concurrently
+- **Long-running jobs**: Background data processing, file operations
+- **Graceful shutdown**: Terminate processes cleanly with signals
+- **Timeout handling**: Detect and handle hung processes
+- **Process monitoring**: Check status without blocking
+
+### Examples
+- **test-process-management.cns**: Comprehensive process management test
+  - Launches background jobs with SHELL BACKGROUND
+  - Waits for completion with WAIT FOR
+  - Checks process status with STATUS OF
+  - Tests timeout detection
+  - Demonstrates parallel task execution
+
+### Impact
+- **Concurrency**: First-class support for parallel execution
+- **Robustness**: Proper process lifecycle management
+- **Flexibility**: Fine-grained control over background tasks
+- **LLM-friendly**: Natural English syntax for all operations
+- **100% backward compatible**: SHELL effect still works for foreground execution
+
+### Technical Details
+- Background processes tracked in global `*background-processes*` hash table
+- Process management uses SBCL's `sb-ext:run-program` with `:wait nil`
+- KILL uses Unix `/bin/kill` command for signal delivery
+- WAIT FOR polls `sb-ext:process-exit-code` with 0.1s sleep intervals
+- STATUS OF checks process state without blocking
+- SHELL effect handler excludes BACKGROUND syntax to avoid conflicts
+- All operations follow established `can-parse-X-p` / `try-X` pattern
+- Operations added at src/cns.lisp:810-979
+- Evaluation hooks at src/cns.lisp:4937-4956
+- Process tracking ensures proper cleanup on completion
+
+### Breaking Changes
+None - All changes are additive and backward compatible.
 
 ---
 

@@ -807,6 +807,178 @@
           (url-decode-string text-val)
           ""))))
 
+;; ========================================================================
+;; v2.0.0: Process Management
+;; ========================================================================
+
+;; Global process tracking
+(defvar *background-processes* (make-hash-table :test #'equal)
+  "Hash table tracking background processes by PID.
+   Key: PID (integer)
+   Value: process object")
+
+(defun can-parse-shell-background-p (trimmed)
+  "Check if TRIMMED is a SHELL BACKGROUND operation."
+  (and (starts-with (string-upcase trimmed) "SHELL ")
+       (search " BACKGROUND " (string-upcase trimmed))))
+
+(defun try-shell-background (trimmed env)
+  "Parse and evaluate SHELL BACKGROUND operation.
+   Format: SHELL \"command\" BACKGROUND INTO pid
+   Example: SHELL \"sleep 10\" BACKGROUND INTO job_id"
+  (when (can-parse-shell-background-p trimmed)
+    (let* ((rest (trim (subseq trimmed 6)))
+           (rest-upper (string-upcase rest))
+           ;; Extract command (quoted string)
+           (cmd-end (position #\" rest :start 1))
+           (command (if cmd-end
+                       (subseq rest 1 cmd-end)
+                       nil))
+           (after-cmd (if cmd-end (trim (subseq rest (1+ cmd-end))) ""))
+           (after-cmd-upper (string-upcase after-cmd))
+           ;; Find BACKGROUND and INTO positions
+           (bg-pos (search "BACKGROUND" after-cmd-upper))
+           (into-pos (search " INTO " after-cmd-upper))
+           ;; Extract variable name for PID
+           (pid-var (when into-pos
+                     (trim (subseq after-cmd (+ into-pos 6))))))
+      (if (and command pid-var)
+          (handler-case
+              (let* ((process (sb-ext:run-program "/bin/sh"
+                                                 (list "-c" command)
+                                                 :output :stream
+                                                 :error :stream
+                                                 :wait nil  ;; Don't wait - run in background
+                                                 :search nil))
+                     (pid (sb-ext:process-pid process)))
+                ;; Store process in global hash
+                (setf (gethash pid *background-processes*) process)
+                ;; Store PID in environment variable
+                (setf (gethash pid-var env) pid)
+                pid)
+            (error (e)
+              (format *error-output* "SHELL BACKGROUND error: ~A~%" e)
+              nil))
+          nil))))
+
+(defun can-parse-kill-p (trimmed)
+  "Check if TRIMMED is a KILL operation."
+  (starts-with (string-upcase trimmed) "KILL "))
+
+(defun try-kill (trimmed env)
+  "Parse and evaluate KILL operation.
+   Format: KILL pid [WITH signal]
+   Signals: SIGTERM (15, default), SIGKILL (9), SIGINT (2), SIGHUP (1)
+   Example: KILL job_id
+            KILL job_id WITH SIGKILL"
+  (when (can-parse-kill-p trimmed)
+    (let* ((rest (trim (subseq trimmed 5)))
+           (rest-upper (string-upcase rest))
+           (with-pos (search " WITH " rest-upper))
+           ;; Parse PID expression
+           (pid-expr (if with-pos
+                        (trim (subseq rest 0 with-pos))
+                        rest))
+           (pid-val (eval-expr pid-expr env))
+           ;; Parse signal (default SIGTERM)
+           (signal-name (if with-pos
+                           (trim (subseq rest (+ with-pos 6)))
+                           "SIGTERM"))
+           (signal-num (cond
+                        ((string= (string-upcase signal-name) "SIGTERM") 15)
+                        ((string= (string-upcase signal-name) "SIGKILL") 9)
+                        ((string= (string-upcase signal-name) "SIGINT") 2)
+                        ((string= (string-upcase signal-name) "SIGHUP") 1)
+                        (t 15))))  ;; Default to SIGTERM
+      (if (integerp pid-val)
+          (handler-case
+              (progn
+                ;; Send signal using Unix kill command
+                (sb-ext:run-program "/bin/kill"
+                                   (list (format nil "-~A" signal-num)
+                                         (format nil "~A" pid-val))
+                                   :wait t
+                                   :search nil)
+                ;; Remove from tracking if SIGKILL
+                (when (= signal-num 9)
+                  (remhash pid-val *background-processes*))
+                t)
+            (error (e)
+              (format *error-output* "KILL error: ~A~%" e)
+              nil))
+          nil))))
+
+(defun can-parse-wait-for-p (trimmed)
+  "Check if TRIMMED is a WAIT FOR operation."
+  (starts-with (string-upcase trimmed) "WAIT FOR "))
+
+(defun try-wait-for (trimmed env)
+  "Parse and evaluate WAIT FOR operation.
+   Format: WAIT FOR pid [WITH TIMEOUT seconds]
+   Example: WAIT FOR job_id
+            WAIT FOR job_id WITH TIMEOUT 5"
+  (when (can-parse-wait-for-p trimmed)
+    (let* ((rest (trim (subseq trimmed 9)))
+           (rest-upper (string-upcase rest))
+           (timeout-pos (search " WITH TIMEOUT " rest-upper))
+           ;; Parse PID expression
+           (pid-expr (if timeout-pos
+                        (trim (subseq rest 0 timeout-pos))
+                        rest))
+           (pid-val (eval-expr pid-expr env))
+           ;; Parse timeout (optional)
+           (timeout-val (when timeout-pos
+                         (let ((timeout-expr (trim (subseq rest (+ timeout-pos 14)))))
+                           (eval-expr timeout-expr env)))))
+      (if (and (integerp pid-val) (gethash pid-val *background-processes*))
+          (handler-case
+              (let* ((process (gethash pid-val *background-processes*))
+                     (start-time (get-internal-real-time))
+                     (timeout-internal (when (and timeout-val (numberp timeout-val))
+                                        (* timeout-val internal-time-units-per-second))))
+                ;; Wait loop
+                (loop
+                  (let ((exit-code (sb-ext:process-exit-code process)))
+                    (when exit-code
+                      ;; Process completed
+                      (remhash pid-val *background-processes*)
+                      (return exit-code)))
+                  ;; Check timeout
+                  (when timeout-internal
+                    (let ((elapsed (- (get-internal-real-time) start-time)))
+                      (when (> elapsed timeout-internal)
+                        ;; Timeout reached, process still running
+                        (return nil))))
+                  ;; Sleep briefly before checking again
+                  (sleep 0.1)))
+            (error (e)
+              (format *error-output* "WAIT FOR error: ~A~%" e)
+              nil))
+          nil))))
+
+(defun can-parse-status-of-p (trimmed)
+  "Check if TRIMMED is a STATUS OF operation."
+  (starts-with (string-upcase trimmed) "STATUS OF "))
+
+(defun try-status-of (trimmed env)
+  "Parse and evaluate STATUS OF operation.
+   Format: STATUS OF pid
+   Returns: \"running\", \"completed\", or \"not-found\"
+   Example: STATUS OF job_id"
+  (when (can-parse-status-of-p trimmed)
+    (let* ((rest (trim (subseq trimmed 10)))
+           (pid-val (eval-expr rest env)))
+      (if (integerp pid-val)
+          (let ((process (gethash pid-val *background-processes*)))
+            (cond
+              ((null process) "not-found")
+              ((sb-ext:process-exit-code process)
+               ;; Process has exited
+               (remhash pid-val *background-processes*)
+               "completed")
+              (t "running")))
+          "not-found"))))
+
 (defun can-parse-csv-read-p (trimmed)
   "Check if TRIMMED is a CSV READ operation."
   (starts-with (string-upcase trimmed) "CSV READ "))
@@ -3290,8 +3462,9 @@ World' and ' rest'"
 
 ;; SHELL effect helper
 (defun can-handle-shell-effect-p (trimmed)
-  "Check if TRIMMED is a SHELL effect."
-  (starts-with (string-upcase trimmed) "SHELL "))
+  "Check if TRIMMED is a SHELL effect (but not SHELL BACKGROUND)."
+  (and (starts-with (string-upcase trimmed) "SHELL ")
+       (not (search " BACKGROUND " (string-upcase trimmed)))))
 
 (defun handle-shell-effect (trimmed env verbose)
   "Execute SHELL command effect."
@@ -4756,12 +4929,32 @@ World' and ' rest'"
              ((can-parse-url-encode-p trimmed)
               (try-url-encode trimmed env))
              
-             ;; String: URL_DECODE text
-             ((can-parse-url-decode-p trimmed)
-              (try-url-decode trimmed env))
-             
-             ;; ========================================================================
-             ;; COMPARISON OPERATORS - Must come BEFORE arithmetic operators!
+              ;; String: URL_DECODE text
+              ((can-parse-url-decode-p trimmed)
+               (try-url-decode trimmed env))
+              
+              ;; ========================================================================
+              ;; v2.0.0: PROCESS MANAGEMENT - Must come BEFORE operators!
+              ;; ========================================================================
+              
+              ;; Process: SHELL "command" BACKGROUND INTO pid
+              ((can-parse-shell-background-p trimmed)
+               (try-shell-background trimmed env))
+              
+              ;; Process: KILL pid [WITH signal]
+              ((can-parse-kill-p trimmed)
+               (try-kill trimmed env))
+              
+              ;; Process: WAIT FOR pid [WITH TIMEOUT seconds]
+              ((can-parse-wait-for-p trimmed)
+               (try-wait-for trimmed env))
+              
+              ;; Process: STATUS OF pid
+              ((can-parse-status-of-p trimmed)
+               (try-status-of trimmed env))
+              
+              ;; ========================================================================
+              ;; COMPARISON OPERATORS - Must come BEFORE arithmetic operators!
              ;; This allows "n % 2 = 0" to be parsed as comparison, not modulo then error
              ;; BUT: Don't match operators inside quoted strings
              ;; ========================================================================

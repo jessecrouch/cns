@@ -1,0 +1,17 @@
+#!/usr/bin/env cns
+# CNS v2.0.0: Simple Process Management Test
+
+Story: Test Process Management
+
+Given:
+  pid: Number = 0
+  exit_code: Number = 0
+
+Step 1 → Test background job
+  Then: pid becomes SHELL "sleep 2" BACKGROUND INTO mypid
+  Then: PRINT "Started job with PID: " + pid
+  Then: PRINT "Also stored in mypid: " + mypid
+    
+Step 2 → Wait for job
+  Then: exit_code becomes WAIT FOR mypid
+  Then: PRINT "Job completed with exit code: " + exit_code

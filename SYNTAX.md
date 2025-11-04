@@ -64,6 +64,13 @@ Generate a complete CNS program that solves this task.
 | **Environment/System** |
 | Get env var | `ENV("VAR_NAME", "default")` | `os.getenv()`, `$VAR` |
 | Run shell | `Effect: SHELL "command" INTO output` | `system()`, `exec()` |
+| **Process Management** |
+| Background job | `pid becomes SHELL "cmd" BACKGROUND INTO job` | `subprocess.Popen()`, `&` |
+| Kill process | `result becomes KILL pid` | `kill()`, `pkill` |
+| Kill with signal | `result becomes KILL pid WITH SIGKILL` | `kill -9` |
+| Wait for process | `exit_code becomes WAIT FOR pid` | `wait()`, `waitpid()` |
+| Wait with timeout | `exit_code becomes WAIT FOR pid WITH TIMEOUT 10` | - |
+| Check process status | `status becomes STATUS OF pid` | `ps`, `pgrep` |
 | **Comparisons** |
 | Equals | `If: x = 5` | `If: x == 5` |
 | Not equals | `If: NOT (x = 5)` | `If: x != 5`, `If: x <> 5` |
@@ -482,6 +489,63 @@ Effect: Print "Rows: {rows}"
 # Close connection
 Effect: DATABASE CLOSE db
 ```
+
+### Process Management (v2.0.0)
+
+```cns
+# Launch background job (returns PID)
+Then: job_id becomes SHELL "sleep 10" BACKGROUND INTO pid
+Effect: Print "Started job: {job_id}"
+
+# Check process status (returns "running", "completed", or "not-found")
+Then: status becomes STATUS OF job_id
+If: status = "running"
+  Effect: Print "Job is running"
+
+# Wait for process to complete (returns exit code)
+Then: exit_code becomes WAIT FOR job_id
+Effect: Print "Job completed with exit code: {exit_code}"
+
+# Wait with timeout (returns exit code or NIL on timeout)
+Then: result becomes WAIT FOR job_id WITH TIMEOUT 5
+If: result = NIL
+  Effect: Print "Job timed out!"
+Otherwise:
+  Effect: Print "Job completed: {result}"
+
+# Send signal to process (returns TRUE/FALSE)
+Then: killed becomes KILL job_id                    # Default: SIGTERM
+Then: killed becomes KILL job_id WITH SIGTERM       # Graceful shutdown
+Then: killed becomes KILL job_id WITH SIGKILL       # Force kill
+Then: killed becomes KILL job_id WITH SIGINT        # Interrupt
+Then: killed becomes KILL job_id WITH SIGHUP        # Hangup
+
+# Example: Parallel execution
+Given:
+  job1: Number = 0
+  job2: Number = 0
+  job3: Number = 0
+
+Step 1 → Launch parallel jobs
+  Then: job1 becomes SHELL "task1.sh" BACKGROUND INTO pid1
+  Then: job2 becomes SHELL "task2.sh" BACKGROUND INTO pid2
+  Then: job3 becomes SHELL "task3.sh" BACKGROUND INTO pid3
+
+Step 2 → Wait for all jobs
+  Then: WAIT FOR pid1
+  Then: WAIT FOR pid2
+  Then: WAIT FOR pid3
+  Effect: Print "All jobs complete!"
+```
+
+**Process Management Notes:**
+- Background jobs run independently of the CNS script
+- PIDs are stored in both the BECOMES variable and the INTO variable
+- WAIT FOR blocks until process completes or timeout expires
+- STATUS OF is non-blocking and returns current state
+- Completed processes are automatically removed from tracking
+- SIGKILL (9) immediately terminates and removes from tracking
+- All process operations return values and can be used in expressions
 
 ---
 
