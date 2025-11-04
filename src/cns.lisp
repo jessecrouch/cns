@@ -4264,14 +4264,14 @@ World' and ' rest'"
                           (when verbose
                             (format t "  Effect: DB QUERY skipped (sqlite3 not available)~%")))))))))))
        
-        ;; CSV WRITE: Write data to CSV file with headers
-        ((can-handle-csv-write-effect-p trimmed)
-         (handle-csv-write-effect trimmed env verbose)))
+      ;; CSV WRITE: Write data to CSV file with headers
+      ((can-handle-csv-write-effect-p trimmed)
+       (handle-csv-write-effect trimmed env verbose))
        
-        ;; Socket: Network write
-       ((starts-with (string-upcase trimmed) "NETWORK WRITE")
-        (when verbose
-          (format t "  Effect: Network write (simulated)~%")))
+      ;; Socket: Network write
+      ((starts-with (string-upcase trimmed) "NETWORK WRITE")
+       (when verbose
+         (format t "  Effect: Network write (simulated)~%")))
       
        ;; Socket: Send response (REAL implementation)
        ((starts-with (string-upcase trimmed) "SEND ")
@@ -4348,23 +4348,23 @@ World' and ' rest'"
          (when verbose
            (format t "  Effect: Closed client connection~%"))))
       
-       ;; FIND: Search for files by pattern
-       ((can-handle-find-effect-p trimmed)
-        (handle-find-effect trimmed env verbose))
-       
-       ;; GREP: Search file contents for pattern
-       ((can-handle-grep-effect-p trimmed)
-        (handle-grep-effect trimmed env verbose))
-       
-       ;; SHELL: Execute shell commands with output capture
-       ;; Syntax: SHELL "command" INTO output WITH EXIT_CODE code
-       ;; Syntax: SHELL "command" INTO output WITH EXIT_CODE code AND ERROR error
-       ((can-handle-shell-effect-p trimmed)
-        (handle-shell-effect trimmed env verbose))
-       
-       ;; GIT: Execute git operations
-       ((can-handle-git-effect-p trimmed)
-        (handle-git-effect trimmed env verbose))
+      ;; FIND: Search for files by pattern
+      ((can-handle-find-effect-p trimmed)
+       (handle-find-effect trimmed env verbose))
+      
+      ;; GREP: Search file contents for pattern
+      ((can-handle-grep-effect-p trimmed)
+       (handle-grep-effect trimmed env verbose))
+      
+      ;; SHELL: Execute shell commands with output capture
+      ;; Syntax: SHELL "command" INTO output WITH EXIT_CODE code
+      ;; Syntax: SHELL "command" INTO output WITH EXIT_CODE code AND ERROR error
+      ((can-handle-shell-effect-p trimmed)
+       (handle-shell-effect trimmed env verbose))
+      
+      ;; GIT: Execute git operations
+      ((can-handle-git-effect-p trimmed)
+       (handle-git-effect trimmed env verbose))
       
       ;; Log (for error handling)
       ((starts-with (string-upcase trimmed) "LOG ")
