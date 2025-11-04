@@ -432,6 +432,44 @@
                   result))
               ""))))))
 
+(defun can-parse-add-days-p (trimmed)
+  "Check if TRIMMED is an ADD DAYS operation."
+  (or (starts-with (string-upcase trimmed) "ADD DAYS ")
+      (starts-with (string-upcase trimmed) "ADD_DAYS(")))
+
+(defun try-add-days (trimmed env)
+  "Parse and evaluate ADD DAYS operation."
+  (when (can-parse-add-days-p trimmed)
+    (let* ((is-func-style (starts-with (string-upcase trimmed) "ADD_DAYS("))
+           (rest (if is-func-style
+                    (let ((close-paren (position #\) trimmed :from-end t)))
+                      (if close-paren
+                          (subseq trimmed 9 close-paren)
+                          (subseq trimmed 9)))
+                    (trim (subseq trimmed 9))))
+           (by-pos (search " BY " (string-upcase rest)))
+           (comma-pos (if is-func-style (position #\, rest) nil)))
+      (cond
+        ;; Function style: ADD_DAYS(time, n)
+        ((and is-func-style comma-pos)
+         (let* ((time-expr (trim (subseq rest 0 comma-pos)))
+                (days-expr (trim (subseq rest (1+ comma-pos))))
+                (time-val (eval-expr time-expr env))
+                (days-val (eval-expr days-expr env)))
+           (if (and (numberp time-val) (numberp days-val))
+               (+ time-val (* days-val 86400)) ; 86400 seconds per day
+               time-val)))
+        ;; Operator style: ADD DAYS time BY n
+        (by-pos
+         (let* ((time-expr (trim (subseq rest 0 by-pos)))
+                (days-expr (trim (subseq rest (+ by-pos 4))))
+                (time-val (eval-expr time-expr env))
+                (days-val (eval-expr days-expr env)))
+           (if (and (numberp time-val) (numberp days-val))
+               (+ time-val (* days-val 86400))
+               time-val)))
+        (t 0)))))
+
 (defun try-comparison-simple (trimmed op-char comparison-fn env)
   "Try to parse TRIMMED as a comparison with 1-char operator (<, >, =).
    Returns (values result t) if successful, (values nil nil) if operator not found.
@@ -2554,37 +2592,8 @@ World' and ' rest'"
               (try-format-time trimmed env))
             
              ;; Date/Time: ADD DAYS time BY n (or ADD_DAYS for backward compat)
-             ((or (starts-with (string-upcase trimmed) "ADD DAYS ")
-                  (starts-with (string-upcase trimmed) "ADD_DAYS("))
-              (let* ((is-func-style (starts-with (string-upcase trimmed) "ADD_DAYS("))
-                     (rest (if is-func-style
-                              (let ((close-paren (position #\) trimmed :from-end t)))
-                                (if close-paren
-                                    (subseq trimmed 9 close-paren)
-                                    (subseq trimmed 9)))
-                              (trim (subseq trimmed 9))))
-                     (by-pos (search " BY " (string-upcase rest)))
-                     (comma-pos (if is-func-style (position #\, rest) nil)))
-                (cond
-                  ;; Function style: ADD_DAYS(time, n)
-                  ((and is-func-style comma-pos)
-                   (let* ((time-expr (trim (subseq rest 0 comma-pos)))
-                          (days-expr (trim (subseq rest (1+ comma-pos))))
-                          (time-val (eval-expr time-expr env))
-                          (days-val (eval-expr days-expr env)))
-                     (if (and (numberp time-val) (numberp days-val))
-                         (+ time-val (* days-val 86400)) ; 86400 seconds per day
-                         time-val)))
-                  ;; Operator style: ADD DAYS time BY n
-                  (by-pos
-                   (let* ((time-expr (trim (subseq rest 0 by-pos)))
-                          (days-expr (trim (subseq rest (+ by-pos 4))))
-                          (time-val (eval-expr time-expr env))
-                          (days-val (eval-expr days-expr env)))
-                     (if (and (numberp time-val) (numberp days-val))
-                         (+ time-val (* days-val 86400))
-                         time-val)))
-                  (t 0))))
+             ((can-parse-add-days-p trimmed)
+              (try-add-days trimmed env))
             
              ;; Date/Time: ADD HOURS time BY n
              ((starts-with (string-upcase trimmed) "ADD HOURS ")
