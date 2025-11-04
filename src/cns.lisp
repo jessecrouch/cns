@@ -1972,29 +1972,13 @@ World' and ' rest'"
              
              ;; Comparison: n != 1 (not equal with exclamation)
                ;; Handles both numeric and boolean comparisons
-               ((and (search "!=" trimmed)
-                     (not (quoted-string-p trimmed)))
-                (let* ((pos (search "!=" trimmed))
-                       (left-val (eval-expr (trim (subseq trimmed 0 pos)) env))
-                       (right-val (eval-expr (trim (subseq trimmed (+ pos 2))) env)))
-                  ;; If both values are numbers, use numeric inequality
-                  ;; Otherwise use general inequality (for booleans, strings, etc.)
-                  (if (and (numberp left-val) (numberp right-val))
-                      (/= left-val right-val)
-                      (not (equal left-val right-val)))))
+               ((can-parse-comparison-operator-p trimmed "!=")
+                (try-comparison-operator trimmed "!=" #'/= env))
              
-             ;; Comparison: n ≠ 1 (not equal)
+             ;; Comparison: n ≠ 1 (not equal, Unicode)
                ;; Handles both numeric and boolean comparisons
-               ((and (search "≠" trimmed)
-                     (not (quoted-string-p trimmed)))
-                (let* ((parts (split-string trimmed #\≠))
-                       (left-val (eval-expr (trim (car parts)) env))
-                       (right-val (eval-expr (trim (cadr parts)) env)))
-                  ;; If both values are numbers, use numeric inequality
-                  ;; Otherwise use general inequality (for booleans, strings, etc.)
-                  (if (and (numberp left-val) (numberp right-val))
-                      (/= left-val right-val)
-                      (not (equal left-val right-val)))))
+               ((can-parse-comparison-simple-p trimmed #\≠)
+                (try-comparison-simple trimmed #\≠ #'/= env))
              
               ;; Comparison: n = 1 (must come after ==, !=, ≠, ≤, ≥, <=, >=)
               ;; Make sure = is not part of <=, >=, ==, "becomes", " AND ", or " OR "
