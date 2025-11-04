@@ -11,8 +11,72 @@ All notable changes to the CNS (Cause-and-Effect Narrative Script) language.
 
 ### Planned for v2.0.0
 - Process management (background jobs, signals, wait)
-- String utilities (PAD, STRIP, URL_ENCODE/DECODE)
 - Production polish and performance optimization
+
+---
+
+## [1.10.0] - 2025-11-04
+
+### Added - String Utilities
+
+**String Operations** (Expression forms):
+- **PAD text TO width [LEFT|RIGHT] [WITH char]**: Pad string to fixed width
+  - `Then: padded becomes PAD name TO 10` - Right padding with spaces (default)
+  - `Then: padded becomes PAD name TO 10 LEFT` - Left padding with spaces
+  - `Then: padded becomes PAD number TO 5 WITH "0"` - Custom padding character (right)
+  - `Then: padded becomes PAD number TO 5 LEFT WITH "0"` - Custom padding (left)
+  - Default alignment: RIGHT (padding on left)
+  - Default character: space
+  - Returns original string if already at or exceeds target width
+  
+- **STRIP chars FROM text [LEFT|RIGHT]**: Remove characters from string
+  - `Then: clean becomes STRIP " " FROM text` - Strip from both sides (default)
+  - `Then: clean becomes STRIP " " FROM text LEFT` - Strip from left only
+  - `Then: clean becomes STRIP " " FROM text RIGHT` - Strip from right only
+  - `Then: clean becomes STRIP "!?" FROM text` - Strip multiple character types
+  - Uses Common Lisp's string-trim/string-left-trim/string-right-trim
+  
+- **URL_ENCODE text**: URL percent-encoding
+  - `Then: encoded becomes URL_ENCODE url`
+  - Encodes special characters as %XX hex sequences
+  - Preserves unreserved characters: A-Z, a-z, 0-9, -, _, ., ~
+  - RFC 3986 compliant encoding
+  
+- **URL_DECODE text**: URL percent-decoding
+  - `Then: decoded becomes URL_DECODE encoded`
+  - Decodes %XX hex sequences back to characters
+  - Converts + to space (query string compatible)
+  - Handles malformed encoding gracefully
+
+### Use Cases
+- **PAD**: Formatting tables, aligning output, zero-padding numbers
+- **STRIP**: Cleaning user input, removing whitespace, trimming punctuation
+- **URL_ENCODE**: Building query strings, encoding parameters for HTTP requests
+- **URL_DECODE**: Parsing URLs, decoding form data, handling encoded parameters
+
+### Examples
+- **test-string-utilities.cns**: Comprehensive test of all string utilities
+  - Tests padding with different alignments and characters
+  - Tests stripping from different sides with multiple character sets
+  - Tests URL encoding/decoding and roundtrip conversions
+  - Tests edge cases (no padding needed, no characters to strip)
+  - Tests combined operations (chaining utilities together)
+
+### Impact
+- **Text formatting**: Professional output formatting with PAD
+- **Data cleaning**: Robust input sanitization with STRIP
+- **Web integration**: Native URL encoding/decoding for HTTP operations
+- **LLM-friendly**: Natural English syntax for all operations
+- **100% backward compatible**: No breaking changes
+
+### Technical Details
+- PAD supports LEFT/RIGHT alignment with custom padding characters
+- STRIP supports LEFT/RIGHT/BOTH modes for flexible trimming
+- URL encoding follows RFC 3986 unreserved character set
+- All operations follow established `can-parse-X-p` / `try-X` pattern
+- Integrated into expression evaluation (before comparison operators)
+- Operations added at src/cns.lisp:647-804
+- Evaluation hooks at src/cns.lisp:4743-4762
 
 ---
 

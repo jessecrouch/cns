@@ -644,6 +644,169 @@
                 result)
               (if (hash-table-p map1) map1 map2)))))))
 
+;; ========================================================================
+;; v1.10.0: String Utilities
+;; ========================================================================
+
+(defun can-parse-pad-p (trimmed)
+  "Check if TRIMMED is a PAD operation."
+  (and (starts-with (string-upcase trimmed) "PAD ")
+       (search " TO " (string-upcase trimmed))))
+
+(defun try-pad (trimmed env)
+  "Parse and evaluate PAD operation.
+   Format: PAD text TO width [LEFT|RIGHT] [WITH char]
+   Examples: PAD name TO 10
+             PAD name TO 10 LEFT
+             PAD name TO 10 WITH \"0\"
+             PAD name TO 10 LEFT WITH \"0\""
+  (when (can-parse-pad-p trimmed)
+    (let* ((rest (trim (subseq trimmed 4)))
+           (to-pos (search " TO " (string-upcase rest))))
+      (when to-pos
+        (let* ((text-expr (trim (subseq rest 0 to-pos)))
+               (after-to (trim (subseq rest (+ to-pos 4))))
+               (left-pos (search " LEFT" (string-upcase after-to)))
+               (right-pos (search " RIGHT" (string-upcase after-to)))
+               (with-pos (search " WITH " (string-upcase after-to)))
+               ;; Parse width
+               (width-end (cond (left-pos left-pos)
+                               (right-pos right-pos)
+                               (with-pos with-pos)
+                               (t (length after-to))))
+               (width-expr (trim (subseq after-to 0 width-end)))
+               (text-val (eval-expr text-expr env))
+               (width-val (eval-expr width-expr env))
+               ;; Determine alignment (default RIGHT)
+               (align (cond (left-pos :left)
+                           (right-pos :right)
+                           (t :right)))
+               ;; Parse pad character (default space)
+               (pad-char (if with-pos
+                            (let* ((with-start (+ with-pos 6))
+                                   (pad-expr (trim (subseq after-to with-start)))
+                                   (pad-val (eval-expr pad-expr env)))
+                              (if (and (stringp pad-val) (> (length pad-val) 0))
+                                  (char pad-val 0)
+                                  #\Space))
+                            #\Space)))
+          (if (and (stringp text-val) (numberp width-val) (> width-val 0))
+              (let ((text-len (length text-val))
+                    (target-width (floor width-val)))
+                (if (>= text-len target-width)
+                    text-val
+                    (let ((padding (make-string (- target-width text-len)
+                                                :initial-element pad-char)))
+                      (if (eq align :left)
+                          (concatenate 'string text-val padding)
+                          (concatenate 'string padding text-val)))))
+              (or text-val "")))))))
+
+(defun can-parse-strip-p (trimmed)
+  "Check if TRIMMED is a STRIP operation."
+  (and (starts-with (string-upcase trimmed) "STRIP ")
+       (search " FROM " (string-upcase trimmed))))
+
+(defun try-strip (trimmed env)
+  "Parse and evaluate STRIP operation.
+   Format: STRIP chars FROM text [LEFT|RIGHT]
+   Examples: STRIP \"!?\" FROM text
+             STRIP \" \" FROM text LEFT
+             STRIP \"0\" FROM text RIGHT"
+  (when (can-parse-strip-p trimmed)
+    (let* ((rest (trim (subseq trimmed 6)))
+           (from-pos (search " FROM " (string-upcase rest))))
+      (when from-pos
+        (let* ((chars-expr (trim (subseq rest 0 from-pos)))
+               (after-from (trim (subseq rest (+ from-pos 6))))
+               (left-pos (search " LEFT" (string-upcase after-from)))
+               (right-pos (search " RIGHT" (string-upcase after-from)))
+               (text-end (cond (left-pos left-pos)
+                              (right-pos right-pos)
+                              (t (length after-from))))
+               (text-expr (trim (subseq after-from 0 text-end)))
+               (chars-val (eval-expr chars-expr env))
+               (text-val (eval-expr text-expr env))
+               (mode (cond (left-pos :left)
+                          (right-pos :right)
+                          (t :both))))
+          (if (and (stringp chars-val) (stringp text-val))
+              (let ((char-bag (coerce chars-val 'list)))
+                (flet ((should-strip-p (c) (member c char-bag)))
+                  (case mode
+                    (:left
+                     (string-left-trim char-bag text-val))
+                    (:right
+                     (string-right-trim char-bag text-val))
+                    (:both
+                     (string-trim char-bag text-val)))))
+              (or text-val "")))))))
+
+(defun url-encode-char (char)
+  "URL encode a single character."
+  (let ((code (char-code char)))
+    (if (or (and (>= code 48) (<= code 57))   ; 0-9
+            (and (>= code 65) (<= code 90))   ; A-Z
+            (and (>= code 97) (<= code 122))  ; a-z
+            (member char '(#\- #\_ #\. #\~))) ; unreserved chars
+        (string char)
+        (format nil "%~2,'0X" code))))
+
+(defun can-parse-url-encode-p (trimmed)
+  "Check if TRIMMED is a URL_ENCODE operation."
+  (starts-with (string-upcase trimmed) "URL_ENCODE "))
+
+(defun try-url-encode (trimmed env)
+  "Parse and evaluate URL_ENCODE operation.
+   Format: URL_ENCODE text"
+  (when (can-parse-url-encode-p trimmed)
+    (let* ((rest (trim (subseq trimmed 11)))
+           (text-val (eval-expr rest env)))
+      (if (stringp text-val)
+          (with-output-to-string (s)
+            (loop for char across text-val
+                  do (write-string (url-encode-char char) s)))
+          ""))))
+
+(defun url-decode-string (str)
+  "URL decode a string."
+  (with-output-to-string (out)
+    (let ((i 0)
+          (len (length str)))
+      (loop while (< i len) do
+        (let ((char (char str i)))
+          (cond
+            ((char= char #\%)
+             (when (< (+ i 2) len)
+               (let* ((hex (subseq str (1+ i) (+ i 3)))
+                      (code (parse-integer hex :radix 16 :junk-allowed t)))
+                 (when code
+                   (write-char (code-char code) out)
+                   (incf i 3))))
+             (when (>= (+ i 2) len)
+               (write-char char out)
+               (incf i)))
+            ((char= char #\+)
+             (write-char #\Space out)
+             (incf i))
+            (t
+             (write-char char out)
+             (incf i))))))))
+
+(defun can-parse-url-decode-p (trimmed)
+  "Check if TRIMMED is a URL_DECODE operation."
+  (starts-with (string-upcase trimmed) "URL_DECODE "))
+
+(defun try-url-decode (trimmed env)
+  "Parse and evaluate URL_DECODE operation.
+   Format: URL_DECODE text"
+  (when (can-parse-url-decode-p trimmed)
+    (let* ((rest (trim (subseq trimmed 11)))
+           (text-val (eval-expr rest env)))
+      (if (stringp text-val)
+          (url-decode-string text-val)
+          ""))))
+
 (defun can-parse-csv-read-p (trimmed)
   "Check if TRIMMED is a CSV READ operation."
   (starts-with (string-upcase trimmed) "CSV READ "))
@@ -4576,6 +4739,26 @@ World' and ' rest'"
              ;; Map: MERGE map1 WITH map2 - merge two maps
              ((can-parse-merge-p trimmed)
               (try-merge trimmed env))
+             
+             ;; ========================================================================
+             ;; v1.10.0: STRING UTILITIES - Must come BEFORE operators!
+             ;; ========================================================================
+             
+             ;; String: PAD text TO width [LEFT|RIGHT] [WITH char]
+             ((can-parse-pad-p trimmed)
+              (try-pad trimmed env))
+             
+             ;; String: STRIP chars FROM text [LEFT|RIGHT]
+             ((can-parse-strip-p trimmed)
+              (try-strip trimmed env))
+             
+             ;; String: URL_ENCODE text
+             ((can-parse-url-encode-p trimmed)
+              (try-url-encode trimmed env))
+             
+             ;; String: URL_DECODE text
+             ((can-parse-url-decode-p trimmed)
+              (try-url-decode trimmed env))
              
              ;; ========================================================================
              ;; COMPARISON OPERATORS - Must come BEFORE arithmetic operators!

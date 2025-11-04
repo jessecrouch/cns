@@ -16,6 +16,11 @@ Generate a complete CNS program that solves this task.
 | To uppercase | `UPPERCASE text` | `UPPER(text)`, `text.upper()` |
 | To lowercase | `LOWERCASE text` | `LOWER(text)`, `text.lower()` |
 | Trim whitespace | `TRIM text` | `STRIP(text)`, `text.trim()` |
+| Pad string | `PAD text TO 10` | `text.ljust()`, `PAD(text, 10)` |
+| Pad with char | `PAD text TO 10 WITH "0"` | `text.zfill()` |
+| Strip characters | `STRIP " " FROM text` | `text.strip()`, `STRIP(text)` |
+| URL encode | `URL_ENCODE text` | `urllib.quote()`, `encodeURI()` |
+| URL decode | `URL_DECODE text` | `urllib.unquote()`, `decodeURI()` |
 | Split string | `SPLIT text BY "\n"` | `SPLIT(text, "\n")`, `text.split()` |
 | Join list | `JOIN items WITH ","` | `JOIN(items, ",")`, `",".join()` |
 | Replace text | `REPLACE "old" WITH "new" IN text` | `REPLACE(text, "old", "new")` |
@@ -490,6 +495,22 @@ Then: lower becomes LOWERCASE text
 # Whitespace
 Then: clean becomes TRIM text
 
+# Padding (v1.10.0)
+Then: padded becomes PAD text TO 10                    # Right padding (default)
+Then: padded becomes PAD text TO 10 LEFT               # Left padding
+Then: padded becomes PAD number TO 5 WITH "0"          # Zero padding (right)
+Then: padded becomes PAD number TO 5 LEFT WITH "0"     # Zero padding (left)
+
+# Character stripping (v1.10.0)
+Then: clean becomes STRIP " " FROM text                # Strip from both sides (default)
+Then: clean becomes STRIP " " FROM text LEFT           # Strip from left only
+Then: clean becomes STRIP " " FROM text RIGHT          # Strip from right only
+Then: clean becomes STRIP "!?" FROM text               # Strip multiple characters
+
+# URL encoding/decoding (v1.10.0)
+Then: encoded becomes URL_ENCODE url                   # URL percent-encoding
+Then: decoded becomes URL_DECODE encoded               # URL percent-decoding
+
 # Splitting
 Then: lines becomes SPLIT text BY "\n"
 Then: words becomes SPLIT text BY " "
@@ -504,6 +525,28 @@ Then: fixed becomes REPLACE "old" WITH "new" IN text
 # Concatenation
 Then: full_name becomes first + " " + last
 ```
+
+**v1.10.0 String Utilities:**
+- **PAD text TO width [LEFT|RIGHT] [WITH char]**: Pad string to fixed width
+  - Default alignment: RIGHT (adds padding on left)
+  - Default character: space
+  - Custom padding: `PAD number TO 5 WITH "0"` produces "00042"
+  - Returns original string if already at or exceeds target width
+  
+- **STRIP chars FROM text [LEFT|RIGHT]**: Remove characters from string edges
+  - Default mode: BOTH (strips from both sides)
+  - Supports multiple characters: `STRIP "!? " FROM text`
+  - Uses Common Lisp's string-trim functions for efficiency
+  
+- **URL_ENCODE text**: RFC 3986 compliant URL encoding
+  - Preserves unreserved chars: A-Z, a-z, 0-9, -, _, ., ~
+  - Encodes others as %XX hex sequences
+  - Example: "hello world" → "hello%20world"
+  
+- **URL_DECODE text**: Decode URL percent-encoded strings
+  - Decodes %XX sequences back to characters
+  - Converts + to space (query string compatible)
+  - Handles malformed encoding gracefully
 
 ---
 

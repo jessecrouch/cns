@@ -1,0 +1,104 @@
+Story: Test String Utilities
+
+Given:
+  text: String = "Hello"
+  number: String = "42"
+  spaces: String = "  trimmed  "
+  url: String = "hello world & foo=bar"
+  encoded: String = "hello%20world%20%26%20foo%3Dbar"
+  messy: String = "!!!Hello World???"
+  original: String = "test value: 100%"
+  long: String = "HelloWorld"
+  already_clean: String = "Clean"
+  raw: String = "  test  "
+
+Step 1 → Test PAD RIGHT (default)
+  Because: testing PAD operation with right alignment (default)
+  Then: padded becomes PAD text TO 10
+  Then: PRINT padded
+  Then: len1 becomes LENGTH_OF padded
+  Then: PRINT len1
+
+Step 2 → Test PAD LEFT
+  Because: testing PAD operation with left alignment
+  Then: padded_left becomes PAD text TO 10 LEFT
+  Then: PRINT padded_left
+  Then: len2 becomes LENGTH_OF padded_left
+  Then: PRINT len2
+
+Step 3 → Test PAD with custom character
+  Because: testing PAD with zero padding
+  Then: padded_zero becomes PAD number TO 5 WITH "0"
+  Then: PRINT padded_zero
+  Then: len3 becomes LENGTH_OF padded_zero
+  Then: PRINT len3
+
+Step 4 → Test PAD LEFT with custom character
+  Because: testing PAD LEFT with zero padding
+  Then: padded_zero_left becomes PAD number TO 5 LEFT WITH "0"
+  Then: PRINT padded_zero_left
+
+Step 5 → Test STRIP (both sides - default)
+  Because: testing STRIP removes characters from both sides by default
+  Then: stripped becomes STRIP " " FROM spaces
+  Then: PRINT stripped
+  Then: len4 becomes LENGTH_OF stripped
+  Then: PRINT len4
+
+Step 6 → Test STRIP LEFT
+  Because: testing STRIP LEFT removes characters from left side only
+  Then: stripped_left becomes STRIP " " FROM spaces LEFT
+  Then: PRINT stripped_left
+  Then: len5 becomes LENGTH_OF stripped_left
+  Then: PRINT len5
+
+Step 7 → Test STRIP RIGHT
+  Because: testing STRIP RIGHT removes characters from right side only
+  Then: stripped_right becomes STRIP " " FROM spaces RIGHT
+  Then: PRINT stripped_right
+  Then: len6 becomes LENGTH_OF stripped_right
+  Then: PRINT len6
+
+Step 8 → Test STRIP multiple characters
+  Because: testing STRIP with multiple character set
+  Then: clean becomes STRIP "!?" FROM messy
+  Then: PRINT clean
+
+Step 9 → Test URL_ENCODE
+  Because: testing URL_ENCODE operation
+  Then: encoded_url becomes URL_ENCODE url
+  Then: PRINT encoded_url
+
+Step 10 → Test URL_DECODE
+  Because: testing URL_DECODE operation
+  Then: decoded_url becomes URL_DECODE encoded
+  Then: PRINT decoded_url
+
+Step 11 → Test URL roundtrip
+  Because: testing encode then decode returns original
+  Then: enc becomes URL_ENCODE original
+  Then: dec becomes URL_DECODE enc
+  Then: PRINT dec
+
+Step 12 → Test PAD no padding needed
+  Because: testing PAD when text is already wide enough
+  Then: no_pad becomes PAD long TO 5
+  Then: PRINT no_pad
+  Then: len7 becomes LENGTH_OF no_pad
+  Then: PRINT len7
+
+Step 13 → Test STRIP no characters
+  Because: testing STRIP when no characters to strip
+  Then: still_clean becomes STRIP " " FROM already_clean
+  Then: PRINT still_clean
+
+Step 14 → Test combined operations
+  Because: testing chaining string utilities together
+  Then: step1 becomes STRIP " " FROM raw
+  Then: step2 becomes UPPERCASE step1
+  Then: step3 becomes PAD step2 TO 10 LEFT WITH "*"
+  Then: PRINT step3
+
+End:
+Return: "All string utilities tests passed"
+Because: all operations completed successfully
