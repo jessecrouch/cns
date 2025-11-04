@@ -389,11 +389,12 @@
               ""))))))
 
 (defun can-parse-length-of-p (trimmed)
-  "Check if TRIMMED is a LENGTH_OF operation."
-  (starts-with (string-upcase trimmed) "LENGTH_OF "))
+  "Check if TRIMMED is a LENGTH_OF or LENGTH OF operation."
+  (or (starts-with (string-upcase trimmed) "LENGTH_OF ")
+      (starts-with (string-upcase trimmed) "LENGTH OF ")))
 
 (defun try-length-of (trimmed env)
-  "Parse and evaluate LENGTH_OF operation."
+  "Parse and evaluate LENGTH_OF or LENGTH OF operation."
   (when (can-parse-length-of-p trimmed)
     (let* ((rest (trim (subseq trimmed 10)))
            (val (eval-expr rest env)))
@@ -2770,14 +2771,11 @@ World' and ' rest'"
              ;; NOTE: Arithmetic operators (*, -, +, /, %) have been moved BEFORE number literal check
              ;; This is around line 1730, right after "becomes" and before number parsing
              ;; This allows "3 * n" to parse correctly as multiplication instead of just "3"
-            
-             ;; Length operation: length of list or string
-             ((starts-with (string-upcase trimmed) "LENGTH OF ")
-              (let* ((var-name (trim (subseq trimmed 10)))
-                     (value (eval-expr var-name env)))
-                (length value)))
-            
-             ;; List operation: FIND IN LIST {list_var} WHERE {key} = {value}
+             
+              ;; NOTE: LENGTH OF operation is handled by can-parse-length-of-p helper (line ~391)
+              ;; It handles both LENGTH_OF and LENGTH OF forms
+             
+              ;; List operation: FIND IN LIST {list_var} WHERE {key} = {value}
              ((starts-with (string-upcase trimmed) "FIND IN LIST ")
               (let* ((rest (trim (subseq trimmed 13)))
                      (where-pos (search " WHERE " (string-upcase rest))))
