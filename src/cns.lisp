@@ -294,6 +294,24 @@
                (string= (subseq str-val 0 (length prefix-val)) prefix-val))
           nil))))
 
+(defun can-parse-contains-p (trimmed)
+  "Check if TRIMMED is a CONTAINS operation."
+  (search " CONTAINS " (string-upcase trimmed)))
+
+(defun try-contains (trimmed env)
+  "Parse and evaluate CONTAINS operation."
+  (when (can-parse-contains-p trimmed)
+    (let* ((pos (search " CONTAINS " (string-upcase trimmed)))
+           (str-expr (trim (subseq trimmed 0 pos)))
+           (substr-expr (trim (subseq trimmed (+ pos 10))))
+           (str-val (eval-expr str-expr env))
+           (substr-val (eval-expr substr-expr env)))
+      (if (and (stringp str-val) (stringp substr-val))
+          (if (search substr-val str-val)
+              t
+              nil)
+          nil))))
+
 (defun try-comparison-simple (trimmed op-char comparison-fn env)
   "Try to parse TRIMMED as a comparison with 1-char operator (<, >, =).
    Returns (values result t) if successful, (values nil nil) if operator not found.
@@ -2266,17 +2284,8 @@ World' and ' rest'"
               (try-starts-with trimmed env))
             
              ;; String operation: text CONTAINS "substring"
-             ((search " CONTAINS " (string-upcase trimmed))
-              (let* ((pos (search " CONTAINS " (string-upcase trimmed)))
-                     (str-expr (trim (subseq trimmed 0 pos)))
-                     (substr-expr (trim (subseq trimmed (+ pos 10))))
-                     (str-val (eval-expr str-expr env))
-                     (substr-val (eval-expr substr-expr env)))
-                (if (and (stringp str-val) (stringp substr-val))
-                    (if (search substr-val str-val)
-                        t
-                        nil)
-                    nil)))
+             ((can-parse-contains-p trimmed)
+              (try-contains trimmed env))
             
              ;; Regex operation: text MATCHES "pattern"
              ((search " MATCHES " (string-upcase trimmed))
