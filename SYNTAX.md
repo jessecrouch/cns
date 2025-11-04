@@ -368,6 +368,21 @@ Effect: WRITE "data" TO FILE "/tmp/output.txt"
 
 # Append to file
 Effect: APPEND "more data\n" TO FILE "/tmp/output.txt"
+
+# List files in directory (returns List of String)
+Effect: LIST FILES IN "/tmp" INTO files
+Then: file_count becomes LENGTH OF files
+
+# Check if file exists (returns Boolean)
+Then: exists becomes FILE EXISTS "/tmp/file.txt"
+If: exists
+  Effect: Print "File exists!"
+
+# Delete file
+Effect: DELETE FILE "/tmp/old.txt"
+
+# Rename/move file
+Effect: RENAME FILE "/tmp/old.txt" TO "/tmp/new.txt"
 ```
 
 **CRITICAL**: 

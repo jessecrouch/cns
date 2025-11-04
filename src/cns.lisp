@@ -835,6 +835,18 @@
             (format *error-output* "File read error: ~A~%" e)
             ""))))))
 
+(defun can-parse-file-exists-p (trimmed)
+  "Check if TRIMMED is a FILE EXISTS operation."
+  (starts-with (string-upcase trimmed) "FILE EXISTS "))
+
+(defun try-file-exists (trimmed env)
+  "Parse and evaluate FILE EXISTS operation."
+  (when (can-parse-file-exists-p trimmed)
+    (let* ((filepath-expr (trim (subseq trimmed 12)))  ; Skip "FILE EXISTS "
+           (filepath (eval-expr filepath-expr env)))
+      (when (stringp filepath)
+        (if (probe-file filepath) t nil)))))
+
 (defun try-comparison-simple (trimmed op-char comparison-fn env)
   "Try to parse TRIMMED as a comparison with 1-char operator (<, >, =).
    Returns (values result t) if successful, (values nil nil) if operator not found.
@@ -2416,6 +2428,89 @@ World' and ' rest'"
               (format t "  Effect: Append to FILE ~A~%" filepath)))
           t)))))
 
+;; LIST FILES effect helper
+(defun can-handle-list-files-effect-p (trimmed)
+  "Check if TRIMMED is a LIST FILES effect."
+  (starts-with (string-upcase trimmed) "LIST FILES "))
+
+(defun handle-list-files-effect (trimmed env verbose)
+  "Execute LIST FILES IN path INTO var effect."
+  (when (can-handle-list-files-effect-p trimmed)
+    (let* ((rest (trim (subseq trimmed 11)))  ; Skip "LIST FILES "
+           (in-pos (search " IN " (string-upcase rest)))
+           (into-pos (search " INTO " (string-upcase rest))))
+      (when (and in-pos into-pos)
+        (let* ((path-expr (trim (subseq rest (+ in-pos 4) into-pos)))
+               (var-name (trim (subseq rest (+ into-pos 6))))
+               (path (eval-expr path-expr env)))
+          (when (stringp path)
+            (handler-case
+                (let* ((dir-path (if (probe-file path) 
+                                   path
+                                   (error "Directory not found: ~A" path)))
+                       ;; Add wildcard pattern to list all files
+                       (pattern (concatenate 'string 
+                                            (namestring dir-path)
+                                            (if (char= (char (namestring dir-path) 
+                                                            (1- (length (namestring dir-path)))) 
+                                                      #\/) 
+                                               "*.*" 
+                                               "/*.*")))
+                       (files (directory pattern))
+                       (file-names (mapcar (lambda (f) (file-namestring f)) files)))
+                  (setf (gethash var-name env) file-names)
+                  (when verbose
+                    (format t "  Effect: List FILES in ~A (~A files found)~%" path (length file-names))))
+              (error (e)
+                (format t "Error listing files: ~A~%" e)
+                (setf (gethash var-name env) '())))
+            t))))))
+
+;; DELETE FILE effect helper
+(defun can-handle-delete-file-effect-p (trimmed)
+  "Check if TRIMMED is a DELETE FILE effect."
+  (starts-with (string-upcase trimmed) "DELETE FILE "))
+
+(defun handle-delete-file-effect (trimmed env verbose)
+  "Execute DELETE FILE path effect."
+  (when (can-handle-delete-file-effect-p trimmed)
+    (let* ((rest (trim (subseq trimmed 12)))  ; Skip "DELETE FILE "
+           (path (eval-expr rest env)))
+      (when (stringp path)
+        (handler-case
+            (progn
+              (delete-file path)
+              (when verbose
+                (format t "  Effect: Delete FILE ~A~%" path)))
+          (error (e)
+            (format t "Error deleting file: ~A~%" e)))
+        t))))
+
+;; RENAME FILE effect helper
+(defun can-handle-rename-file-effect-p (trimmed)
+  "Check if TRIMMED is a RENAME FILE effect."
+  (starts-with (string-upcase trimmed) "RENAME FILE "))
+
+(defun handle-rename-file-effect (trimmed env verbose)
+  "Execute RENAME FILE old_path TO new_path effect."
+  (when (can-handle-rename-file-effect-p trimmed)
+    (let* ((rest (trim (subseq trimmed 12)))  ; Skip "RENAME FILE "
+           (to-pos (search " TO " (string-upcase rest))))
+      (when to-pos
+        (let* ((old-path-expr (trim (subseq rest 0 to-pos)))
+               (new-path-expr (trim (subseq rest (+ to-pos 4))))
+               (old-path (eval-expr old-path-expr env))
+               (new-path (eval-expr new-path-expr env)))
+          (when (and (stringp old-path) (stringp new-path))
+            (handler-case
+                (progn
+                  (rename-file old-path new-path)
+                  (when verbose
+                    (format t "  Effect: Rename FILE ~A to ~A~%" old-path new-path)))
+              (error (e)
+                (format t "Error renaming file: ~A~%" e)))
+            t))))))
+
 ;; SHELL effect helper
 (defun can-handle-shell-effect-p (trimmed)
   "Check if TRIMMED is a SHELL effect."
@@ -3871,11 +3966,11 @@ World' and ' rest'"
                    (let ((items (split-string content #\,)))
                    (mapcar (lambda (item) (eval-expr (trim item) env)) items)))))
             
-             ;; Assignment: n becomes n - 1 (MUST come before number parsing and operators!)
-             ((search " becomes " trimmed)
-            (let* ((becomes-pos (search " becomes " trimmed))
-                   (var-name (trim (subseq trimmed 0 becomes-pos)))
-                   (right-expr (trim (subseq trimmed (+ becomes-pos 9)))))  ; 9 = length of " becomes "
+            ;; Assignment: n becomes n - 1 (MUST come before number parsing and operators!)
+            ((search " becomes " trimmed)
+           (let* ((becomes-pos (search " becomes " trimmed))
+                  (var-name (trim (subseq trimmed 0 becomes-pos)))
+                  (right-expr (trim (subseq trimmed (+ becomes-pos 9)))))  ; 9 = length of " becomes "
               (let ((result (eval-expr right-expr env)))
                 (setf (gethash var-name env) result))))
             
@@ -4116,6 +4211,10 @@ World' and ' rest'"
              ;; File reading: READ FROM FILE "filepath" or READ FROM FILE variable (MUST come before - operator!)
              ((can-parse-read-from-file-p trimmed)
               (try-read-from-file trimmed env))
+            
+             ;; File existence check: FILE EXISTS filepath_var
+             ((can-parse-file-exists-p trimmed)
+              (try-file-exists trimmed env))
             
              ;; String operation: text STARTS WITH "prefix"
              ((can-parse-starts-with-p trimmed)
@@ -4363,6 +4462,18 @@ World' and ' rest'"
      ;; Append to file
      ((can-handle-append-effect-p trimmed)
       (handle-append-effect trimmed env verbose))
+      
+      ;; List files in directory
+      ((can-handle-list-files-effect-p trimmed)
+       (handle-list-files-effect trimmed env verbose))
+      
+      ;; Delete file
+      ((can-handle-delete-file-effect-p trimmed)
+       (handle-delete-file-effect trimmed env verbose))
+      
+      ;; Rename file
+      ((can-handle-rename-file-effect-p trimmed)
+       (handle-rename-file-effect trimmed env verbose))
       
       ;; Socket operations: CREATE, BIND, ACCEPT, NETWORK READ/WRITE, SEND, CLOSE
       ((can-handle-socket-effect-p trimmed)

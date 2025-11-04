@@ -1,0 +1,89 @@
+Story: File System Operations Demo
+
+Given:
+  test_dir: String = "/tmp/cns-file-test"
+  test_file: String = "/tmp/cns-file-test/test.txt"
+  renamed_file: String = "/tmp/cns-file-test/renamed.txt"
+  content: String = "Hello from CNS!\n"
+  files: List
+  exists: Boolean
+  file_count: Integer = 0
+
+Step 1 → Create test directory
+  Because: Setup environment for file operations
+  Effect: SHELL "mkdir -p /tmp/cns-file-test" INTO output WITH EXIT_CODE code
+  Effect: Print "Created test directory"
+
+Step 2 → Write test file
+  Because: Create a file to work with
+  Effect: WRITE content TO FILE "/tmp/cns-file-test/test.txt"
+  Effect: Print "✓ Wrote test file"
+
+Step 3 → Check file exists
+  Because: Verify file was created
+  Then: exists becomes FILE EXISTS test_file
+
+Step 4 → Evaluate file exists
+  Because: Display result of file existence check
+  If: exists
+    Effect: Print "✓ File exists check passed"
+  Otherwise:
+    Effect: Print "✗ File exists check failed"
+
+Step 5 → List files in directory
+  Because: Verify we can list directory contents
+  Effect: LIST FILES IN "/tmp/cns-file-test" INTO files
+  Then: file_count becomes LENGTH OF files
+  Effect: Print "✓ Found {file_count} files in directory"
+
+Step 6 → Rename file
+  Because: Test file renaming
+  Effect: RENAME FILE "/tmp/cns-file-test/test.txt" TO "/tmp/cns-file-test/renamed.txt"
+  Effect: Print "✓ Renamed file"
+
+Step 7 → Verify old file doesn't exist
+  Because: Confirm rename moved the file
+  Then: exists becomes FILE EXISTS test_file
+
+Step 8 → Display rename result
+  Because: Show that old file is gone
+  If: NOT exists
+    Effect: Print "✓ Old file no longer exists"
+  Otherwise:
+    Effect: Print "✗ Old file still exists after rename"
+
+Step 9 → Verify new file exists
+  Because: Confirm rename created new file
+  Then: exists becomes FILE EXISTS renamed_file
+
+Step 10 → Display new file result
+  Because: Show that new file exists
+  If: exists
+    Effect: Print "✓ Renamed file exists"
+  Otherwise:
+    Effect: Print "✗ Renamed file doesn't exist"
+
+Step 11 → Delete file
+  Because: Test file deletion
+  Effect: DELETE FILE "/tmp/cns-file-test/renamed.txt"
+  Effect: Print "✓ Deleted file"
+
+Step 12 → Verify file was deleted
+  Because: Confirm deletion worked
+  Then: exists becomes FILE EXISTS renamed_file
+
+Step 13 → Display deletion result
+  Because: Show that file is gone
+  If: NOT exists
+    Effect: Print "✓ File successfully deleted"
+  Otherwise:
+    Effect: Print "✗ File still exists after deletion"
+
+Step 14 → Cleanup
+  Because: Remove test directory
+  Effect: SHELL "rm -rf /tmp/cns-file-test" INTO output WITH EXIT_CODE code
+  Effect: Print "✓ Cleaned up test directory"
+  Effect: Print ""
+  Effect: Print "All file operations completed successfully!"
+
+End: Return 0
