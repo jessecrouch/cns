@@ -1966,12 +1966,8 @@ World' and ' rest'"
              ;; ========================================================================
              
              ;; Arithmetic: multiplication (n * 3 or 3 * n both work now!)
-            ((and (search "*" trimmed)
-                  ;; Make sure it's not a quoted string
-                  (not (quoted-string-p trimmed)))
-             (let ((parts (split-string trimmed #\*)))
-               (* (eval-expr (trim (car parts)) env)
-                  (eval-expr (trim (cadr parts)) env))))
+             ((let ((result (try-binary-operator trimmed #\* #'* env)))
+                (when result result)))
             
             ;; Arithmetic: subtraction (n - 1 or 10 - n both work!)
             ;; BUT: Don't match negative numbers like "-42" (minus at start with no left operand)
