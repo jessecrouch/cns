@@ -49,6 +49,10 @@
 ;;; Load database support (optional - uses sqlite3 CLI tool)
 (defvar *db-enabled* nil)
 (defvar *db-connections* (make-hash-table :test #'equal)
+
+;;; Expression evaluation debug mode
+(defvar *eval-expr-debug* nil
+  "When T, print debug info showing which parser matched each expression")
   "Hash table mapping connection names to database file paths")
 
 (handler-case
@@ -846,6 +850,256 @@
            (filepath (eval-expr filepath-expr env)))
       (when (stringp filepath)
         (if (probe-file filepath) t nil)))))
+
+;;; ============================================================================
+;;; LITERAL PARSERS - Highest Priority (Check First)
+;;; ============================================================================
+
+(defun can-parse-string-literal-p (trimmed)
+  "Check if TRIMMED is a string literal: \"hello\"
+   But NOT if it contains operators (unescaped quotes in middle)."
+  (and (> (length trimmed) 1)
+       (char= (char trimmed 0) #\")
+       (char= (char trimmed (1- (length trimmed))) #\")
+       ;; Make sure there's no unescaped quote in the middle
+       (not (loop for i from 1 below (1- (length trimmed))
+                 when (and (char= (char trimmed i) #\")
+                          (or (= i 0) 
+                              (char/= (char trimmed (1- i)) #\\)))
+                 return t))))
+
+(defun try-string-literal (trimmed)
+  "Parse a string literal and handle escape sequences."
+  (when (can-parse-string-literal-p trimmed)
+    (let ((raw-str (subseq trimmed 1 (1- (length trimmed)))))
+      ;; Process escape sequences: \\n -> \n, \\t -> \t, \\r -> \r, \\\\ -> \\
+      (let ((result (make-array 0 :element-type 'character :adjustable t :fill-pointer 0))
+            (i 0))
+        (loop while (< i (length raw-str))
+              do (if (and (< (+ i 1) (length raw-str))
+                         (char= (char raw-str i) #\\))
+                     (let ((next-char (char raw-str (1+ i))))
+                       (case next-char
+                         (#\n (vector-push-extend #\Newline result))
+                         (#\t (vector-push-extend #\Tab result))
+                         (#\r (vector-push-extend #\Return result))
+                         (#\\ (vector-push-extend #\\ result))
+                         (#\" (vector-push-extend #\" result))
+                         (t (progn
+                              (vector-push-extend #\\ result)
+                              (vector-push-extend next-char result))))
+                       (incf i 2))
+                     (progn
+                       (vector-push-extend (char raw-str i) result)
+                       (incf i))))
+        (coerce result 'string)))))
+
+(defun can-parse-filepath-literal-p (trimmed)
+  "Check if TRIMMED is a filepath literal: /path/to/file.txt
+   Prevents filepaths from being split on operators like - or ."
+  (and (> (length trimmed) 0)
+       (char= (char trimmed 0) #\/)))
+
+(defun try-filepath-literal (trimmed)
+  "Parse a filepath literal."
+  (when (can-parse-filepath-literal-p trimmed)
+    trimmed))
+
+(defun can-parse-boolean-literal-p (trimmed)
+  "Check if TRIMMED is a boolean literal (TRUE, FALSE, T, NIL)."
+  (or (string-equal trimmed "TRUE")
+      (string-equal trimmed "True")
+      (string-equal trimmed "true")
+      (string-equal trimmed "FALSE")
+      (string-equal trimmed "False")
+      (string-equal trimmed "false")
+      (string-equal trimmed "T")
+      (string-equal trimmed "NIL")))
+
+(defun try-boolean-literal (trimmed)
+  "Parse a boolean literal."
+  (when (can-parse-boolean-literal-p trimmed)
+    (cond
+      ((or (string-equal trimmed "TRUE")
+           (string-equal trimmed "True")
+           (string-equal trimmed "true")
+           (string-equal trimmed "T"))
+       t)
+      ((or (string-equal trimmed "FALSE")
+           (string-equal trimmed "False")
+           (string-equal trimmed "false")
+           (string-equal trimmed "NIL"))
+       nil))))
+
+;;; ============================================================================
+;;; CLI/ENVIRONMENT PARSERS
+;;; ============================================================================
+
+(defun can-parse-env-p (trimmed)
+  "Check if TRIMMED is an ENV() operation."
+  (starts-with (string-upcase trimmed) "ENV("))
+
+(defun try-env (trimmed env)
+  "Parse and evaluate ENV() operation: ENV(\"VAR_NAME\") or ENV(\"VAR_NAME\", \"default\")"
+  (when (can-parse-env-p trimmed)
+    (let* ((rest (subseq trimmed 4))
+           (close-paren (position #\) rest :from-end t))
+           (args-str (if close-paren (subseq rest 0 close-paren) rest))
+           (args (split-string args-str #\,))
+           (var-name-expr (trim (car args)))
+           (default-expr (when (cdr args) (trim (cadr args))))
+           ;; Evaluate and remove quotes from var name
+           (var-name-raw (eval-expr var-name-expr env))
+           ;; Coerce to simple-string for posix-getenv
+           (var-name (coerce (if (stringp var-name-raw) var-name-raw var-name-expr) 'simple-string))
+           ;; Evaluate default value if present
+           (default-val (when default-expr (eval-expr default-expr env)))
+           ;; Get environment variable
+           (env-val (sb-ext:posix-getenv var-name)))
+      (if env-val
+          env-val
+          (or default-val "")))))
+
+(defun can-parse-arg-p (trimmed)
+  "Check if TRIMMED is an ARG() operation."
+  (starts-with (string-upcase trimmed) "ARG("))
+
+(defun try-arg (trimmed env)
+  "Parse and evaluate ARG() operation: ARG(\"--flag\") or ARG(\"--flag\", \"default\")"
+  (when (can-parse-arg-p trimmed)
+    (let* ((rest (subseq trimmed 4))
+           (close-paren (position #\) rest :from-end t))
+           (args-str (if close-paren (subseq rest 0 close-paren) rest))
+           (args (split-string args-str #\,))
+           (arg-name-expr (trim (car args)))
+           (default-expr (when (cdr args) (trim (cadr args))))
+           ;; Evaluate and remove quotes from arg name
+           (arg-name (eval-expr arg-name-expr env))
+           ;; Evaluate default value if present
+           (default-val (when default-expr (eval-expr default-expr env))))
+      ;; Search for --flag value or --flag=value pattern
+      (let ((found nil)
+            (result (or default-val "")))
+        (loop for i from 0 below (length *cli-args*)
+              for arg = (nth i *cli-args*)
+              do (cond
+                   ;; Exact match followed by value: --flag value
+                   ((and (string= arg arg-name)
+                         (< (1+ i) (length *cli-args*))
+                         (not (starts-with (nth (1+ i) *cli-args*) "-")))
+                    (setf result (nth (1+ i) *cli-args*))
+                    (setf found t)
+                    (return))
+                   ;; Equals syntax: --flag=value
+                   ((starts-with arg (concatenate 'string arg-name "="))
+                    (setf result (subseq arg (1+ (length arg-name))))
+                    (setf found t)
+                    (return))))
+        result))))
+
+(defun can-parse-has-flag-p (trimmed)
+  "Check if TRIMMED is a HAS_FLAG() operation."
+  (starts-with (string-upcase trimmed) "HAS_FLAG("))
+
+(defun try-has-flag (trimmed env)
+  "Parse and evaluate HAS_FLAG() operation: HAS_FLAG(\"--verbose\")"
+  (when (can-parse-has-flag-p trimmed)
+    (let* ((rest (subseq trimmed 9))
+           (close-paren (position #\) rest :from-end t))
+           (arg-expr (if close-paren (trim (subseq rest 0 close-paren)) (trim rest)))
+           ;; Evaluate and remove quotes from flag name
+           (flag-name (eval-expr arg-expr env)))
+      ;; Check if flag exists in CLI args
+      (if (member flag-name *cli-args* :test #'string=)
+          t
+          nil))))
+
+(defun can-parse-args-index-p (trimmed)
+  "Check if TRIMMED is an ARGS[n] operation."
+  (and (starts-with (string-upcase trimmed) "ARGS[")
+       (position #\] trimmed)))
+
+(defun try-args-index (trimmed env)
+  "Parse and evaluate ARGS[n] operation: ARGS[0]"
+  (when (can-parse-args-index-p trimmed)
+    (let* ((bracket-end (position #\] trimmed))
+           (index-expr (trim (subseq trimmed 5 bracket-end)))
+           (index (eval-expr index-expr env)))
+      (if (and (numberp index) 
+               (>= index 0) 
+               (< index (length *cli-args*)))
+          (nth index *cli-args*)
+          ""))))
+
+;;; ============================================================================
+;;; DATE/TIME PARSERS
+;;; ============================================================================
+
+(defun can-parse-now-p (trimmed)
+  "Check if TRIMMED is NOW() operation."
+  (string= (string-upcase trimmed) "NOW()"))
+
+(defun try-now (trimmed)
+  "Parse and evaluate NOW() operation."
+  (when (can-parse-now-p trimmed)
+    (get-universal-time)))
+
+(defun can-parse-timestamp-p (trimmed)
+  "Check if TRIMMED is TIMESTAMP() operation."
+  (string= (string-upcase trimmed) "TIMESTAMP()"))
+
+(defun try-timestamp (trimmed)
+  "Parse and evaluate TIMESTAMP() operation."
+  (when (can-parse-timestamp-p trimmed)
+    (multiple-value-bind (sec min hr day mon yr)
+        (decode-universal-time (get-universal-time))
+      (format nil "~4,'0D-~2,'0D-~2,'0D ~2,'0D:~2,'0D:~2,'0D" 
+             yr mon day hr min sec))))
+
+;;; ============================================================================
+;;; VARIABLE AND LIST PARSERS
+;;; ============================================================================
+
+(defun can-parse-variable-p (trimmed env)
+  "Check if TRIMMED is a variable name that exists in ENV."
+  (multiple-value-bind (value exists) (gethash trimmed env)
+    (declare (ignore value))
+    exists))
+
+(defun try-variable (trimmed env)
+  "Parse and evaluate variable lookup."
+  (when (can-parse-variable-p trimmed env)
+    (gethash trimmed env)))
+
+(defun can-parse-list-literal-p (trimmed)
+  "Check if TRIMMED is a list literal: [1, 2, 3] or []"
+  (and (> (length trimmed) 1)
+       (char= (char trimmed 0) #\[)
+       (char= (char trimmed (1- (length trimmed))) #\])))
+
+(defun try-list-literal (trimmed env)
+  "Parse and evaluate list literal."
+  (when (can-parse-list-literal-p trimmed)
+    (let* ((content (trim (subseq trimmed 1 (1- (length trimmed))))))
+      ;; Empty list: []
+      (if (zerop (length content))
+          '()
+          ;; Non-empty list
+          (let ((items (split-string content #\,)))
+            (mapcar (lambda (item) (eval-expr (trim item) env)) items))))))
+
+(defun can-parse-assignment-p (trimmed)
+  "Check if TRIMMED is an assignment: n becomes n - 1"
+  (search " becomes " trimmed))
+
+(defun try-assignment (trimmed env)
+  "Parse and evaluate assignment operation."
+  (when (can-parse-assignment-p trimmed)
+    (let* ((becomes-pos (search " becomes " trimmed))
+           (var-name (trim (subseq trimmed 0 becomes-pos)))
+           (right-expr (trim (subseq trimmed (+ becomes-pos 9)))))
+      (let ((result (eval-expr right-expr env)))
+        (setf (gethash var-name env) result)))))
 
 (defun try-comparison-simple (trimmed op-char comparison-fn env)
   "Try to parse TRIMMED as a comparison with 1-char operator (<, >, =).
@@ -3801,179 +4055,89 @@ World' and ' rest'"
 (defun eval-expr (expr env &optional context)
   "Simple evaluator for expressions. Handles basic ops and vars.
    Optional context string provides better error messages."
+  (when *eval-expr-debug*
+    (format t "~%[EVAL-EXPR] Input: ~S (type: ~A)~%" expr (type-of expr)))
   (cond
    ;; Already a number
-   ((numberp expr) expr)
+   ((numberp expr) 
+    (when *eval-expr-debug*
+      (format t "[EVAL-EXPR] -> Matched: NUMBER~%"))
+    expr)
    
-    ;; String expression - try to parse
-    ((stringp expr)
-     (handler-case
-         (let ((trimmed (trim expr)))
-           (cond
-              ;; String literal: "hello" (check BEFORE variable lookup!)
-              ;; But NOT if it contains operators - check for unescaped quote in middle
-              ((and (> (length trimmed) 1)
-                    (char= (char trimmed 0) #\")
-                    (char= (char trimmed (1- (length trimmed))) #\")
-                    ;; Make sure there's no unescaped quote in the middle (which would mean it's "str" = "str")
-                    ;; Check for unescaped quotes by looking for \" that's not preceded by \
-                    (not (loop for i from 1 below (1- (length trimmed))
-                              when (and (char= (char trimmed i) #\")
-                                       (or (= i 0) 
-                                           (char/= (char trimmed (1- i)) #\\)))
-                              return t)))
-               (let ((raw-str (subseq trimmed 1 (1- (length trimmed)))))
-                 ;; Process escape sequences: \\n -> \n, \\t -> \t, \\r -> \r, \\\\ -> \\
-                 (let ((result (make-array 0 :element-type 'character :adjustable t :fill-pointer 0))
-                       (i 0))
-                   (loop while (< i (length raw-str))
-                         do (if (and (< (+ i 1) (length raw-str))
-                                    (char= (char raw-str i) #\\))
-                                (let ((next-char (char raw-str (1+ i))))
-                                  (case next-char
-                                    (#\n (vector-push-extend #\Newline result))
-                                    (#\t (vector-push-extend #\Tab result))
-                                    (#\r (vector-push-extend #\Return result))
-                                    (#\\ (vector-push-extend #\\ result))
-                                    (#\" (vector-push-extend #\" result))  ;; Handle escaped quotes
-                                    (t (progn
-                                         ;; For any other escape like \d, \s, etc., keep single backslash
-                                         (vector-push-extend #\\ result)
-                                         (vector-push-extend next-char result))))
-                                  (incf i 2))
-                                (progn
-                                  (vector-push-extend (char raw-str i) result)
-                                  (incf i))))
-                   (coerce result 'string))))
+     ;; String expression - try to parse
+     ((stringp expr)
+      (handler-case
+          (let ((trimmed (trim expr)))
+            (cond
+               ;; String literal: "hello" (check BEFORE variable lookup!)
+               ((can-parse-string-literal-p trimmed)
+                (try-string-literal trimmed))
+               
+               ;; Filepath literal: /path/to/file.txt (absolute paths starting with /)
+               ((can-parse-filepath-literal-p trimmed)
+                (try-filepath-literal trimmed))
               
-              ;; Filepath literal: /path/to/file.txt (absolute paths starting with /)
-              ;; This prevents filepaths from being split on operators like - or .
-              ((and (> (length trimmed) 0)
-                    (char= (char trimmed 0) #\/))
-               trimmed)
+               ;; Environment variable: ENV("VAR_NAME") or ENV("VAR_NAME", "default")
+               ((can-parse-env-p trimmed)
+                (try-env trimmed env))
+               
+               ;; CLI Arguments: ARG("--flag") or ARG("--flag", "default")
+               ((can-parse-arg-p trimmed)
+                (try-arg trimmed env))
+               
+               ;; CLI Arguments: HAS_FLAG("--verbose")
+               ((can-parse-has-flag-p trimmed)
+                (try-has-flag trimmed env))
+               
+               ;; CLI Arguments: ARGS[n] - positional argument access
+               ((can-parse-args-index-p trimmed)
+                (try-args-index trimmed env))
               
-              ;; Environment variable: ENV("VAR_NAME") or ENV("VAR_NAME", "default") (MUST come before function call!)
-               ((starts-with (string-upcase trimmed) "ENV(")
-                (let* ((rest (subseq trimmed 4))
-                       (close-paren (position #\) rest :from-end t))
-                       (args-str (if close-paren (subseq rest 0 close-paren) rest))
-                       (args (split-string args-str #\,))
-                       (var-name-expr (trim (car args)))
-                       (default-expr (when (cdr args) (trim (cadr args))))
-                       ;; Evaluate and remove quotes from var name
-                       (var-name-raw (eval-expr var-name-expr env))
-                       ;; Coerce to simple-string for posix-getenv (handles VECTOR CHARACTER type from eval-expr)
-                       (var-name (coerce (if (stringp var-name-raw) var-name-raw var-name-expr) 'simple-string))
-                       ;; Evaluate default value if present
-                       (default-val (when default-expr (eval-expr default-expr env)))
-                       ;; Get environment variable
-                       (env-val (sb-ext:posix-getenv var-name)))
-                  (if env-val
-                      env-val
-                      (or default-val ""))))
-              
-              ;; CLI Arguments: ARG("--flag") or ARG("--flag", "default")
-               ((starts-with (string-upcase trimmed) "ARG(")
-                (let* ((rest (subseq trimmed 4))
-                       (close-paren (position #\) rest :from-end t))
-                       (args-str (if close-paren (subseq rest 0 close-paren) rest))
-                       (args (split-string args-str #\,))
-                       (arg-name-expr (trim (car args)))
-                       (default-expr (when (cdr args) (trim (cadr args))))
-                       ;; Evaluate and remove quotes from arg name
-                       (arg-name (eval-expr arg-name-expr env))
-                       ;; Evaluate default value if present
-                       (default-val (when default-expr (eval-expr default-expr env))))
-                  ;; Search for --flag value or --flag=value pattern
-                  (let ((found nil)
-                        (result (or default-val "")))
-                    (loop for i from 0 below (length *cli-args*)
-                          for arg = (nth i *cli-args*)
-                          do (cond
-                               ;; Exact match followed by value: --flag value
-                               ((and (string= arg arg-name)
-                                     (< (1+ i) (length *cli-args*))
-                                     (not (starts-with (nth (1+ i) *cli-args*) "-")))
-                                (setf result (nth (1+ i) *cli-args*))
-                                (setf found t)
-                                (return))
-                               ;; Equals syntax: --flag=value
-                               ((starts-with arg (concatenate 'string arg-name "="))
-                                (setf result (subseq arg (1+ (length arg-name))))
-                                (setf found t)
-                                (return))))
-                    result)))
-              
-              ;; CLI Arguments: HAS_FLAG("--verbose")
-               ((starts-with (string-upcase trimmed) "HAS_FLAG(")
-                (let* ((rest (subseq trimmed 9))
-                       (close-paren (position #\) rest :from-end t))
-                       (arg-expr (if close-paren (trim (subseq rest 0 close-paren)) (trim rest)))
-                       ;; Evaluate and remove quotes from flag name
-                       (flag-name (eval-expr arg-expr env)))
-                  ;; Check if flag exists in CLI args
-                  (if (member flag-name *cli-args* :test #'string=)
-                      t
-                      nil)))
-              
-              ;; CLI Arguments: ARGS[n] - positional argument access
-               ((and (starts-with (string-upcase trimmed) "ARGS[")
-                     (position #\] trimmed))
-                (let* ((bracket-end (position #\] trimmed))
-                       (index-expr (trim (subseq trimmed 5 bracket-end)))
-                       (index (eval-expr index-expr env)))
-                  (if (and (numberp index) 
-                           (>= index 0) 
-                           (< index (length *cli-args*)))
-                      (nth index *cli-args*)
-                      "")))
-              
-              ;; Date/Time: NOW() - returns current universal time
-               ((string= (string-upcase trimmed) "NOW()")
-                (get-universal-time))
-              
-              ;; Date/Time: TIMESTAMP() - returns ISO 8601 formatted current time
-              ((string= (string-upcase trimmed) "TIMESTAMP()")
-               (multiple-value-bind (sec min hr day mon yr)
-                   (decode-universal-time (get-universal-time))
-                 (format nil "~4,'0D-~2,'0D-~2,'0D ~2,'0D:~2,'0D:~2,'0D" 
-                        yr mon day hr min sec)))
-              
-              ;; Function call: FuncName(arg1, arg2, ...) (check BEFORE variable lookup BUT NOT if it contains "becomes")
-              ((and (not (search "becomes" trimmed))  ; Not a becomes statement
-                    (multiple-value-bind (is-call func-name args-str)
-                        (detect-function-call trimmed)
-                      (when is-call
-                        (let* ((arg-exprs (if (and args-str (> (length args-str) 0))
-                                             (split-string args-str #\,)
-                                             '()))
-                               (arg-values (mapcar (lambda (arg) (eval-expr (trim arg) env)) arg-exprs)))
-                          (return-from eval-expr (call-function func-name arg-values :verbose (and context t))))))))
-              
-              ;; Variable lookup (use multiple-value-bind to check existence)
-              ((multiple-value-bind (value exists) (gethash trimmed env)
-                 (when exists value)))
+               ;; Date/Time: NOW()
+               ((can-parse-now-p trimmed)
+                (try-now trimmed))
+               
+               ;; Date/Time: TIMESTAMP()
+               ((can-parse-timestamp-p trimmed)
+                (try-timestamp trimmed))
+               
+               ;; Function call: FuncName(arg1, arg2, ...) (check BEFORE variable lookup BUT NOT if it contains "becomes")
+               ((and (not (search "becomes" trimmed))  ; Not a becomes statement
+                     (multiple-value-bind (is-call func-name args-str)
+                         (detect-function-call trimmed)
+                       (when is-call
+                         (let* ((arg-exprs (if (and args-str (> (length args-str) 0))
+                                              (split-string args-str #\,)
+                                              '()))
+                                (arg-values (mapcar (lambda (arg) (eval-expr (trim arg) env)) arg-exprs)))
+                           (return-from eval-expr (call-function func-name arg-values :verbose (and context t))))))))
+               
+               ;; Variable lookup
+               ((can-parse-variable-p trimmed env)
+                (try-variable trimmed env))
+             
+             ;; List literal: [1, 2, 3] or []
+             ((can-parse-list-literal-p trimmed)
+              (try-list-literal trimmed env))
+             
+             ;; Assignment: n becomes n - 1
+             ((can-parse-assignment-p trimmed)
+              (try-assignment trimmed env))
             
-            ;; List literal: [1, 2, 3] or []
-            ((and (> (length trimmed) 1)
-                  (char= (char trimmed 0) #\[)
-                  (char= (char trimmed (1- (length trimmed))) #\]))
-             (let* ((content (trim (subseq trimmed 1 (1- (length trimmed))))))
-               ;; Empty list: []
-               (if (zerop (length content))
-                   '()
-                   ;; Non-empty list
-                   (let ((items (split-string content #\,)))
-                   (mapcar (lambda (item) (eval-expr (trim item) env)) items)))))
+             ;; ========================================================================
+             ;; FILE SYSTEM OPERATIONS - Must come BEFORE operators!
+             ;; Otherwise "/tmp/file.txt" gets split on / (division operator)
+             ;; ========================================================================
             
-            ;; Assignment: n becomes n - 1 (MUST come before number parsing and operators!)
-            ((search " becomes " trimmed)
-           (let* ((becomes-pos (search " becomes " trimmed))
-                  (var-name (trim (subseq trimmed 0 becomes-pos)))
-                  (right-expr (trim (subseq trimmed (+ becomes-pos 9)))))  ; 9 = length of " becomes "
-              (let ((result (eval-expr right-expr env)))
-                (setf (gethash var-name env) result))))
+             ;; File reading: READ FROM FILE "filepath" or READ FROM FILE variable
+             ((can-parse-read-from-file-p trimmed)
+              (try-read-from-file trimmed env))
             
+             ;; File existence check: FILE EXISTS filepath_var or FILE EXISTS "/path"
+             ((can-parse-file-exists-p trimmed)
+              (try-file-exists trimmed env))
+            
+             ;; ========================================================================
              ;; MATH FUNCTIONS - Must come BEFORE arithmetic operators!
              ;; Otherwise "ABS OF -100" gets parsed as "ABS OF" minus "100"
              
@@ -4208,14 +4372,6 @@ World' and ' rest'"
                   (t (let* ((json-expr (eval-expr rest env)))
                        (parse-json-full json-expr))))))
             
-             ;; File reading: READ FROM FILE "filepath" or READ FROM FILE variable (MUST come before - operator!)
-             ((can-parse-read-from-file-p trimmed)
-              (try-read-from-file trimmed env))
-            
-             ;; File existence check: FILE EXISTS filepath_var
-             ((can-parse-file-exists-p trimmed)
-              (try-file-exists trimmed env))
-            
              ;; String operation: text STARTS WITH "prefix"
              ((can-parse-starts-with-p trimmed)
               (try-starts-with trimmed env))
@@ -4372,17 +4528,9 @@ World' and ' rest'"
                      (* (gethash (trim (cadr parts)) env)
                         (gethash (trim (fourth parts)) env)))))
            
-            ;; Boolean literals (support TRUE, True, true for LLM-friendliness)
-            ((or (string-equal trimmed "TRUE")
-                 (string-equal trimmed "True")
-                 (string-equal trimmed "true")) 
-             t)
-            ((or (string-equal trimmed "FALSE")
-                 (string-equal trimmed "False")
-                 (string-equal trimmed "false"))
-             nil)
-            ((string-equal trimmed "T") t)
-            ((string-equal trimmed "NIL") nil)
+             ;; Boolean literals (support TRUE, True, true for LLM-friendliness)
+             ((can-parse-boolean-literal-p trimmed)
+              (try-boolean-literal trimmed))
             
              ;; Default: try variable lookup one more time, else error
              (t (multiple-value-bind (value exists) (gethash trimmed env)
