@@ -521,6 +521,78 @@
           (sqrt val)
           (error "SQRT requires a number")))))
 
+(defun can-parse-pow-p (trimmed)
+  "Check if TRIMMED is a POW TO operation."
+  (and (search " TO " (string-upcase trimmed))
+       (let* ((to-pos (search " TO " (string-upcase trimmed)))
+              (before-to (trim (subseq trimmed 0 to-pos))))
+         (starts-with (string-upcase before-to) "POW "))))
+
+(defun try-pow (trimmed env)
+  "Parse and evaluate POW TO operation."
+  (when (can-parse-pow-p trimmed)
+    (let* ((to-pos (search " TO " (string-upcase trimmed)))
+           (before-to (trim (subseq trimmed 0 to-pos)))
+           (base-expr (trim (subseq before-to 4)))
+           (exp-expr (trim (subseq trimmed (+ to-pos 4))))
+           (base (eval-expr base-expr env))
+           (exponent (eval-expr exp-expr env)))
+      (if (and (numberp base) (numberp exponent))
+          (expt base exponent)
+          (error "POW requires two numbers")))))
+
+(defun can-parse-abs-p (trimmed)
+  "Check if TRIMMED is an ABS OF operation."
+  (starts-with (string-upcase trimmed) "ABS OF "))
+
+(defun try-abs (trimmed env)
+  "Parse and evaluate ABS OF operation."
+  (when (can-parse-abs-p trimmed)
+    (let* ((expr (trim (subseq trimmed 7)))
+           (val (eval-expr expr env)))
+      (if (numberp val)
+          (abs val)
+          (error "ABS requires a number")))))
+
+(defun can-parse-round-p (trimmed)
+  "Check if TRIMMED is a ROUND operation."
+  (starts-with (string-upcase trimmed) "ROUND "))
+
+(defun try-round (trimmed env)
+  "Parse and evaluate ROUND operation."
+  (when (can-parse-round-p trimmed)
+    (let* ((expr (trim (subseq trimmed 6)))
+           (val (eval-expr expr env)))
+      (if (numberp val)
+          (round val)
+          (error "ROUND requires a number")))))
+
+(defun can-parse-floor-p (trimmed)
+  "Check if TRIMMED is a FLOOR operation."
+  (starts-with (string-upcase trimmed) "FLOOR "))
+
+(defun try-floor (trimmed env)
+  "Parse and evaluate FLOOR operation."
+  (when (can-parse-floor-p trimmed)
+    (let* ((expr (trim (subseq trimmed 6)))
+           (val (eval-expr expr env)))
+      (if (numberp val)
+          (floor val)
+          (error "FLOOR requires a number")))))
+
+(defun can-parse-ceil-p (trimmed)
+  "Check if TRIMMED is a CEIL operation."
+  (starts-with (string-upcase trimmed) "CEIL "))
+
+(defun try-ceil (trimmed env)
+  "Parse and evaluate CEIL operation."
+  (when (can-parse-ceil-p trimmed)
+    (let* ((expr (trim (subseq trimmed 5)))
+           (val (eval-expr expr env)))
+      (if (numberp val)
+          (ceiling val)
+          (error "CEIL requires a number")))))
+
 (defun try-comparison-simple (trimmed op-char comparison-fn env)
   "Try to parse TRIMMED as a comparison with 1-char operator (<, >, =).
    Returns (values result t) if successful, (values nil nil) if operator not found.
@@ -2190,51 +2262,24 @@ World' and ' rest'"
               (try-sqrt trimmed env))
             
              ;; Math: POW base TO exponent - power/exponentiation
-             ((and (search " TO " (string-upcase trimmed))
-                   (let* ((to-pos (search " TO " (string-upcase trimmed)))
-                          (before-to (trim (subseq trimmed 0 to-pos))))
-                     (starts-with (string-upcase before-to) "POW ")))
-              (let* ((to-pos (search " TO " (string-upcase trimmed)))
-                     (before-to (trim (subseq trimmed 0 to-pos)))
-                     (base-expr (trim (subseq before-to 4)))
-                     (exp-expr (trim (subseq trimmed (+ to-pos 4))))
-                     (base (eval-expr base-expr env))
-                     (exponent (eval-expr exp-expr env)))
-                (if (and (numberp base) (numberp exponent))
-                    (expt base exponent)
-                    (error "POW requires two numbers"))))
+             ((can-parse-pow-p trimmed)
+              (try-pow trimmed env))
             
              ;; Math: ABS OF n - absolute value
-             ((starts-with (string-upcase trimmed) "ABS OF ")
-              (let* ((expr (trim (subseq trimmed 7)))
-                     (val (eval-expr expr env)))
-                (if (numberp val)
-                    (abs val)
-                    (error "ABS requires a number"))))
+             ((can-parse-abs-p trimmed)
+              (try-abs trimmed env))
             
              ;; Math: ROUND n - round to nearest integer
-             ((starts-with (string-upcase trimmed) "ROUND ")
-              (let* ((expr (trim (subseq trimmed 6)))
-                     (val (eval-expr expr env)))
-                (if (numberp val)
-                    (round val)
-                    (error "ROUND requires a number"))))
+             ((can-parse-round-p trimmed)
+              (try-round trimmed env))
             
              ;; Math: FLOOR n - round down
-             ((starts-with (string-upcase trimmed) "FLOOR ")
-              (let* ((expr (trim (subseq trimmed 6)))
-                     (val (eval-expr expr env)))
-                (if (numberp val)
-                    (floor val)
-                    (error "FLOOR requires a number"))))
+             ((can-parse-floor-p trimmed)
+              (try-floor trimmed env))
             
              ;; Math: CEIL n - round up (ceiling)
-             ((starts-with (string-upcase trimmed) "CEIL ")
-              (let* ((expr (trim (subseq trimmed 5)))
-                     (val (eval-expr expr env)))
-                (if (numberp val)
-                    (ceiling val)
-                    (error "CEIL requires a number"))))
+             ((can-parse-ceil-p trimmed)
+              (try-ceil trimmed env))
             
              ;; Math: MIN OF a AND b - minimum of two numbers
              ((and (starts-with (string-upcase trimmed) "MIN OF ")
