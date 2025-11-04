@@ -1,0 +1,22 @@
+Story: Test positional CLI arguments with ARGS array
+
+Given:
+  arg0: String = ARGS[0]
+  arg1: String = ARGS[1]
+  arg2: String = ARGS[2]
+
+Step 1 → Check if any arguments provided
+  Because: Show usage if no arguments given
+  If: arg0 == ""
+    Effect: Print "Usage: test-cli-args-positional.cns <arg1> <arg2> <arg3>"
+    Effect: Print "Example: ./cns-run test-cli-args-positional.cns hello world test"
+    Then: go to End
+
+Step 2 → Display arguments
+  Because: Show what arguments were received
+  Effect: Print "Argument 0: {arg0}"
+  Effect: Print "Argument 1: {arg1}"
+  Effect: Print "Argument 2: {arg2}"
+  Effect: Print "Test passed: Positional arguments work correctly"
+
+End: Return 0

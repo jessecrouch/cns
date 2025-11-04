@@ -1,0 +1,53 @@
+Story: Test boolean flags with HAS_FLAG function
+
+Given:
+  verbose: Boolean = false
+  debug: Boolean = false
+  quiet: Boolean = false
+  unknown: Boolean = false
+
+Step 1 → Check verbose flag
+  Because: Determine if --verbose flag was passed
+  Then: verbose becomes HAS_FLAG("--verbose")
+
+Step 2 → Display verbose status
+  Because: Show the result to user
+  If: verbose == true
+    Effect: Print "Verbose mode: ENABLED"
+  Otherwise:
+    Effect: Print "Verbose mode: DISABLED"
+
+Step 3 → Check debug flag
+  Because: Determine if --debug flag was passed
+  Then: debug becomes HAS_FLAG("--debug")
+
+Step 4 → Display debug status
+  Because: Show the result to user
+  If: debug == true
+    Effect: Print "Debug mode: ENABLED"
+  Otherwise:
+    Effect: Print "Debug mode: DISABLED"
+
+Step 5 → Check quiet flag
+  Because: Determine if --quiet flag was passed
+  Then: quiet becomes HAS_FLAG("--quiet")
+
+Step 6 → Display quiet status
+  Because: Show the result to user
+  If: quiet == true
+    Effect: Print "Quiet mode: ENABLED"
+  Otherwise:
+    Effect: Print "Quiet mode: DISABLED"
+
+Step 7 → Check unknown flag
+  Because: Demonstrate behavior when flag not provided
+  Then: unknown becomes HAS_FLAG("--unknown")
+
+Step 8 → Display unknown status
+  Because: Show the result to user
+  If: unknown == true
+    Effect: Print "Unknown flag: ENABLED"
+  Otherwise:
+    Effect: Print "Unknown flag: DISABLED (expected)"
+
+End: Return 0

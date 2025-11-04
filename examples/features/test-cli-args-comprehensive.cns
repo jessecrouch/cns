@@ -1,0 +1,60 @@
+Story: Comprehensive CLI tool demonstrating all argument types
+
+Given:
+  command: String = ""
+  filename: String = ""
+  port: String = ""
+  verbose: Boolean = false
+  help: Boolean = false
+
+Step 1 → Check for help flag
+  Because: Users may want to see usage information
+  Then: help becomes HAS_FLAG("--help")
+
+Step 2 → Show help if requested
+  Because: Display usage information when help flag is present
+  If: help == true
+    Effect: Print "Usage: program <command> <filename> [--port N] [--verbose]"
+    Then: go to End
+
+Step 3 → Get command (first positional arg)
+  Because: First argument specifies what action to take
+  Then: command becomes ARGS[0]
+
+Step 4 → Validate command
+  Because: Ensure a command was provided
+  If: command == ""
+    Effect: Print "Error: No command specified"
+    Then: go to End
+
+Step 5 → Get filename (second positional arg)
+  Because: Second argument specifies which file to process
+  Then: filename becomes ARGS[1]
+
+Step 6 → Validate filename
+  Because: Ensure a filename was provided
+  If: filename == ""
+    Effect: Print "Error: No filename specified"
+    Then: go to End
+
+Step 7 → Get optional port
+  Because: Port may be specified with --port flag
+  Then: port becomes ARG("--port", "3000")
+
+Step 8 → Check verbose flag
+  Because: Verbose mode enables detailed output
+  Then: verbose becomes HAS_FLAG("--verbose")
+
+Step 9 → Show verbose output if enabled
+  Because: Provide detailed information when verbose mode is on
+  If: verbose == true
+    Effect: Print "[VERBOSE] Executing command: {command}"
+    Effect: Print "[VERBOSE] Target file: {filename}"
+    Effect: Print "[VERBOSE] Port: {port}"
+
+Step 10 → Execute command
+  Because: Process the file according to the command
+  Effect: Print "Processing '{filename}' with command '{command}' on port {port}"
+  Effect: Print "Operation completed successfully"
+
+End: Return 0

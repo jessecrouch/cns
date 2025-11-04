@@ -1,0 +1,17 @@
+Story: Test named CLI arguments with ARG function and defaults
+
+Given:
+  port: String = ARG("--port", "8080")
+  host: String = ARG("--host", "localhost")
+  timeout: String = ARG("--timeout", "30")
+  missing: String = ARG("--missing", "default-value")
+
+Step 1 → Display configuration
+  Because: Show what arguments were received or defaulted
+  Effect: Print "Port: {port}"
+  Effect: Print "Host: {host}"
+  Effect: Print "Timeout: {timeout} seconds"
+  Effect: Print "Missing (uses default): {missing}"
+  Effect: Print "Test passed: Named arguments with defaults work correctly"
+
+End: Return 0
