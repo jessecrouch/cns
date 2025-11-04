@@ -402,6 +402,36 @@
         ((listp val) (length val))
         (t 0)))))
 
+(defun can-parse-format-time-p (trimmed)
+  "Check if TRIMMED is a FORMAT TIME operation."
+  (and (starts-with (string-upcase trimmed) "FORMAT TIME ")
+       (search " WITH " (string-upcase trimmed))))
+
+(defun try-format-time (trimmed env)
+  "Parse and evaluate FORMAT TIME operation."
+  (when (can-parse-format-time-p trimmed)
+    (let* ((rest (trim (subseq trimmed 12)))
+           (with-pos (search " WITH " (string-upcase rest))))
+      (when with-pos
+        (let* ((time-expr (trim (subseq rest 0 with-pos)))
+               (format-expr (trim (subseq rest (+ with-pos 6))))
+               (time-val (eval-expr time-expr env))
+               (format-str (eval-expr format-expr env)))
+          (if (and (numberp time-val) (stringp format-str))
+              (multiple-value-bind (sec min hr day mon yr dow dst tz)
+                  (decode-universal-time time-val)
+                (declare (ignore dow dst tz))
+                ;; Simple format string replacement
+                (let ((result format-str))
+                  (setf result (replace-all result "YYYY" (format nil "~4,'0D" yr)))
+                  (setf result (replace-all result "MM" (format nil "~2,'0D" mon)))
+                  (setf result (replace-all result "DD" (format nil "~2,'0D" day)))
+                  (setf result (replace-all result "HH" (format nil "~2,'0D" hr)))
+                  (setf result (replace-all result "mm" (format nil "~2,'0D" min)))
+                  (setf result (replace-all result "SS" (format nil "~2,'0D" sec)))
+                  result))
+              ""))))))
+
 (defun try-comparison-simple (trimmed op-char comparison-fn env)
   "Try to parse TRIMMED as a comparison with 1-char operator (<, >, =).
    Returns (values result t) if successful, (values nil nil) if operator not found.
@@ -2520,29 +2550,8 @@ World' and ' rest'"
                       '())))))
             
              ;; Date/Time: FORMAT TIME value WITH "format"
-             ((starts-with (string-upcase trimmed) "FORMAT TIME ")
-              (let* ((rest (trim (subseq trimmed 12)))
-                     (with-pos (search " WITH " (string-upcase rest))))
-                (if with-pos
-                    (let* ((time-expr (trim (subseq rest 0 with-pos)))
-                           (format-expr (trim (subseq rest (+ with-pos 6))))
-                           (time-val (eval-expr time-expr env))
-                           (format-str (eval-expr format-expr env)))
-                      (if (and (numberp time-val) (stringp format-str))
-                          (multiple-value-bind (sec min hr day mon yr dow dst tz)
-                              (decode-universal-time time-val)
-                            (declare (ignore dow dst tz))
-                            ;; Simple format string replacement
-                            (let ((result format-str))
-                              (setf result (replace-all result "YYYY" (format nil "~4,'0D" yr)))
-                              (setf result (replace-all result "MM" (format nil "~2,'0D" mon)))
-                              (setf result (replace-all result "DD" (format nil "~2,'0D" day)))
-                              (setf result (replace-all result "HH" (format nil "~2,'0D" hr)))
-                              (setf result (replace-all result "mm" (format nil "~2,'0D" min)))
-                              (setf result (replace-all result "SS" (format nil "~2,'0D" sec)))
-                              result))
-                          ""))
-                    "")))
+             ((can-parse-format-time-p trimmed)
+              (try-format-time trimmed env))
             
              ;; Date/Time: ADD DAYS time BY n (or ADD_DAYS for backward compat)
              ((or (starts-with (string-upcase trimmed) "ADD DAYS ")
