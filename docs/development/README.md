@@ -43,6 +43,44 @@
 
 ---
 
+## Architecture
+
+**[Refactoring Session - November 3, 2025](../archive/2025-11/REFACTORING-SESSION-2025-11-03.md)** ⭐ **NEW**
+- Major interpreter refactoring complete
+- Extracted 15 effect handlers from monolithic `apply-effect` function
+- Helper function pattern established for all effect categories
+- 100% test pass rate (37/37 tests)
+- ~1,050 lines of helpers, -950 lines of inline code
+
+**Effect Handler Pattern:**
+```lisp
+(defun can-handle-CATEGORY-effect-p (trimmed)
+  "Check if TRIMMED is a CATEGORY effect."
+  (let ((upper (string-upcase trimmed)))
+    (or (starts-with upper "COMMAND1 ")
+        (starts-with upper "COMMAND2 ")
+        ...)))
+
+(defun handle-CATEGORY-effect (trimmed env verbose)
+  "Execute CATEGORY effect.
+   Supports: COMMAND1, COMMAND2, ..."
+  (when (can-handle-CATEGORY-effect-p trimmed)
+    (let ((upper (string-upcase trimmed)))
+      (cond
+        ((starts-with upper "COMMAND1") ...)
+        ((starts-with upper "COMMAND2") ...)
+        (t nil)))))
+```
+
+**When adding new effects:**
+1. Follow the pattern above
+2. Add helper after line ~2646 in `src/cns.lisp`
+3. Call helper from `apply-effect` function
+4. Add comprehensive tests
+5. Update this documentation
+
+---
+
 ## Recent Work
 
 **[PHASE-1-REORGANIZATION-COMPLETE.md](PHASE-1-REORGANIZATION-COMPLETE.md)**
