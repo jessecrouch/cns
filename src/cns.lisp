@@ -489,6 +489,25 @@
               (+ time-val (* hours-val 3600)) ; 3600 seconds per hour
               time-val))))))
 
+(defun can-parse-add-minutes-p (trimmed)
+  "Check if TRIMMED is an ADD MINUTES operation."
+  (and (starts-with (string-upcase trimmed) "ADD MINUTES ")
+       (search " BY " (string-upcase trimmed))))
+
+(defun try-add-minutes (trimmed env)
+  "Parse and evaluate ADD MINUTES operation."
+  (when (can-parse-add-minutes-p trimmed)
+    (let* ((rest (trim (subseq trimmed 12)))
+           (by-pos (search " BY " (string-upcase rest))))
+      (when by-pos
+        (let* ((time-expr (trim (subseq rest 0 by-pos)))
+               (mins-expr (trim (subseq rest (+ by-pos 4))))
+               (time-val (eval-expr time-expr env))
+               (mins-val (eval-expr mins-expr env)))
+          (if (and (numberp time-val) (numberp mins-val))
+              (+ time-val (* mins-val 60)) ; 60 seconds per minute
+              time-val))))))
+
 (defun try-comparison-simple (trimmed op-char comparison-fn env)
   "Try to parse TRIMMED as a comparison with 1-char operator (<, >, =).
    Returns (values result t) if successful, (values nil nil) if operator not found.
@@ -2619,18 +2638,8 @@ World' and ' rest'"
               (try-add-hours trimmed env))
             
              ;; Date/Time: ADD MINUTES time BY n
-             ((starts-with (string-upcase trimmed) "ADD MINUTES ")
-              (let* ((rest (trim (subseq trimmed 12)))
-                     (by-pos (search " BY " (string-upcase rest))))
-                (if by-pos
-                    (let* ((time-expr (trim (subseq rest 0 by-pos)))
-                           (mins-expr (trim (subseq rest (+ by-pos 4))))
-                           (time-val (eval-expr time-expr env))
-                           (mins-val (eval-expr mins-expr env)))
-                      (if (and (numberp time-val) (numberp mins-val))
-                          (+ time-val (* mins-val 60)) ; 60 seconds per minute
-                          time-val))
-                     0)))
+             ((can-parse-add-minutes-p trimmed)
+              (try-add-minutes trimmed env))
             
              ;; NOTE: Math functions (SQRT, POW, ABS, ROUND, FLOOR, CEIL) moved earlier
              ;; They are now at line ~1712, BEFORE arithmetic operators
