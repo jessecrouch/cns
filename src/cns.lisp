@@ -139,11 +139,15 @@
       (filepath-p str)
       (datetime-or-string-expr-p str)))
 
+(defun can-parse-binary-operator-p (trimmed op-char)
+  "Check if TRIMMED can be parsed as a binary operator expression."
+  (and (search (string op-char) trimmed)
+       (not (should-skip-operator-p trimmed))))
+
 (defun try-binary-operator (trimmed op-char op-fn env)
   "Try to parse TRIMMED as a binary operation with OP-CHAR, applying OP-FN.
    Returns the result if successful, NIL if operator not found or should skip."
-  (when (and (search (string op-char) trimmed)
-             (not (should-skip-operator-p trimmed)))
+  (when (can-parse-binary-operator-p trimmed op-char)
     (let ((parts (split-string trimmed op-char)))
       (when (= (length parts) 2)
         (funcall op-fn
@@ -2013,8 +2017,8 @@ World' and ' rest'"
              ;; ========================================================================
              
              ;; Arithmetic: multiplication (n * 3 or 3 * n both work now!)
-             ((let ((result (try-binary-operator trimmed #\* #'* env)))
-                (when result result)))
+             ((can-parse-binary-operator-p trimmed #\*)
+              (try-binary-operator trimmed #\* #'* env))
             
             ;; Arithmetic: subtraction (n - 1 or 10 - n both work!)
             ;; BUT: Don't match negative numbers like "-42" (minus at start with no left operand)
@@ -2022,13 +2026,12 @@ World' and ' rest'"
             ;; AND: Don't match in complex expressions like FORMAT TIME ... WITH "..."
             ;; AND: Don't match in filepaths like "/tmp/cns-test.txt"
             ((let ((minus-pos (position #\- trimmed)))
-               (when (and (search "-" trimmed)
-                          (not (should-skip-operator-p trimmed))
-                          minus-pos
-                          (> minus-pos 0)
-                          (> (length (trim (subseq trimmed 0 minus-pos))) 0))
-                 (let ((result (try-binary-operator trimmed #\- #'- env)))
-                   (when result result)))))
+               (and (search "-" trimmed)
+                    (not (should-skip-operator-p trimmed))
+                    minus-pos
+                    (> minus-pos 0)
+                    (> (length (trim (subseq trimmed 0 minus-pos))) 0)))
+             (try-binary-operator trimmed #\- #'- env))
            
              ;; Addition/Concatenation: n + 1 or "hello" + "world" or "a" + b + "c"
              ((search "+" trimmed)
@@ -2046,14 +2049,14 @@ World' and ' rest'"
                                   values)))))
             
             ;; Arithmetic: division (n / 2 or 20 / n both work!)
-            ((let ((result (try-binary-operator trimmed #\/ 
-                                                (lambda (a b) (floor (/ a b)))
-                                                env)))
-               (when result result)))
+            ((can-parse-binary-operator-p trimmed #\/)
+             (try-binary-operator trimmed #\/ 
+                                  (lambda (a b) (floor (/ a b)))
+                                  env))
             
              ;; Arithmetic: modulo (n % 2 or 10 % n both work!)
-             ((let ((result (try-binary-operator trimmed #\% #'mod env)))
-                (when result result)))
+             ((can-parse-binary-operator-p trimmed #\%)
+              (try-binary-operator trimmed #\% #'mod env))
             
              ;; Try to parse as number (handles integers and floats, including negative)
              ;; IMPORTANT: This must come AFTER operator checks!
