@@ -150,37 +150,52 @@
                  (eval-expr (trim (car parts)) env)
                  (eval-expr (trim (cadr parts)) env))))))
 
+(defun can-parse-comparison-operator-p (trimmed op-string)
+  "Check if TRIMMED can be parsed as a comparison operator expression."
+  (and (search op-string trimmed)
+       (not (quoted-string-p trimmed))))
+
 (defun try-comparison-operator (trimmed op-string comparison-fn env)
   "Try to parse TRIMMED as a comparison with 2-char operator (<=, >=, ==, !=).
-   Returns the result if successful, NIL if operator not found or should skip.
+   Returns (values result t) if successful, (values nil nil) if operator not found.
    Handles both numeric and general equality comparisons."
-  (when (and (search op-string trimmed)
-             (not (quoted-string-p trimmed)))
-    (let* ((pos (search op-string trimmed))
-           (left (subseq trimmed 0 pos))
-           (right (subseq trimmed (+ pos (length op-string))))
-           (left-val (eval-expr (trim left) env))
-           (right-val (eval-expr (trim right) env)))
-      ;; For equality/inequality operators, use appropriate comparison
-      (if (or (string= op-string "==") (string= op-string "!="))
-          (if (and (numberp left-val) (numberp right-val))
-              (funcall comparison-fn left-val right-val)
-              (if (string= op-string "==")
-                  (equal left-val right-val)
-                  (not (equal left-val right-val))))
-          ;; For <=, >= just use the comparison function directly
-          (funcall comparison-fn left-val right-val)))))
+  (if (can-parse-comparison-operator-p trimmed op-string)
+      (let* ((pos (search op-string trimmed))
+             (left (subseq trimmed 0 pos))
+             (right (subseq trimmed (+ pos (length op-string))))
+             (left-val (eval-expr (trim left) env))
+             (right-val (eval-expr (trim right) env)))
+        ;; For equality/inequality operators, use appropriate comparison
+        (values
+         (if (or (string= op-string "==") (string= op-string "!="))
+             (if (and (numberp left-val) (numberp right-val))
+                 (funcall comparison-fn left-val right-val)
+                 (if (string= op-string "==")
+                     (equal left-val right-val)
+                     (not (equal left-val right-val))))
+             ;; For <=, >= just use the comparison function directly
+             (funcall comparison-fn left-val right-val))
+         t))
+      (values nil nil)))
+
+(defun can-parse-comparison-simple-p (trimmed op-char)
+  "Check if TRIMMED can be parsed as a simple comparison."
+  (and (position op-char trimmed)
+       (not (quoted-string-p trimmed))))
 
 (defun try-comparison-simple (trimmed op-char comparison-fn env)
   "Try to parse TRIMMED as a comparison with 1-char operator (<, >).
-   Returns the result if successful, NIL if operator not found or should skip."
-  (when (and (position op-char trimmed)
-             (not (quoted-string-p trimmed)))
-    (let ((parts (split-string trimmed op-char)))
-      (when (= (length parts) 2)
-        (funcall comparison-fn
-                 (eval-expr (trim (car parts)) env)
-                 (eval-expr (trim (cadr parts)) env))))))
+   Returns (values result t) if successful, (values nil nil) if operator not found."
+  (if (can-parse-comparison-simple-p trimmed op-char)
+      (let ((parts (split-string trimmed op-char)))
+        (if (= (length parts) 2)
+            (values
+             (funcall comparison-fn
+                      (eval-expr (trim (car parts)) env)
+                      (eval-expr (trim (cadr parts)) env))
+             t)
+            (values nil nil)))
+      (values nil nil)))
 
 (defun split-string (str delimiter)
   "Split string by delimiter into list."
@@ -1927,20 +1942,20 @@ World' and ' rest'"
              ;; ========================================================================
              
              ;; Comparison: n ≤ 1 (less than or equal, Unicode) - BEFORE < check
-             ((let ((result (try-comparison-simple trimmed #\≤ #'<= env)))
-                (when result result)))
+             ((can-parse-comparison-simple-p trimmed #\≤)
+              (try-comparison-simple trimmed #\≤ #'<= env))
              
              ;; Comparison: n <= 1 (less than or equal, ASCII) - BEFORE < check
-             ((let ((result (try-comparison-operator trimmed "<=" #'<= env)))
-                (when result result)))
+             ((can-parse-comparison-operator-p trimmed "<=")
+              (try-comparison-operator trimmed "<=" #'<= env))
              
              ;; Comparison: n ≥ 1 (greater than or equal, Unicode) - BEFORE > check
-             ((let ((result (try-comparison-simple trimmed #\≥ #'>= env)))
-                (when result result)))
+             ((can-parse-comparison-simple-p trimmed #\≥)
+              (try-comparison-simple trimmed #\≥ #'>= env))
              
              ;; Comparison: n >= 1 (greater than or equal, ASCII) - BEFORE > check
-             ((let ((result (try-comparison-operator trimmed ">=" #'>= env)))
-                (when result result)))
+             ((can-parse-comparison-operator-p trimmed ">=")
+              (try-comparison-operator trimmed ">=" #'>= env))
            
            ;; Comparison: n > 1 (must come AFTER >= check)
             ((and (position #\> trimmed)
