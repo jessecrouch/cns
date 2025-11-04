@@ -342,6 +342,29 @@
                 (nreverse result))
               nil))))))
 
+(defun can-parse-replace-p (trimmed)
+  "Check if TRIMMED is a REPLACE operation."
+  (and (starts-with (string-upcase trimmed) "REPLACE ")
+       (search " WITH " (string-upcase trimmed))
+       (search " IN " (string-upcase trimmed))))
+
+(defun try-replace (trimmed env)
+  "Parse and evaluate REPLACE operation."
+  (when (can-parse-replace-p trimmed)
+    (let* ((rest (trim (subseq trimmed 8)))
+           (with-pos (search " WITH " (string-upcase rest)))
+           (in-pos (search " IN " (string-upcase rest))))
+      (when (and with-pos in-pos)
+        (let* ((search-expr (trim (subseq rest 0 with-pos)))
+               (replace-expr (trim (subseq rest (+ with-pos 6) in-pos)))
+               (text-expr (trim (subseq rest (+ in-pos 4))))
+               (search-val (eval-expr search-expr env))
+               (replace-val (eval-expr replace-expr env))
+               (text-val (eval-expr text-expr env)))
+          (if (and (stringp search-val) (stringp replace-val) (stringp text-val))
+              (replace-all text-val search-val replace-val)
+              ""))))))
+
 (defun try-comparison-simple (trimmed op-char comparison-fn env)
   "Try to parse TRIMMED as a comparison with 1-char operator (<, >, =).
    Returns (values result t) if successful, (values nil nil) if operator not found.
@@ -2419,21 +2442,8 @@ World' and ' rest'"
                     (if (numberp str-val) str-val 0.0))))
             
              ;; String operation: REPLACE "search" WITH "replacement" IN text
-             ((starts-with (string-upcase trimmed) "REPLACE ")
-              (let* ((rest (trim (subseq trimmed 8)))
-                     (with-pos (search " WITH " (string-upcase rest)))
-                     (in-pos (search " IN " (string-upcase rest))))
-                (if (and with-pos in-pos)
-                    (let* ((search-expr (trim (subseq rest 0 with-pos)))
-                           (replace-expr (trim (subseq rest (+ with-pos 6) in-pos)))
-                           (text-expr (trim (subseq rest (+ in-pos 4))))
-                           (search-val (eval-expr search-expr env))
-                           (replace-val (eval-expr replace-expr env))
-                           (text-val (eval-expr text-expr env)))
-                      (if (and (stringp search-val) (stringp replace-val) (stringp text-val))
-                          (replace-all text-val search-val replace-val)
-                          ""))
-                    "")))
+             ((can-parse-replace-p trimmed)
+              (try-replace trimmed env))
             
              ;; String operation: JOIN list WITH "delimiter"
              ((starts-with (string-upcase trimmed) "JOIN ")
