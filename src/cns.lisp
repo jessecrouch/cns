@@ -3360,7 +3360,7 @@ World' and ' rest'"
                            (format t "  Effect: DB QUERY skipped (sqlite3 not available)~%")))
                        t))))))))
         
-        (t nil)))))
+        (t nil))))))
 
 ;; Socket operations effect helper
 (defun can-handle-socket-effect-p (trimmed)
@@ -3561,9 +3561,9 @@ World' and ' rest'"
            (setf (gethash "client_stream" env) nil)
            (when verbose
              (format t "  Effect: Closed client connection~%"))
-           t))
+            t))
         
-        (t nil)))))
+        (t nil))))))
 
 ;; GREP effect helper
 (defun can-handle-grep-effect-p (trimmed)
