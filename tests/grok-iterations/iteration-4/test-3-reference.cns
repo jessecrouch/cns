@@ -1,0 +1,177 @@
+Story: Task Runner REST API
+
+Given:
+  port: Integer = 8080
+  server_socket: Socket
+  method: String = ""
+  path: String = ""
+  body: String = ""
+  response: String = ""
+  command: String = ""
+  pid: Integer = 0
+  task_id: Integer = 0
+  task_status: String = ""
+  query_result: String = ""
+  db: String = "tasks.db"
+  insert_sql: String = ""
+  exit_code: Integer = 0
+  path_parts: List = []
+  task_id_str: String = ""
+
+Step 1 → Initialize database
+  Because: Create tasks table if not exists
+  Effect: DATABASE CONNECT TO db AS db
+  Effect: DATABASE EXECUTE "CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, command TEXT, pid INTEGER, status TEXT, exit_code INTEGER)" ON db
+  Effect: Print "Task Runner API started on port {port}"
+
+Step 2 → Start server
+  Because: Listen for HTTP requests
+  Effect: Create socket server_socket on port
+
+Step 3 → Accept connection
+  Because: Handle incoming request
+  Effect: Accept connection on server_socket
+
+Step 4 → Read request
+  Because: Parse HTTP request
+  Effect: Network read
+  Then: method becomes REQUEST_METHOD
+  Then: path becomes REQUEST_PATH
+  Then: body becomes REQUEST_BODY
+
+Step 5 → Route request
+  Because: Direct to appropriate handler
+  If: method = "POST"
+    Then: go to Step 10
+  Otherwise:
+    Then: go to Step 6
+
+Step 6 → Check for GET
+  Because: Handle GET requests
+  If: method = "GET"
+    Then: go to Step 20
+  Otherwise:
+    Then: go to Step 7
+
+Step 7 → Check for DELETE
+  Because: Handle DELETE requests
+  If: method = "DELETE"
+    Then: go to Step 40
+  Otherwise:
+    Then: go to Step 99
+
+Step 10 → Handle POST tasks
+  Because: Submit new task
+  If: path = "/tasks"
+    Then: go to Step 11
+  Otherwise:
+    Then: go to Step 99
+
+Step 11 → Parse command from JSON body
+  Because: Extract command to execute
+  Then: command becomes PARSE JSON body GET "command"
+
+Step 12 → Launch background job
+  Because: Run task asynchronously
+  Then: pid becomes SHELL command BACKGROUND INTO pid
+
+Step 13 → Store task in database
+  Because: Track task for future queries
+  Then: insert_sql becomes "INSERT INTO tasks (command, pid, status) VALUES ('" + command + "', " + pid + ", 'running')"
+  Effect: DATABASE EXECUTE insert_sql ON db
+
+Step 14 → Get task ID
+  Because: Return new task ID to client
+  Then: query_result becomes DATABASE QUERY "SELECT last_insert_rowid() as id" ON db
+  Then: task_id_str becomes PARSE JSON query_result GET "0.id"
+
+Step 15 → Send response
+  Because: Confirm task submission
+  Then: response becomes "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{\"task_id\": " + task_id_str + ", \"status\": \"running\", \"pid\": " + pid + "}"
+  Effect: Send response to client
+  Then: go to Step 100
+
+Step 20 → Handle GET requests
+  Because: Determine which GET endpoint
+  If: path = "/tasks"
+    Then: go to Step 21
+  Otherwise:
+    Then: go to Step 25
+
+Step 21 → List all tasks
+  Because: Return all tasks from database
+  Then: query_result becomes DATABASE QUERY "SELECT id, command, pid, status, exit_code FROM tasks" ON db
+
+Step 22 → Send task list
+  Because: Return results to client
+  Then: response becomes "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n" + query_result
+  Effect: Send response to client
+  Then: go to Step 100
+
+Step 25 → Get specific task
+  Because: Extract task ID from path
+  Then: path_parts becomes SPLIT path BY "/"
+  Then: task_id_str becomes FIRST FROM SLICE path_parts FROM 2 TO 3
+
+Step 26 → Query task from database
+  Because: Fetch task details
+  Then: query_result becomes DATABASE QUERY "SELECT id, command, pid, status, exit_code FROM tasks WHERE id = " + task_id_str ON db
+
+Step 27 → Check if task is running
+  Because: Update status if process completed
+  Then: task_status becomes PARSE JSON query_result GET "0.status"
+  If: task_status = "running"
+    Then: go to Step 28
+  Otherwise:
+    Then: go to Step 29
+
+Step 28 → Update running task status
+  Because: Check if process actually completed
+  Then: pid becomes PARSE_INT (PARSE JSON query_result GET "0.pid")
+  Then: task_status becomes STATUS OF pid
+  If: task_status = "completed"
+    Effect: DATABASE EXECUTE "UPDATE tasks SET status = 'completed', exit_code = 0 WHERE id = " + task_id_str ON db
+    Then: query_result becomes DATABASE QUERY "SELECT id, command, pid, status, exit_code FROM tasks WHERE id = " + task_id_str ON db
+
+Step 29 → Send task details
+  Because: Return task info to client
+  Then: response becomes "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n" + query_result
+  Effect: Send response to client
+  Then: go to Step 100
+
+Step 40 → Handle DELETE task
+  Because: Kill running task
+  Then: path_parts becomes SPLIT path BY "/"
+  Then: task_id_str becomes FIRST FROM SLICE path_parts FROM 2 TO 3
+
+Step 41 → Get task PID
+  Because: Need PID to kill process
+  Then: query_result becomes DATABASE QUERY "SELECT pid FROM tasks WHERE id = " + task_id_str ON db
+  Then: pid becomes PARSE_INT (PARSE JSON query_result GET "0.pid")
+
+Step 42 → Kill the process
+  Because: Terminate running task
+  Effect: KILL pid
+
+Step 43 → Update database
+  Because: Mark task as killed
+  Effect: DATABASE EXECUTE "UPDATE tasks SET status = 'killed' WHERE id = " + task_id_str ON db
+
+Step 44 → Send confirmation
+  Because: Confirm task was killed
+  Then: response becomes "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{\"task_id\": " + task_id_str + ", \"status\": \"killed\"}"
+  Effect: Send response to client
+  Then: go to Step 100
+
+Step 99 → Handle 404
+  Because: Unknown endpoint or method
+  Then: response becomes "HTTP/1.1 404 Not Found\r\n\r\n404 - Not Found"
+  Effect: Send response to client
+
+Step 100 → Close connection and loop
+  Because: Clean up and handle next request
+  Effect: Close connection client_socket
+  If: TRUE
+    Then: repeat from Step 3
+
+End: Return 0

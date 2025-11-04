@@ -1,0 +1,98 @@
+Story: Background Job Manager
+
+Given:
+  command: String = ARGS[0]
+  arg: String = ARGS[1]
+  pid: Integer = 0
+  job_command: String = ""
+  status: String = ""
+  exit_code: Integer = 0
+  killed: Boolean = FALSE
+
+Step 1 → Validate command provided
+  Because: User must specify an action
+  If: command = ""
+    Effect: Print "Error: No command provided"
+    Effect: Print "Usage: job-manager.cns <run|status|wait|kill> <arg>"
+    Then: go to End
+
+Step 2 → Route to appropriate handler
+  Because: Different actions need different logic
+  If: command = "run"
+    Then: go to Step 10
+  Otherwise:
+    Then: go to Step 3
+
+Step 3 → Check for status command
+  Because: Continue routing
+  If: command = "status"
+    Then: go to Step 20
+  Otherwise:
+    Then: go to Step 4
+
+Step 4 → Check for wait command
+  Because: Continue routing
+  If: command = "wait"
+    Then: go to Step 30
+  Otherwise:
+    Then: go to Step 5
+
+Step 5 → Check for kill command
+  Because: Continue routing
+  If: command = "kill"
+    Then: go to Step 40
+  Otherwise:
+    Then: go to Step 99
+
+Step 10 → Handle run command
+  Because: Launch background job
+  If: arg = ""
+    Effect: Print "Error: No command provided to run"
+    Then: go to End
+  Then: job_command becomes arg
+  Then: pid becomes SHELL job_command BACKGROUND INTO pid
+  Effect: Print "Job started: PID {pid}"
+  Then: go to End
+
+Step 20 → Handle status command
+  Because: Check job status
+  If: arg = ""
+    Effect: Print "Error: No PID provided"
+    Then: go to End
+  Then: pid becomes PARSE_INT arg
+  Then: status becomes STATUS OF pid
+  Effect: Print "Job {pid}: {status}"
+  Then: go to End
+
+Step 30 → Handle wait command
+  Because: Wait for job completion
+  If: arg = ""
+    Effect: Print "Error: No PID provided"
+    Then: go to End
+  Then: pid becomes PARSE_INT arg
+  Then: exit_code becomes WAIT FOR pid
+  If: exit_code = NIL
+    Effect: Print "Job {pid} not found"
+  Otherwise:
+    Effect: Print "Job {pid} completed with exit code: {exit_code}"
+  Then: go to End
+
+Step 40 → Handle kill command
+  Because: Terminate running job
+  If: arg = ""
+    Effect: Print "Error: No PID provided"
+    Then: go to End
+  Then: pid becomes PARSE_INT arg
+  Then: killed becomes KILL pid
+  If: killed
+    Effect: Print "Job {pid} killed successfully"
+  Otherwise:
+    Effect: Print "Failed to kill job {pid}"
+  Then: go to End
+
+Step 99 → Handle invalid command
+  Because: User provided unknown command
+  Effect: Print "Error: Unknown command '{command}'"
+  Effect: Print "Valid commands: run, status, wait, kill"
+
+End: Return 0

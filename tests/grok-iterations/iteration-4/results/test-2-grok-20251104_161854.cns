@@ -1,0 +1,61 @@
+Story: Job Manager CLI
+
+Given:
+  command: String = ARGS[0]
+  pid: String = ARGS[1]
+  job_id: Number = 0
+  status: String = ""
+  exit_code: Number = 0
+  result: Boolean = FALSE
+
+Step 1 → Check command
+  Because: Determine which operation to perform
+  If: command = "run"
+    Then: go to Step 10
+  Otherwise:
+    If: command = "status"
+      Then: go to Step 20
+    Otherwise:
+      If: command = "wait"
+        Then: go to Step 30
+      Otherwise:
+        If: command = "kill"
+          Then: go to Step 40
+        Otherwise:
+          Effect: Print "Invalid command"
+          Then: go to End
+
+Step 10 → Run job
+  Because: Launch a new background job
+  Then: job_id becomes SHELL ARGS[1] BACKGROUND INTO pid
+  Effect: Print "Job started: PID {job_id}"
+  Then: go to End
+
+Step 20 → Check job status
+  Because: Get the status of a job
+  Then: status becomes STATUS OF pid
+  If: status = "running"
+    Effect: Print "Job {pid}: running"
+  Otherwise:
+    If: status = "completed"
+      Effect: Print "Job {pid}: completed"
+    Otherwise:
+      Effect: Print "Job {pid}: not found"
+  Then: go to End
+
+Step 30 → Wait for job
+  Because: Wait until a job completes
+  Then: exit_code becomes WAIT FOR pid
+  Effect: Print "Job {pid} completed with exit code: {exit_code}"
+  Then: go to End
+
+Step 40 → Kill job
+  Because: Terminate a running job
+  Then: result becomes KILL pid
+  If: result
+    Effect: Print "Job {pid} killed successfully"
+  Otherwise:
+    Effect: Print "Failed to kill job {pid}"
+  Then: go to End
+
+End: Return 0

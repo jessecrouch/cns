@@ -1,0 +1,138 @@
+Story: Task Runner REST API
+
+Given:
+  port: Integer = 8080
+  server_socket: Socket
+  method: String = ""
+  path: String = ""
+  response: String = ""
+  task_id: Integer = 0
+  command: String = ""
+  pid: Integer = 0
+  status: String = ""
+  exit_code: Integer = 0
+  db: String = "/tmp/tasks.db"
+
+Step 1 → Start server
+  Because: Listen for connections
+  Effect: DATABASE CONNECT TO db AS db
+  Effect: Create socket server_socket on port
+  Effect: Print "Task Runner API started on port {port}"
+
+Step 2 → Accept connection
+  Because: Get incoming request
+  Effect: Accept connection on server_socket
+
+Step 3 → Read request
+  Because: Parse HTTP request
+  Effect: Network read
+  Then: method becomes REQUEST_METHOD
+  Then: path becomes REQUEST_PATH
+
+Step 4 → Route request
+  Because: Direct to appropriate handler
+  If: method = "POST" AND path = "/tasks"
+    Then: go to Step 10
+  Otherwise:
+    If: method = "GET" AND path STARTS WITH "/tasks/"
+      Then: go to Step 20
+    Otherwise:
+      If: method = "GET" AND path = "/tasks"
+        Then: go to Step 30
+      Otherwise:
+        If: method = "DELETE" AND path STARTS WITH "/tasks/"
+          Then: go to Step 40
+        Otherwise:
+          Then: go to Step 50
+
+Step 10 → Handle POST /tasks
+  Because: Submit new task
+  Then: command becomes PARSE JSON REQUEST_BODY GET "command"
+  Effect: DATABASE EXECUTE "INSERT INTO tasks (command, status) VALUES ('{command}', 'running')" ON db
+  Then: task_id becomes DATABASE QUERY "SELECT last_insert_rowid()" ON db
+  Then: task_id becomes FIRST FROM task_id
+  Then: pid becomes SHELL command BACKGROUND INTO job
+  Effect: DATABASE EXECUTE "UPDATE tasks SET pid = {pid} WHERE id = {task_id}" ON db
+  Then: response becomes "HTTP/1.1 201 Created\r\n\r\n{\"task_id\": {task_id}, \"status\": \"running\", \"pid\": {pid}}"
+  Effect: Send response to client
+  Then: go to Step 100
+
+Step 20 → Handle GET /tasks/<id>
+  Because: Get task status
+  Then: task_id becomes SPLIT path BY "/" AT 2
+  Then: row becomes DATABASE QUERY "SELECT * FROM tasks WHERE id = {task_id}" ON db
+  If: LENGTH OF row > 0
+    Then: command becomes PARSE JSON row GET "0.command"
+    Then: pid becomes PARSE JSON row GET "0.pid"
+    Then: status becomes PARSE JSON row GET "0.status"
+    Then: exit_code becomes PARSE JSON row GET "0.exit_code"
+    Then: response becomes "HTTP/1.1 200 OK\r\n\r\n{\"task_id\": {task_id}, \"status\": \"{status}\", \"command\": \"{command}\", \"pid\": {pid}, \"exit_code\": {exit_code}}"
+  Otherwise:
+    Then: response becomes "HTTP/1.1 404 Not Found\r\n\r\n{\"error\": \"Task not found\"}"
+  Effect: Send response to client
+  Then: go to Step 100
+
+Step 30 → Handle GET /tasks
+  Because: List all tasks
+  Then: rows becomes DATABASE QUERY "SELECT * FROM tasks" ON db
+  Then: json becomes "HTTP/1.1 200 OK\r\n\r\n["
+  For each row in rows:
+    Then: task_id becomes PARSE JSON row GET "id"
+    Then: command becomes PARSE JSON row GET "command"
+    Then: pid becomes PARSE JSON row GET "pid"
+    Then: status becomes PARSE JSON row GET "status"
+    Then: exit_code becomes PARSE JSON row GET "exit_code"
+    Then: json becomes json + "{\"task_id\": {task_id}, \"status\": \"{status}\", \"command\": \"{command}\", \"pid\": {pid}, \"exit_code\": {exit_code}},"
+  If: LENGTH OF rows > 0
+    Then: json becomes REPLACE "," WITH "]" IN json
+  Otherwise:
+    Then: json becomes json + "]"
+  Then: response becomes json
+  Effect: Send response to client
+  Then: go to Step 100
+
+Step 40 → Handle DELETE /tasks/<id>
+  Because: Kill running task
+  Then: task_id becomes SPLIT path BY "/" AT 2
+  Then: row becomes DATABASE QUERY "SELECT * FROM tasks WHERE id = {task_id}" ON db
+  If: LENGTH OF row > 0
+    Then: pid becomes PARSE JSON row GET "0.pid"
+    Then: status becomes STATUS OF pid
+    If: status = "running"
+      Then: KILL pid WITH SIGTERM
+      Then: status becomes "killed"
+      Effect: DATABASE EXECUTE "UPDATE tasks SET status = '{status}', exit_code = -1 WHERE id = {task_id}" ON db
+    Then: response becomes "HTTP/1.1 200 OK\r\n\r\n{\"task_id\": {task_id}, \"status\": \"{status}\"}"
+  Otherwise:
+    Then: response becomes "HTTP/1.1 404 Not Found\r\n\r\n{\"error\": \"Task not found\"}"
+  Effect: Send response to client
+  Then: go to Step 100
+
+Step 50 → Handle 404
+  Because: Unknown route
+  Then: response becomes "HTTP/1.1 404 Not Found\r\n\r\n{\"error\": \"Not Found\"}"
+  Effect: Send response to client
+
+Step 60 → Check task status
+  Because: Update task status in database
+  Then: rows becomes DATABASE QUERY "SELECT id, pid FROM tasks WHERE status = 'running'" ON db
+  For each row in rows:
+    Then: task_id becomes PARSE JSON row GET "id"
+    Then: pid becomes PARSE JSON row GET "pid"
+    Then: status becomes STATUS OF pid
+    If: status = "completed"
+      Then: exit_code becomes WAIT FOR pid
+      If: exit_code = 0
+        Then: status becomes "completed"
+      Otherwise:
+        Then: status becomes "failed"
+      Effect: DATABASE EXECUTE "UPDATE tasks SET status = '{status}', exit_code = {exit_code} WHERE id = {task_id}" ON db
+
+Step 100 → Close and continue
+  Because: Clean up and serve next request
+  Effect: Close connection client_socket
+  Then: go to Step 60
+  If: TRUE
+    Then: repeat from Step 2
+
+End: Return 0

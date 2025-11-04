@@ -1,0 +1,46 @@
+Story: Word Counter
+
+Given:
+  filename: String = ARGS[0]
+  content: String = ""
+  count: Integer = 0
+  verbose: Boolean = HAS_FLAG("--verbose")
+  lines_flag: Boolean = HAS_FLAG("--lines")
+  chars_flag: Boolean = HAS_FLAG("--chars")
+  output: String = ""
+
+Step 1 → Check if file exists
+  Because: Ensure file can be processed
+  Then: content becomes READ FROM FILE filename
+  If: content = ""
+    Effect: Print "Error: File not found"
+    Then: go to End
+
+Step 2 → Count based on flags
+  Because: Determine what to count
+  If: lines_flag
+    Then: count becomes LENGTH OF SPLIT content BY "\n"
+  Otherwise:
+    If: chars_flag
+      Then: count becomes LENGTH OF content
+    Otherwise:
+      Then: count becomes LENGTH OF SPLIT content BY " "
+
+Step 3 → Prepare output
+  Because: Format the result string
+  If: verbose
+    If: lines_flag
+      Then: output becomes filename + ": " + count + " lines"
+    Otherwise:
+      If: chars_flag
+        Then: output becomes filename + ": " + count + " characters"
+      Otherwise:
+        Then: output becomes filename + ": " + count + " words"
+  Otherwise:
+    Then: output becomes count
+
+Step 4 → Print result
+  Because: Display the final output
+  Effect: Print output
+
+End: Return count

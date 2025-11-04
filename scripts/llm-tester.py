@@ -45,7 +45,7 @@ class GrokClient(LLMClient):
         super().__init__(api_key, model)
         self.base_url = "https://api.x.ai/v1"
         
-    def generate(self, prompt: str, system_prompt: str = None, max_tokens: int = 2000, temperature: float = 0.7) -> str:
+    def generate(self, prompt: str, system_prompt: Optional[str] = None, max_tokens: int = 2000, temperature: float = 0.7) -> str:
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
@@ -327,20 +327,16 @@ def create_llm_client(provider: str, api_key: str, model: str) -> LLMClient:
         raise ValueError(f"Unknown provider: {provider}")
 
 
-def load_prompt_template(template_path: Path, task: str) -> str:
-    """Load and fill prompt template"""
-    if not template_path.exists():
-        raise FileNotFoundError(f"Template not found: {template_path}")
+def build_prompt_from_syntax(syntax_path: Path, task: str) -> str:
+    """Build prompt using SYNTAX.md as single source of truth"""
+    if not syntax_path.exists():
+        raise FileNotFoundError(f"SYNTAX.md not found at: {syntax_path}")
     
-    template = template_path.read_text()
-    return template.replace("{TASK}", task)
-
-
-def load_system_prompt(prompt_path: Path) -> Optional[str]:
-    """Load system prompt if it exists"""
-    if prompt_path.exists():
-        return prompt_path.read_text()
-    return None
+    # Read SYNTAX.md (already has {TASK} placeholder)
+    syntax_content = syntax_path.read_text()
+    
+    # Replace {TASK} with actual task
+    return syntax_content.replace("{TASK}", task)
 
 
 def run_test(
@@ -482,18 +478,30 @@ def load_env_file(project_root: Path):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Test LLMs on CNS code generation")
-    parser.add_argument("--task", required=True, help="Task description")
+    parser = argparse.ArgumentParser(
+        description="Test LLMs on CNS code generation using SYNTAX.md",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Test Grok on factorial calculation
+  %(prog)s --task "Calculate factorial of 10"
+  
+  # Test with Claude on web server
+  %(prog)s --task "Build HTTP server on port 8080" --provider claude
+  
+  # Quick test with custom name
+  %(prog)s --task "Sum numbers 1 to 100" --name sum-range
+        """
+    )
+    parser.add_argument("--task", required=True, help="Task description for CNS program")
     parser.add_argument("--name", help="Test name (defaults to task)")
-    parser.add_argument("--template", default="prompts/quick-template.md", help="Prompt template file")
-    parser.add_argument("--system-prompt", default="prompts/cns-system-prompt.md", help="System prompt file")
     parser.add_argument("--provider", default="grok", 
                        choices=["grok", "xai", "openai", "claude", "anthropic", "openrouter"],
-                       help="LLM provider")
+                       help="LLM provider (default: grok)")
     parser.add_argument("--model", help="Model to use (provider-specific)")
-    parser.add_argument("--retries", type=int, default=3, help="Max retry attempts")
+    parser.add_argument("--retries", type=int, default=3, help="Max retry attempts (default: 3)")
     parser.add_argument("--api-key", help="API key (or set in .env)")
-    parser.add_argument("--timeout", type=int, default=5, help="Execution timeout in seconds")
+    parser.add_argument("--timeout", type=int, default=5, help="Execution timeout in seconds (default: 5)")
     parser.add_argument("--quiet", action="store_true", help="Minimal output")
     
     args = parser.parse_args()
@@ -535,15 +543,15 @@ def main():
     
     test_name = args.name or args.task.replace(" ", "-").lower()
     
-    # Load prompts
-    template_path = project_root / args.template
-    system_prompt_path = project_root / args.system_prompt
+    # Build prompt from SYNTAX.md (single source of truth)
+    syntax_path = project_root / "SYNTAX.md"
     
     try:
-        prompt = load_prompt_template(template_path, args.task)
-        system_prompt = load_system_prompt(system_prompt_path)
+        prompt = build_prompt_from_syntax(syntax_path, args.task)
+        system_prompt = None  # SYNTAX.md is comprehensive, no separate system prompt needed
     except FileNotFoundError as e:
         print(f"ERROR: {e}")
+        print(f"Make sure SYNTAX.md exists at project root: {project_root}")
         sys.exit(1)
     
     # Initialize clients
@@ -554,10 +562,11 @@ def main():
     print(f"CNS LLM Test Harness")
     print(f"{'='*60}")
     print(f"Task: {args.task}")
+    print(f"Test name: {test_name}")
     print(f"Provider: {args.provider}")
     print(f"Model: {model}")
     print(f"Max retries: {args.retries}")
-    print(f"Template: {args.template}")
+    print(f"Using: SYNTAX.md (single source of truth)")
     
     # Run test
     result = run_test(

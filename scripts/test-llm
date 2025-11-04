@@ -1,0 +1,11 @@
+#!/bin/bash
+# Quick LLM testing wrapper for CNS
+# Uses SYNTAX.md as single source of truth
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+cd "$PROJECT_ROOT"
+
+# Run the Python tester
+python3 "$SCRIPT_DIR/llm-tester.py" "$@"

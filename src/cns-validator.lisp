@@ -244,7 +244,39 @@
                        (search "NOW()" (string-upcase cleaned-expr))
                        (search "TIMESTAMP()" (string-upcase cleaned-expr))
                        (search "EXTRACT" (string-upcase cleaned-expr))
-                       (search "MATCHES" (string-upcase cleaned-expr))))
+                       (search "MATCHES" (string-upcase cleaned-expr))
+                       ;; v2.0.0 Process Management compound statements
+                       (search "SHELL" (string-upcase cleaned-expr))
+                       (search "BACKGROUND" (string-upcase cleaned-expr))
+                       (search "KILL" (string-upcase cleaned-expr))
+                       (search "WAIT FOR" (string-upcase cleaned-expr))
+                       (search "STATUS OF" (string-upcase cleaned-expr))
+                       (search "PARSE_INT" (string-upcase cleaned-expr))
+                       (search "PARSE_FLOAT" (string-upcase cleaned-expr))
+                       (search "PARSE_BOOL" (string-upcase cleaned-expr))
+                       ;; v2.0.0 Database compound statements
+                       (search "DATABASE" (string-upcase cleaned-expr))
+                       ;; CLI argument functions
+                       (search "ARGS[" (string-upcase cleaned-expr))
+                       (search "ARG(" (string-upcase cleaned-expr))
+                       (search "HAS_FLAG(" (string-upcase cleaned-expr))
+                       ;; File operations
+                       (search "FILE EXISTS" (string-upcase cleaned-expr))
+                       ;; List operations
+                       (search "SLICE" (string-upcase cleaned-expr))
+                       (search "REVERSE" (string-upcase cleaned-expr))
+                       (search "UNIQUE" (string-upcase cleaned-expr))
+                       (search "SORT" (string-upcase cleaned-expr))
+                       (search "FIRST FROM" (string-upcase cleaned-expr))
+                       (search "KEYS OF" (string-upcase cleaned-expr))
+                       (search "VALUES OF" (string-upcase cleaned-expr))
+                       (search "MERGE" (string-upcase cleaned-expr))
+                       ;; String operations
+                       (search "PAD" (string-upcase cleaned-expr))
+                       (search "STRIP" (string-upcase cleaned-expr))
+                       (search "URL_ENCODE" (string-upcase cleaned-expr))
+                       (search "URL_DECODE" (string-upcase cleaned-expr))
+                       (search "STARTS WITH" (string-upcase cleaned-expr))))
           ;; Split by common operators and keywords
           (let ((tokens (split-string-by-any cleaned-expr '(#\Space #\+ #\- #\* #\/ #\% #\= #\< #\> #\( #\) #\[ #\] #\, #\"))))
             (dolist (token tokens)
@@ -255,16 +287,31 @@
                            (not (string-equal tok "-"))  ; Negative sign alone
                            ;; Not an operator or keyword
                            (not (member (string-upcase tok) '("BECOMES" "TO" "FROM" "AND" "OR" "IF" "THEN" "OTHERWISE" 
-                                                               "STEP" "END" "SET" "PRINT" "TRUE" "FALSE" "NIL" "T"
-                                                               "REPEAT" "GO" "RETURN" "EACH" "FOR" "AT" "BY" "WITH"
-                                                               "SPLIT" "JOIN" "NOW" "ENV" "CONTAINS" "IN" "THE" "A" "AN"
-                                                               "SQRT" "POW" "ABS" "ROUND" "FLOOR" "CEIL" "MIN" "MAX" "RANDOM" "OF"
-                                                               "PARSE" "JSON" "GET" "LENGTH" "CSV" "READ" "WRITE" "HEADERS"
-                                                               "ADD" "LIST" "INTO" "SPACES" "LENGTH_OF"
-                                                               "FORMAT" "TIME" "TRIM" "UPPERCASE" "LOWERCASE" "REPLACE"
-                                                               "DAYS" "HOURS" "MINUTES" "SECONDS" "TIMESTAMP"
-                                                               "EXTRACT" "MATCHES" "GROUP")
-                                        :test #'string-equal))
+                                                                "STEP" "END" "SET" "PRINT" "TRUE" "FALSE" "NIL" "T"
+                                                                "REPEAT" "GO" "RETURN" "EACH" "FOR" "AT" "BY" "WITH"
+                                                                "SPLIT" "JOIN" "NOW" "ENV" "CONTAINS" "IN" "THE" "A" "AN"
+                                                                "SQRT" "POW" "ABS" "ROUND" "FLOOR" "CEIL" "MIN" "MAX" "RANDOM" "OF"
+                                                                "PARSE" "JSON" "GET" "LENGTH" "CSV" "READ" "WRITE" "HEADERS"
+                                                                "ADD" "LIST" "INTO" "SPACES" "LENGTH_OF"
+                                                                "FORMAT" "TIME" "TRIM" "UPPERCASE" "LOWERCASE" "REPLACE"
+                                                                "DAYS" "HOURS" "MINUTES" "SECONDS" "TIMESTAMP"
+                                                                "EXTRACT" "MATCHES" "GROUP"
+                                                                ;; v2.0.0 Process Management Keywords
+                                                                "SHELL" "BACKGROUND" "KILL" "WAIT" "STATUS" "SIGKILL" "SIGTERM" 
+                                                                "SIGINT" "SIGHUP" "TIMEOUT"
+                                                                ;; v2.0.0 Type Conversion Functions
+                                                                "PARSE_INT" "PARSE_FLOAT" "PARSE_BOOL"
+                                                                ;; v2.0.0 Database Keywords
+                                                                "DATABASE" "QUERY" "EXECUTE" "CONNECT" "AS" "ON" "CLOSE"
+                                                                ;; Additional CLI keywords
+                                                                "ARGS" "ARG" "HAS_FLAG"
+                                                                ;; File operations
+                                                                "FILE" "EXISTS"
+                                                                ;; List operations
+                                                                "SLICE" "REVERSE" "UNIQUE" "SORT" "FIRST" "KEYS" "VALUES" "MERGE"
+                                                                ;; String operations
+                                                                "PAD" "STRIP" "LEFT" "RIGHT" "URL_ENCODE" "URL_DECODE" "STARTS" "ENDS")
+                                         :test #'string-equal))
                            ;; Not empty
                            (> (length tok) 0))
                   (push tok vars)))))))

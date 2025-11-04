@@ -1,3 +1,52 @@
+# Test 2: Background Job Manager CLI
+
+## Task
+
+Build a job queue manager CLI tool in CNS that can:
+
+1. **Launch background jobs** - Run shell commands in background
+2. **Check job status** - Show if job is running, completed, or not found
+3. **Wait for job completion** - Wait for specific job to finish
+4. **Kill jobs** - Stop running jobs by PID
+
+## Commands
+
+### 1. `run <command>`
+Launch a command in the background and print its PID.
+
+```bash
+./cns-run job-manager.cns run "sleep 10"
+# Output: Job started: PID 12345
+```
+
+### 2. `status <pid>`
+Check the status of a job by PID.
+
+```bash
+./cns-run job-manager.cns status 12345
+# Output: Job 12345: running
+```
+
+### 3. `wait <pid>`
+Wait for a job to complete and show exit code.
+
+```bash
+./cns-run job-manager.cns wait 12345
+# Output: Job 12345 completed with exit code: 0
+```
+
+### 4. `kill <pid>`
+Kill a running job.
+
+```bash
+./cns-run job-manager.cns kill 12345
+# Output: Job 12345 killed successfully
+```
+
+---
+
+**Generate a complete CNS program that solves this task using the syntax reference below.**
+
 # CNS Complete Reference for LLMs
 
 Task: {TASK}
@@ -476,32 +525,15 @@ Step 6 → Continue serving
 ### Database Operations
 
 ```cns
-# Connect to database with LITERAL path
+# Connect to database
 Effect: DATABASE CONNECT TO "/tmp/data.db" AS db
 
-# Connect to database with VARIABLE path (v2.0.0)
-Given:
-  db_path: String = "/tmp/data.db"
-  db: String = ""
-Then: DATABASE CONNECT TO db_path AS db
-
-# Execute SQL with LITERAL query (no result)
+# Execute SQL (no result)
 Effect: DATABASE EXECUTE "CREATE TABLE users (id INT, name TEXT)" ON db
 
-# Execute SQL with VARIABLE (v2.0.0)
-Given:
-  create_query: String = "CREATE TABLE users (id INT, name TEXT)"
-Then: DATABASE EXECUTE create_query ON db
-
-# Query SQL with LITERAL (returns result)
+# Query SQL (returns result)
 Then: rows becomes DATABASE QUERY "SELECT * FROM users" ON db
 Effect: Print "Rows: {rows}"
-
-# Query SQL with VARIABLE (v2.0.0)
-Given:
-  select_query: String = "SELECT * FROM users WHERE id = 1"
-  rows: List = []
-Then: rows becomes DATABASE QUERY select_query ON db
 
 # Close connection
 Effect: DATABASE CLOSE db
@@ -510,23 +542,9 @@ Effect: DATABASE CLOSE db
 ### Process Management (v2.0.0)
 
 ```cns
-# Launch background job with LITERAL command (returns PID)
+# Launch background job (returns PID)
 Then: job_id becomes SHELL "sleep 10" BACKGROUND INTO pid
 Effect: Print "Started job: {job_id}"
-
-# Launch background job with VARIABLE command (v2.0.0)
-Given:
-  command: String = "sleep 10"
-  pid: Integer = 0
-Then: pid becomes SHELL command BACKGROUND INTO pid
-Effect: Print "Started PID: {pid}"
-
-# Launch from CLI argument
-Given:
-  cmd: String = ARGS[1]
-  pid: Integer = 0
-Then: pid becomes SHELL cmd BACKGROUND INTO pid
-Effect: Print "Launched: {pid}"
 
 # Check process status (returns "running", "completed", or "not-found")
 Then: status becomes STATUS OF job_id
@@ -577,50 +595,6 @@ Step 2 → Wait for all jobs
 - Completed processes are automatically removed from tracking
 - SIGKILL (9) immediately terminates and removes from tracking
 - All process operations return values and can be used in expressions
-
-**IMPORTANT: Variable vs Literal Syntax**
-
-Both literals (in quotes) and variables work in v2.0.0:
-
-```cns
-# ✅ LITERAL command (quoted string)
-Then: pid becomes SHELL "echo hello" BACKGROUND INTO job
-
-# ✅ VARIABLE command (no quotes)
-Given:
-  cmd: String = "echo hello"
-  pid: Integer = 0
-Then: pid becomes SHELL cmd BACKGROUND INTO job
-
-# ✅ From CLI argument
-Given:
-  cmd: String = ARGS[1]
-  pid: Integer = 0
-Then: pid becomes SHELL cmd BACKGROUND INTO job
-
-# ❌ WRONG: Don't mix quotes with variable names
-Then: pid becomes SHELL "cmd" BACKGROUND INTO job  # This runs literal string "cmd", not the variable
-```
-
-The same principle applies to DATABASE operations:
-
-```cns
-# ✅ LITERAL (quoted)
-Then: rows becomes DATABASE QUERY "SELECT * FROM users" ON db
-
-# ✅ VARIABLE (no quotes)
-Given:
-  query: String = "SELECT * FROM users"
-Then: rows becomes DATABASE QUERY query ON db
-
-# ❌ WRONG: Don't quote variable names
-Then: rows becomes DATABASE QUERY "query" ON db  # This searches for literal text "query"
-```
-
-**Rule of Thumb:**
-- Use **quotes** for literal strings: `"sleep 10"`, `"SELECT * FROM users"`
-- Use **no quotes** for variables: `command`, `query`, `cmd`
-- CLI arguments like `ARGS[1]` are already variables - don't quote them
 
 ---
 

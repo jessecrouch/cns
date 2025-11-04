@@ -1,0 +1,93 @@
+Story: Word Counter CLI Tool
+
+Given:
+  filename: String = ARGS[0]
+  show_lines: Boolean = HAS_FLAG("--lines")
+  show_chars: Boolean = HAS_FLAG("--chars")
+  verbose: Boolean = HAS_FLAG("--verbose")
+  file_exists: Boolean = FALSE
+  content: String = ""
+  lines: List = []
+  words: List = []
+  count: Integer = 0
+  output: String = ""
+
+Step 1 → Validate filename provided
+  Because: User must provide a filename
+  If: filename = ""
+    Effect: Print "Error: No filename provided"
+    Then: go to End
+
+Step 2 → Check if file exists
+  Because: Cannot count words in non-existent file
+  Then: file_exists becomes FILE EXISTS filename
+  If: NOT file_exists
+    Effect: Print "Error: File not found"
+    Then: go to End
+
+Step 3 → Read file content
+  Because: Need content to count
+  Then: content becomes READ FROM FILE filename
+
+Step 4 → Determine what to count
+  Because: Handle different flag options
+  If: show_lines
+    Then: go to Step 10
+  Otherwise:
+    Then: go to Step 5
+
+Step 5 → Check if counting characters
+  Because: Different counting methods
+  If: show_chars
+    Then: go to Step 20
+  Otherwise:
+    Then: go to Step 30
+
+Step 10 → Count lines
+  Because: User requested line count
+  Then: lines becomes SPLIT content BY "\n"
+  Then: count becomes LENGTH OF lines
+  Then: go to Step 40
+
+Step 20 → Count characters
+  Because: User requested character count
+  Then: count becomes LENGTH OF content
+  Then: go to Step 40
+
+Step 30 → Count words (default)
+  Because: Default behavior is word count
+  Then: words becomes SPLIT content BY " "
+  Then: count becomes LENGTH OF words
+  Then: go to Step 40
+
+Step 40 → Format output
+  Because: Prepare final output message
+  If: verbose
+    Then: go to Step 50
+  Otherwise:
+    Then: go to Step 60
+
+Step 50 → Verbose output with filename
+  Because: User wants filename in output
+  If: show_lines
+    Then: output becomes filename + ": " + count + " lines"
+  Otherwise:
+    Then: go to Step 51
+
+Step 51 → Check chars for verbose
+  Because: Different label for different counts
+  If: show_chars
+    Then: output becomes filename + ": " + count + " chars"
+  Otherwise:
+    Then: output becomes filename + ": " + count + " words"
+  Then: go to Step 70
+
+Step 60 → Simple output (just number)
+  Because: No verbose flag, just show count
+  Then: output becomes count
+
+Step 70 → Print result
+  Because: Display the final count
+  Effect: Print output
+
+End: Return 0
