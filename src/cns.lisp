@@ -312,6 +312,36 @@
               nil)
           nil))))
 
+(defun can-parse-split-p (trimmed)
+  "Check if TRIMMED is a SPLIT operation."
+  (and (starts-with (string-upcase trimmed) "SPLIT ")
+       (search " BY " (string-upcase trimmed))))
+
+(defun try-split (trimmed env)
+  "Parse and evaluate SPLIT operation."
+  (when (can-parse-split-p trimmed)
+    (let* ((rest (trim (subseq trimmed 6)))
+           (by-pos (search " BY " (string-upcase rest))))
+      (when by-pos
+        (let* ((str-expr (trim (subseq rest 0 by-pos)))
+               (delim-expr (trim (subseq rest (+ by-pos 4))))
+               (str-val (eval-expr str-expr env))
+               (delim-val (eval-expr delim-expr env)))
+          (if (and (stringp str-val) (stringp delim-val))
+              (let ((result nil)
+                    (start 0))
+                (loop
+                  (let ((pos (search delim-val str-val :start2 start)))
+                    (if pos
+                        (progn
+                          (push (subseq str-val start pos) result)
+                          (setf start (+ pos (length delim-val))))
+                        (progn
+                          (push (subseq str-val start) result)
+                          (return)))))
+                (nreverse result))
+              nil))))))
+
 (defun try-comparison-simple (trimmed op-char comparison-fn env)
   "Try to parse TRIMMED as a comparison with 1-char operator (<, >, =).
    Returns (values result t) if successful, (values nil nil) if operator not found.
@@ -2353,30 +2383,8 @@ World' and ' rest'"
                     "")))
             
              ;; String operation: SPLIT text BY "delimiter"
-             ((starts-with (string-upcase trimmed) "SPLIT ")
-              (let* ((rest (trim (subseq trimmed 6)))
-                     (by-pos (search " BY " (string-upcase rest))))
-                (if by-pos
-                    (let* ((str-expr (trim (subseq rest 0 by-pos)))
-                           (delim-expr (trim (subseq rest (+ by-pos 4))))
-                           (str-val (eval-expr str-expr env))
-                           (delim-val (eval-expr delim-expr env)))
-                      (if (and (stringp str-val) (stringp delim-val))
-                          (let ((result nil)
-                                (start 0))
-                            (loop
-                              (let ((pos (search delim-val str-val :start2 start)))
-                                (if pos
-                                    (progn
-                                      (push (subseq str-val start pos) result)
-                                      (setf start (+ pos (length delim-val))))
-                                    (progn
-                                      (push (subseq str-val start) result)
-                                      (return)))))
-                            (nreverse result))
-                          nil))
-                    ;; No BY clause - error
-                    nil)))
+             ((can-parse-split-p trimmed)
+              (try-split trimmed env))
             
              ;; String operation: TRIM text
              ((can-parse-trim-p trimmed)
