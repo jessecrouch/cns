@@ -306,10 +306,37 @@
            (substr-expr (trim (subseq trimmed (+ pos 10))))
            (str-val (eval-expr str-expr env))
            (substr-val (eval-expr substr-expr env)))
-      (if (and (stringp str-val) (stringp substr-val))
-          (if (search substr-val str-val)
-              t
-              nil)
+       (if (and (stringp str-val) (stringp substr-val))
+           (if (search substr-val str-val)
+               t
+               nil)
+           nil))))
+
+(defun can-parse-matches-p (trimmed)
+  "Check if TRIMMED is a MATCHES regex operation."
+  (search " MATCHES " (string-upcase trimmed)))
+
+(defun try-matches (trimmed env)
+  "Parse and evaluate MATCHES regex operation."
+  (when (can-parse-matches-p trimmed)
+    (if *regex-enabled*
+        (let* ((pos (search " MATCHES " (string-upcase trimmed)))
+               (str-expr (trim (subseq trimmed 0 pos)))
+               (pattern-expr (trim (subseq trimmed (+ pos 9))))
+               (str-val (eval-expr str-expr env))
+               (pattern-val (eval-expr pattern-expr env)))
+          (if (and (stringp str-val) (stringp pattern-val))
+              (handler-case
+                  (if (funcall (symbol-function (intern "SCAN" :cl-ppcre))
+                             pattern-val str-val)
+                      t
+                      nil)
+                (error (e)
+                  (format *error-output* "Regex error: ~A~%" e)
+                  nil))
+              nil))
+        (progn
+          (format *error-output* "MATCHES operator requires cl-ppcre. Install with: (ql:quickload :cl-ppcre)~%")
           nil))))
 
 (defun can-parse-split-p (trimmed)
@@ -2646,30 +2673,12 @@ World' and ' rest'"
              ;; String operation: text CONTAINS "substring"
              ((can-parse-contains-p trimmed)
               (try-contains trimmed env))
-            
-             ;; Regex operation: text MATCHES "pattern"
-             ((search " MATCHES " (string-upcase trimmed))
-              (if *regex-enabled*
-                  (let* ((pos (search " MATCHES " (string-upcase trimmed)))
-                         (str-expr (trim (subseq trimmed 0 pos)))
-                         (pattern-expr (trim (subseq trimmed (+ pos 9))))
-                         (str-val (eval-expr str-expr env))
-                         (pattern-val (eval-expr pattern-expr env)))
-                    (if (and (stringp str-val) (stringp pattern-val))
-                        (handler-case
-                            (if (funcall (symbol-function (intern "SCAN" :cl-ppcre))
-                                       pattern-val str-val)
-                                t
-                                nil)
-                          (error (e)
-                            (format *error-output* "Regex error: ~A~%" e)
-                            nil))
-                        nil))
-                  (progn
-                    (format *error-output* "MATCHES operator requires cl-ppcre. Install with: (ql:quickload :cl-ppcre)~%")
-                    nil)))
-            
-             ;; Regex operation: EXTRACT "pattern" FROM text [GROUP n]
+             
+              ;; Regex operation: text MATCHES "pattern"
+              ((can-parse-matches-p trimmed)
+               (try-matches trimmed env))
+             
+              ;; Regex operation: EXTRACT "pattern" FROM text [GROUP n]
              ((starts-with (string-upcase trimmed) "EXTRACT ")
               (if *regex-enabled*
                   (let* ((rest (trim (subseq trimmed 8)))
