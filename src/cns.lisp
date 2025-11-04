@@ -78,6 +78,11 @@
        (char= (char str 0) #\")
        (char= (char str (1- (length str))) #\")))
 
+(defun filepath-p (str)
+  "Check if STR looks like a filepath (starts with /)."
+  (and (> (length str) 0)
+       (char= (char str 0) #\/)))
+
 (defun split-string (str delimiter)
   "Split string by delimiter into list."
   (let ((result '())
@@ -1951,8 +1956,7 @@ World' and ' rest'"
                   ;; Make sure it's not a quoted string
                   (not (quoted-string-p trimmed))
                   ;; Skip if it looks like a filepath (starts with /)
-                  (not (and (> (length trimmed) 0)
-                           (char= (char trimmed 0) #\/)))
+                  (not (filepath-p trimmed))
                   ;; Skip if it starts with a keyword that might contain operators in arguments
                   (not (starts-with (string-upcase trimmed) "FORMAT TIME "))
                   (not (starts-with (string-upcase trimmed) "ADD DAYS "))
