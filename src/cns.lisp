@@ -508,6 +508,19 @@
               (+ time-val (* mins-val 60)) ; 60 seconds per minute
               time-val))))))
 
+(defun can-parse-sqrt-p (trimmed)
+  "Check if TRIMMED is a SQRT OF operation."
+  (starts-with (string-upcase trimmed) "SQRT OF "))
+
+(defun try-sqrt (trimmed env)
+  "Parse and evaluate SQRT OF operation."
+  (when (can-parse-sqrt-p trimmed)
+    (let* ((expr (trim (subseq trimmed 8)))
+           (val (eval-expr expr env)))
+      (if (numberp val)
+          (sqrt val)
+          (error "SQRT requires a number")))))
+
 (defun try-comparison-simple (trimmed op-char comparison-fn env)
   "Try to parse TRIMMED as a comparison with 1-char operator (<, >, =).
    Returns (values result t) if successful, (values nil nil) if operator not found.
@@ -2173,12 +2186,8 @@ World' and ' rest'"
              ;; Otherwise "ABS OF -100" gets parsed as "ABS OF" minus "100"
              
              ;; Math: SQRT OF n - square root
-             ((starts-with (string-upcase trimmed) "SQRT OF ")
-              (let* ((expr (trim (subseq trimmed 8)))
-                     (val (eval-expr expr env)))
-                (if (numberp val)
-                    (sqrt val)
-                    (error "SQRT requires a number"))))
+             ((can-parse-sqrt-p trimmed)
+              (try-sqrt trimmed env))
             
              ;; Math: POW base TO exponent - power/exponentiation
              ((and (search " TO " (string-upcase trimmed))
