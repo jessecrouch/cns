@@ -69,6 +69,22 @@
                             DB operations will be no-ops.~%" e)))
 
 ;;; ============================================================================
+;;; Operator Precedence Table
+;;; ============================================================================
+
+(defvar *operator-precedence*
+  '(;; Multiplicative operators (highest precedence)
+    (:level 50 :ops (#\* #\/ #\%))
+    ;; Additive operators
+    (:level 40 :ops (#\+ #\-))
+    ;; Relational operators
+    (:level 30 :ops ("<=" ">=" "<" ">" "≤" "≥"))
+    ;; Equality operators (lowest precedence)
+    (:level 20 :ops ("==" "!=" "=" "≠")))
+  "Operator precedence table. Higher levels are evaluated first.
+   Standard math precedence: * / % > + - > < > <= >= > == != =")
+
+;;; ============================================================================
 ;;; Helper Functions
 ;;; ============================================================================
 
