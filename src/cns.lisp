@@ -2280,6 +2280,143 @@ World' and ' rest'"
           result)))))
 
 ;;; ============================================================================
+;;; Effect Executor - Helper Functions
+;;; ============================================================================
+
+;; PRINT/DISPLAY effect helper
+(defun can-handle-print-effect-p (trimmed)
+  "Check if TRIMMED is a PRINT or DISPLAY effect."
+  (or (starts-with (string-upcase trimmed) "PRINT ")
+      (starts-with (string-upcase trimmed) "DISPLAY ")))
+
+(defun handle-print-effect (trimmed env verbose)
+  "Execute PRINT or DISPLAY effect."
+  (when (can-handle-print-effect-p trimmed)
+    (let* ((msg (trim (subseq trimmed (if (starts-with (string-upcase trimmed) "PRINT ") 6 8))))
+           ;; First try to evaluate as expression (handles + concatenation)
+           (result (handler-case
+                      (let ((val (eval-expr msg env)))
+                        ;; If it's a string, apply variable substitution
+                        (if (stringp val)
+                            (substitute-vars val env)
+                            (format nil "~A" val)))
+                    (error ()
+                      ;; Fallback to simple substitution for backward compatibility
+                      (let* ((unquoted (if (and (> (length msg) 1)
+                                               (char= (char msg 0) #\")
+                                               (char= (char msg (1- (length msg))) #\"))
+                                          (subseq msg 1 (1- (length msg)))
+                                          msg)))
+                        (substitute-vars unquoted env))))))
+      (format t ">>> ~A~%" result)
+      (when verbose
+        (format t "  Effect: Print~%"))
+      t)))
+
+;; READ FROM FILE effect helper
+(defun can-handle-read-from-file-effect-p (trimmed)
+  "Check if TRIMMED is a READ FROM FILE effect."
+  (starts-with (string-upcase trimmed) "READ FROM FILE "))
+
+(defun handle-read-from-file-effect (trimmed env verbose)
+  "Execute READ FROM FILE effect."
+  (when (can-handle-read-from-file-effect-p trimmed)
+    (let* ((rest (trim (subseq trimmed 15)))
+           (rest-upper (string-upcase rest))
+           (into-pos (search " INTO " rest-upper)))
+      (when into-pos
+        (let* ((filepath-expr (trim (subseq rest 0 into-pos)))
+               (target-var (trim (subseq rest (+ into-pos 6))))
+               ;; Resolve filepath from variable or use literal
+               (filepath-raw (eval-expr filepath-expr env))
+               ;; Remove quotes if present
+               (filepath (if (and (stringp filepath-raw)
+                                 (> (length filepath-raw) 1)
+                                 (char= (char filepath-raw 0) #\")
+                                 (char= (char filepath-raw (1- (length filepath-raw))) #\"))
+                            (subseq filepath-raw 1 (1- (length filepath-raw)))
+                            filepath-raw)))
+          (handler-case
+              (with-open-file (stream filepath :direction :input :if-does-not-exist nil)
+                (if stream
+                    (let ((contents (make-string (file-length stream))))
+                      (read-sequence contents stream)
+                      (setf (gethash target-var env) contents)
+                      (when verbose
+                        (format t "  Effect: Read ~A bytes from ~A into ~A~%" 
+                                (length contents) filepath target-var)))
+                    (progn
+                      (setf (gethash target-var env) "")
+                      (when verbose
+                        (format t "  Effect: File ~A not found, set ~A to empty~%" 
+                                filepath target-var)))))
+            (error (e)
+              (setf (gethash target-var env) "")
+              (when verbose
+                (format t "  Effect: File read error: ~A~%" e))))
+          t)))))
+
+;; WRITE TO FILE effect helper
+(defun can-handle-write-effect-p (trimmed)
+  "Check if TRIMMED is a WRITE TO FILE effect."
+  (starts-with (string-upcase trimmed) "WRITE "))
+
+(defun handle-write-effect (trimmed env verbose)
+  "Execute WRITE TO FILE effect."
+  (when (can-handle-write-effect-p trimmed)
+    (let* ((rest (trim (subseq trimmed 6)))
+           (to-pos (search " TO " (string-upcase rest))))
+      (when to-pos
+        (let* ((content-expr (trim (subseq rest 0 to-pos)))
+               ;; Evaluate content expression (handles variables or quoted strings)
+               (content-val (eval-expr content-expr env))
+               (filepath-expr (trim (subseq rest (+ to-pos 4))))
+               ;; Check for "FILE" keyword after TO
+               (filepath-clean (if (starts-with (string-upcase filepath-expr) "FILE ")
+                                  (trim (subseq filepath-expr 5))
+                                  filepath-expr))
+               ;; Evaluate filepath (handles variables or quoted strings)
+               (filepath (eval-expr filepath-clean env)))
+          (when (and (stringp content-val) (stringp filepath))
+            (with-open-file (stream filepath :direction :output 
+                                   :if-exists :supersede
+                                   :if-does-not-exist :create)
+              (write-string content-val stream))
+            (when verbose
+              (format t "  Effect: Write to FILE ~A~%" filepath)))
+          t)))))
+
+;; APPEND TO FILE effect helper
+(defun can-handle-append-effect-p (trimmed)
+  "Check if TRIMMED is an APPEND TO FILE effect."
+  (starts-with (string-upcase trimmed) "APPEND "))
+
+(defun handle-append-effect (trimmed env verbose)
+  "Execute APPEND TO FILE effect."
+  (when (can-handle-append-effect-p trimmed)
+    (let* ((rest (trim (subseq trimmed 7)))
+           (to-pos (search " TO " (string-upcase rest))))
+      (when to-pos
+        (let* ((content-expr (trim (subseq rest 0 to-pos)))
+               ;; Evaluate content expression (handles variables or quoted strings)
+               (content-val (eval-expr content-expr env))
+               (filepath-expr (trim (subseq rest (+ to-pos 4))))
+               ;; Check for "FILE" keyword after TO
+               (filepath-clean (if (starts-with (string-upcase filepath-expr) "FILE ")
+                                  (trim (subseq filepath-expr 5))
+                                  filepath-expr))
+               ;; Evaluate filepath (handles variables or quoted strings)
+               (filepath (eval-expr filepath-clean env)))
+          (when (and (stringp content-val) (stringp filepath))
+            (with-open-file (stream filepath :direction :output 
+                                   :if-exists :append
+                                   :if-does-not-exist :create)
+              (write-string content-val stream))
+            (when verbose
+              (format t "  Effect: Append to FILE ~A~%" filepath)))
+          t)))))
+
+;;; ============================================================================
 ;;; Expression Evaluator - Helper Functions
 ;;; ============================================================================
 
@@ -2965,111 +3102,21 @@ World' and ' rest'"
   "Execute an effect (Print, Write, etc.)."
   (let ((trimmed (trim effect-str)))
      (cond
-      ;; Print/Display "text" or Print {var} or Print "text {var}" or Print "text" + var + "more"
-      ((or (starts-with (string-upcase trimmed) "PRINT ")
-           (starts-with (string-upcase trimmed) "DISPLAY "))
-       (let* ((msg (trim (subseq trimmed (if (starts-with (string-upcase trimmed) "PRINT ") 6 8))))
-             ;; First try to evaluate as expression (handles + concatenation)
-             (result (handler-case
-                        (let ((val (eval-expr msg env)))
-                          ;; If it's a string, apply variable substitution
-                          (if (stringp val)
-                              (substitute-vars val env)
-                              (format nil "~A" val)))
-                      (error ()
-                        ;; Fallback to simple substitution for backward compatibility
-                        (let* ((unquoted (if (and (> (length msg) 1)
-                                                 (char= (char msg 0) #\")
-                                                 (char= (char msg (1- (length msg))) #\"))
-                                            (subseq msg 1 (1- (length msg)))
-                                            msg)))
-                          (substitute-vars unquoted env))))))
-        (format t ">>> ~A~%" result)
-        (when verbose
-          (format t "  Effect: Print~%"))))
+      ;; Print/Display
+      ((can-handle-print-effect-p trimmed)
+       (handle-print-effect trimmed env verbose))
      
      ;; Read from file into variable
-     ;; Syntax: "Read from file X into Y" or "Read from file 'filename' into var"
-     ((starts-with (string-upcase trimmed) "READ FROM FILE ")
-      (let* ((rest (trim (subseq trimmed 15)))
-             (rest-upper (string-upcase rest))
-             (into-pos (search " INTO " rest-upper)))
-        (when into-pos
-          (let* ((filepath-expr (trim (subseq rest 0 into-pos)))
-                 (target-var (trim (subseq rest (+ into-pos 6))))
-                 ;; Resolve filepath from variable or use literal
-                 (filepath-raw (eval-expr filepath-expr env))
-                 ;; Remove quotes if present
-                 (filepath (if (and (stringp filepath-raw)
-                                   (> (length filepath-raw) 1)
-                                   (char= (char filepath-raw 0) #\")
-                                   (char= (char filepath-raw (1- (length filepath-raw))) #\"))
-                              (subseq filepath-raw 1 (1- (length filepath-raw)))
-                              filepath-raw)))
-            (handler-case
-                (with-open-file (stream filepath :direction :input :if-does-not-exist nil)
-                  (if stream
-                      (let ((contents (make-string (file-length stream))))
-                        (read-sequence contents stream)
-                        (setf (gethash target-var env) contents)
-                        (when verbose
-                          (format t "  Effect: Read ~A bytes from ~A into ~A~%" 
-                                  (length contents) filepath target-var)))
-                      (progn
-                        (setf (gethash target-var env) "")
-                        (when verbose
-                          (format t "  Effect: File ~A not found, set ~A to empty~%" 
-                                  filepath target-var)))))
-              (error (e)
-                (setf (gethash target-var env) "")
-                (when verbose
-                  (format t "  Effect: File read error: ~A~%" e))))))))
+     ((can-handle-read-from-file-effect-p trimmed)
+      (handle-read-from-file-effect trimmed env verbose))
      
      ;; Write to file
-     ((starts-with (string-upcase trimmed) "WRITE ")
-      (let* ((rest (trim (subseq trimmed 6)))
-             (to-pos (search " TO " (string-upcase rest))))
-        (when to-pos
-          (let* ((content-expr (trim (subseq rest 0 to-pos)))
-                 ;; Evaluate content expression (handles variables or quoted strings)
-                 (content-val (eval-expr content-expr env))
-                 (filepath-expr (trim (subseq rest (+ to-pos 4))))
-                 ;; Check for "FILE" keyword after TO
-                 (filepath-clean (if (starts-with (string-upcase filepath-expr) "FILE ")
-                                    (trim (subseq filepath-expr 5))
-                                    filepath-expr))
-                 ;; Evaluate filepath (handles variables or quoted strings)
-                 (filepath (eval-expr filepath-clean env)))
-            (when (and (stringp content-val) (stringp filepath))
-              (with-open-file (stream filepath :direction :output 
-                                     :if-exists :supersede
-                                     :if-does-not-exist :create)
-                (write-string content-val stream))
-              (when verbose
-                (format t "  Effect: Write to FILE ~A~%" filepath)))))))
+     ((can-handle-write-effect-p trimmed)
+      (handle-write-effect trimmed env verbose))
      
      ;; Append to file
-     ((starts-with (string-upcase trimmed) "APPEND ")
-      (let* ((rest (trim (subseq trimmed 7)))
-             (to-pos (search " TO " (string-upcase rest))))
-        (when to-pos
-          (let* ((content-expr (trim (subseq rest 0 to-pos)))
-                 ;; Evaluate content expression (handles variables or quoted strings)
-                 (content-val (eval-expr content-expr env))
-                 (filepath-expr (trim (subseq rest (+ to-pos 4))))
-                 ;; Check for "FILE" keyword after TO
-                 (filepath-clean (if (starts-with (string-upcase filepath-expr) "FILE ")
-                                    (trim (subseq filepath-expr 5))
-                                    filepath-expr))
-                 ;; Evaluate filepath (handles variables or quoted strings)
-                 (filepath (eval-expr filepath-clean env)))
-            (when (and (stringp content-val) (stringp filepath))
-              (with-open-file (stream filepath :direction :output 
-                                     :if-exists :append
-                                     :if-does-not-exist :create)
-                (write-string content-val stream))
-              (when verbose
-                (format t "  Effect: Append to FILE ~A~%" filepath)))))))
+     ((can-handle-append-effect-p trimmed)
+      (handle-append-effect trimmed env verbose))
      
       ;; Socket: Create socket (REAL implementation)
       ((starts-with (string-upcase trimmed) "CREATE SOCKET ")
