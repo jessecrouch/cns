@@ -9,57 +9,65 @@ All notable changes to the CNS (Cause-and-Effect Narrative Script) language.
 
 ## [Unreleased]
 
-### In Progress
-- Strict mode NIL enforcement
-- Expression parsing improvements (literal-first, multi-operator)
-- LLM-first repository reorganization
-- Enhanced validator (control flow analysis)
+### Planned for v1.9.0
+- Process management (background jobs, signals, wait)
+- Advanced data operations (SORT, REVERSE, UNIQUE, SLICE)
+- Map operations (KEYS, VALUES, MERGE)
 
 ---
 
-## [1.8.0] - 2025-11-03
+## [1.8.0] - 2025-11-04
+
+### Added - CLI & File Operations
+- **CLI Arguments**: Full command-line argument parsing
+  - Positional arguments: `ARGS[0]`, `ARGS[1]`, `ARGS[n]`
+  - Named arguments: `CLI ARG "name" WITH DEFAULT "value"`
+  - Flag detection: `CLI HAS FLAG "name"`
+  - Argument count: `CLI ARGS COUNT`
+- **File System Operations**: Complete file management
+  - File existence check: `FILE EXISTS path` (returns Boolean)
+  - Directory listing: `LIST FILES IN path INTO var`
+  - File deletion: `DELETE FILE path`
+  - File renaming: `RENAME FILE old TO new`
 
 ### Changed - Major Refactoring
-- **Interpreter architecture overhaul**: Extracted 15 effect handlers from monolithic `apply-effect` function
-- Improved code organization and maintainability (+1050 helper lines, -950 inline lines)
-- Enhanced readability for future contributors
-
-### Extracted Effect Handlers
-- **File operations**: FIND (recursive file discovery with glob patterns)
-- **Text search**: GREP (regex content search across files)
-- **Shell integration**: SHELL command execution with I/O capture
-- **Version control**: GIT operations (9 subcommands: CLONE, STATUS, CHECKOUT, DIFF, ADD, COMMIT, BRANCH, MERGE, LOG)
-- **Data export**: CSV WRITE with headers and formatting
-- **Database**: DB CONNECT, DB EXECUTE, DB QUERY (SQLite integration)
-- **Networking**: Socket operations (CREATE, BIND, ACCEPT, READ/WRITE, SEND, CLOSE)
-- **HTTP**: GET/POST requests (previously extracted)
-- **Data structures**: List operations (previously extracted)
+- **Expression parser overhaul**: Extracted all inline parsers to consistent `can-parse-X-p` / `try-X` pattern
+- **File organization**: Moved utilities and globals to top, eliminated all SBCL compilation warnings
+- **Effect system**: Extracted 15 effect handlers from monolithic `apply-effect` function (Nov 3)
+- **Code consistency**: All parsers now follow unified architecture pattern
 
 ### Fixed
-- Critical syntax error: Missing closing parentheses in database and socket helper functions
-- Function load order ensuring all symbols defined before use
+- **FILE EXISTS bug**: Paths with `/` (e.g., `/tmp/file.txt`) now parse correctly
+  - Root cause: Division operator was intercepting paths before FILE EXISTS parser
+  - Solution: Established explicit precedence hierarchy in expression evaluation
+- **Legacy JSON parser**: Added clear deprecation notice and migration path to `parse-json-full`
+- **Compilation warnings**: Zero SBCL warnings after file reorganization
+
+### Documentation
+- **New guides**: Comprehensive developer documentation added
+  - `docs/development/GLOBAL-STATE.md` (350+ lines): All 15 global variables documented
+  - `docs/development/ERROR-HANDLING.md` (550+ lines): Error handling patterns and best practices
+  - Enhanced `REFACTORING-SESSION-2025-11-04.md`: Complete refactoring session notes
+- **CLI examples**: 5 comprehensive test files demonstrating all argument types
+- **File operation examples**: Complete test suite with all file system operations
 
 ### Quality Assurance
-- **100% test pass rate**: All 37 tests passing (9 core, 23 features, 1 advanced, 4 LLM suite)
+- **100% test pass rate**: All 38 tests passing (9 core, 24 features, 1 advanced, 4 LLM suite)
 - Zero regressions from refactoring
+- Zero compilation warnings
 - All feature areas validated and working
 
 ### Developer Experience
-- Cleaner codebase structure for contributors
-- Each effect type now has focused, documented helper functions
-- Easier to add new effects following established pattern
-- Improved debugging with isolated effect handlers
-
-### Maintenance
-- Removed stale backup files (`cns.lisp.backup`, `cns.lisp.new2`)
-- Enhanced `.gitignore` for backup, temp, and database files
-- Cleaner repository structure
+- **Consistent architecture**: All parsers follow unified `can-parse-X-p` / `try-X` pattern
+- **Clean codebase**: Utilities at top, zero forward reference warnings
+- **Professional documentation**: 900+ lines of new developer guides
+- **Easy onboarding**: Clear patterns for adding new features
 
 ### Impact
-- Foundation for future scalability
-- Easier onboarding for new contributors
-- Maintains 100% backward compatibility
-- No API changes or user-facing modifications
+- **CLI tools ready**: Full command-line argument support enables production CLI applications
+- **File operations complete**: Directory listing, file management fully implemented
+- **Clean foundation**: Architecture ready for advanced features (process management, async operations)
+- **100% backward compatibility**: No breaking changes
 
 ---
 

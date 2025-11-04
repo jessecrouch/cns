@@ -1,13 +1,7 @@
-;;; CNS Interpreter in Common Lisp - v1.8.0
+;;; CNS Interpreter in Common Lisp
 ;;; A minimal implementation of Causal Narrative Script (CNS)
 ;;; CNS is a programming language optimized for LLM comprehension
 ;;; with explicit causality, narrative flow, and self-documenting structures.
-;;;
-;;; v1.8.0 (November 4, 2025): CLI Arguments & File Operations
-;;; - CLI arguments: ARGS[n], ARG(), HAS_FLAG()
-;;; - File operations: FILE EXISTS, LIST FILES, DELETE FILE, RENAME FILE
-;;; - Expression parser refactoring: Fixed FILE EXISTS bug
-;;; - Architecture improvements: Consistent parser patterns, zero warnings
 
 ;;; Load socket support
 (require 'sb-bsd-sockets)
@@ -1277,24 +1271,6 @@
     :route-not-found))
 
 ;;; ============================================================================
-;;; Legacy Multiply Action (side-effect operation)
-;;; ============================================================================
-
-(defun can-parse-multiply-p (trimmed)
-  "Check if TRIMMED can be parsed as MULTIPLY action."
-  (starts-with (string-upcase trimmed) "MULTIPLY"))
-
-(defun try-multiply-action (trimmed env)
-  "Parse and execute MULTIPLY action (side effect - mutates variable).
-   Format: MULTIPLY variable BY multiplier
-   Example: MULTIPLY result BY 2"
-  (when (can-parse-multiply-p trimmed)
-    (let ((parts (split-string trimmed #\Space)))
-      (setf (gethash (trim (cadr parts)) env)
-            (* (gethash (trim (cadr parts)) env)
-               (gethash (trim (fourth parts)) env))))))
-
-;;; ============================================================================
 ;;; Comparison Operations
 ;;; ============================================================================
 
@@ -1522,14 +1498,7 @@ To increase limit: ./cns-run --max-iterations ~A yourfile.cns"
                  env)))))
 
 (defun parse-json-value (json-str key)
-  "LEGACY JSON Parser - Deprecated in favor of parse-json-full + json-get-path.
-   
-   This function is kept for backward compatibility but is not actively used
-   in the current codebase. New code should use:
-   - parse-json-full: Parse complete JSON with nested objects/arrays
-   - json-get-path: Access values using dot notation (e.g., 'user.name')
-   
-   Simple JSON parser to extract a value by key.
+  "Simple JSON parser to extract a value by key (LEGACY - use parse-json-full for new code).
    Handles: strings, numbers, booleans, null
    Example: {\"name\":\"John\",\"age\":30} with key 'name' -> 'John'"
   (handler-case
@@ -4637,17 +4606,20 @@ World' and ' rest'"
              ((can-parse-parse-http-request-p trimmed)
               (try-parse-http-request trimmed env))
              
-              ;; Socket: Find route
-              ((can-parse-find-route-p trimmed)
-               (try-find-route trimmed env))
-              
-              ;; Action: Multiply result by n (legacy side-effect operation)
-              ((can-parse-multiply-p trimmed)
-               (try-multiply-action trimmed env))
-            
-              ;; Boolean literals (support TRUE, True, true for LLM-friendliness)
-              ((can-parse-boolean-literal-p trimmed)
-               (try-boolean-literal trimmed))
+             ;; Socket: Find route
+             ((can-parse-find-route-p trimmed)
+              (try-find-route trimmed env))
+             
+             ;; Action: Multiply result by n
+             ((starts-with (string-upcase trimmed) "MULTIPLY")
+             (let ((parts (split-string trimmed #\Space)))
+               (setf (gethash (trim (cadr parts)) env)
+                     (* (gethash (trim (cadr parts)) env)
+                        (gethash (trim (fourth parts)) env)))))
+           
+             ;; Boolean literals (support TRUE, True, true for LLM-friendliness)
+             ((can-parse-boolean-literal-p trimmed)
+              (try-boolean-literal trimmed))
             
              ;; Default: try variable lookup one more time, else error
              (t (multiple-value-bind (value exists) (gethash trimmed env)
