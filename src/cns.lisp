@@ -92,6 +92,12 @@
         (starts-with upper "ADD MINUTES ")
         (starts-with upper "REPLACE "))))
 
+(defun should-skip-operator-p (str)
+  "Check if STR should skip operator parsing (quoted string, filepath, or special expression)."
+  (or (quoted-string-p str)
+      (filepath-p str)
+      (datetime-or-string-expr-p str)))
+
 (defun split-string (str delimiter)
   "Split string by delimiter into list."
   (let ((result '())
@@ -1962,12 +1968,8 @@ World' and ' rest'"
             ;; AND: Don't match in complex expressions like FORMAT TIME ... WITH "..."
             ;; AND: Don't match in filepaths like "/tmp/cns-test.txt"
             ((and (search "-" trimmed)
-                  ;; Make sure it's not a quoted string
-                  (not (quoted-string-p trimmed))
-                  ;; Skip if it looks like a filepath (starts with /)
-                  (not (filepath-p trimmed))
-                  ;; Skip if it starts with a keyword that might contain operators in arguments
-                  (not (datetime-or-string-expr-p trimmed))
+                  ;; Skip special contexts (quoted strings, filepaths, datetime expressions)
+                  (not (should-skip-operator-p trimmed))
                   ;; Make sure there's something before the minus sign (not just whitespace)
                   (let ((minus-pos (position #\- trimmed)))
                     (and minus-pos
