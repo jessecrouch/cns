@@ -488,6 +488,162 @@
         ((listp val) (length val))
         (t 0)))))
 
+;; ========================================================================
+;; v1.9.0: Advanced List Operations
+;; ========================================================================
+
+(defun can-parse-reverse-p (trimmed)
+  "Check if TRIMMED is a REVERSE operation."
+  (starts-with (string-upcase trimmed) "REVERSE "))
+
+(defun try-reverse (trimmed env)
+  "Parse and evaluate REVERSE operation.
+   Format: REVERSE list_var"
+  (when (can-parse-reverse-p trimmed)
+    (let* ((rest (trim (subseq trimmed 8)))
+           (val (eval-expr rest env)))
+      (if (listp val)
+          (reverse val)
+          val))))
+
+(defun can-parse-unique-p (trimmed)
+  "Check if TRIMMED is a UNIQUE operation."
+  (starts-with (string-upcase trimmed) "UNIQUE "))
+
+(defun try-unique (trimmed env)
+  "Parse and evaluate UNIQUE operation.
+   Format: UNIQUE list_var"
+  (when (can-parse-unique-p trimmed)
+    (let* ((rest (trim (subseq trimmed 7)))
+           (val (eval-expr rest env)))
+      (if (listp val)
+          (remove-duplicates val :test #'equal)
+          val))))
+
+(defun can-parse-slice-p (trimmed)
+  "Check if TRIMMED is a SLICE operation."
+  (and (starts-with (string-upcase trimmed) "SLICE ")
+       (search " FROM " (string-upcase trimmed))
+       (search " TO " (string-upcase trimmed))))
+
+(defun try-slice (trimmed env)
+  "Parse and evaluate SLICE operation.
+   Format: SLICE list_var FROM start TO end"
+  (when (can-parse-slice-p trimmed)
+    (let* ((rest (trim (subseq trimmed 6)))
+           (from-pos (search " FROM " (string-upcase rest)))
+           (to-pos (search " TO " (string-upcase rest))))
+      (when (and from-pos to-pos (> to-pos from-pos))
+        (let* ((list-expr (trim (subseq rest 0 from-pos)))
+               (start-expr (trim (subseq rest (+ from-pos 6) to-pos)))
+               (end-expr (trim (subseq rest (+ to-pos 4))))
+               (list-val (eval-expr list-expr env))
+               (start-val (eval-expr start-expr env))
+               (end-val (eval-expr end-expr env)))
+          (if (and (listp list-val) (numberp start-val) (numberp end-val))
+              (let ((start-idx (max 0 start-val))
+                    (end-idx (min (length list-val) end-val)))
+                (subseq list-val start-idx end-idx))
+              list-val))))))
+
+(defun can-parse-sort-p (trimmed)
+  "Check if TRIMMED is a SORT operation."
+  (starts-with (string-upcase trimmed) "SORT "))
+
+(defun try-sort (trimmed env)
+  "Parse and evaluate SORT operation.
+   Format: SORT list_var [BY field]"
+  (when (can-parse-sort-p trimmed)
+    (let* ((rest (trim (subseq trimmed 5)))
+           (by-pos (search " BY " (string-upcase rest))))
+      (if by-pos
+          ;; SORT list BY field (for list of maps)
+          (let* ((list-expr (trim (subseq rest 0 by-pos)))
+                 (field-expr (trim (subseq rest (+ by-pos 4))))
+                 (list-val (eval-expr list-expr env))
+                 (field-name (eval-expr field-expr env)))
+            (if (and (listp list-val) (stringp field-name))
+                (sort (copy-list list-val)
+                      (lambda (a b)
+                        (let ((a-val (if (hash-table-p a) (gethash field-name a) ""))
+                              (b-val (if (hash-table-p b) (gethash field-name b) "")))
+                          (cond
+                            ((and (numberp a-val) (numberp b-val)) (< a-val b-val))
+                            ((and (stringp a-val) (stringp b-val)) (string< a-val b-val))
+                            (t nil)))))
+                list-val))
+          ;; SORT list (for primitives)
+          (let ((list-val (eval-expr rest env)))
+            (if (listp list-val)
+                (sort (copy-list list-val)
+                      (lambda (a b)
+                        (cond
+                          ((and (numberp a) (numberp b)) (< a b))
+                          ((and (stringp a) (stringp b)) (string< a b))
+                          (t nil))))
+                list-val))))))
+
+;; ========================================================================
+;; v1.9.0: Map Operations
+;; ========================================================================
+
+(defun can-parse-keys-of-p (trimmed)
+  "Check if TRIMMED is a KEYS OF operation."
+  (starts-with (string-upcase trimmed) "KEYS OF "))
+
+(defun try-keys-of (trimmed env)
+  "Parse and evaluate KEYS OF operation.
+   Format: KEYS OF map_var"
+  (when (can-parse-keys-of-p trimmed)
+    (let* ((rest (trim (subseq trimmed 8)))
+           (val (eval-expr rest env)))
+      (if (hash-table-p val)
+          (let ((keys '()))
+            (maphash (lambda (k v) (declare (ignore v)) (push k keys)) val)
+            (nreverse keys))
+          '()))))
+
+(defun can-parse-values-of-p (trimmed)
+  "Check if TRIMMED is a VALUES OF operation."
+  (starts-with (string-upcase trimmed) "VALUES OF "))
+
+(defun try-values-of (trimmed env)
+  "Parse and evaluate VALUES OF operation.
+   Format: VALUES OF map_var"
+  (when (can-parse-values-of-p trimmed)
+    (let* ((rest (trim (subseq trimmed 10)))
+           (val (eval-expr rest env)))
+      (if (hash-table-p val)
+          (let ((values '()))
+            (maphash (lambda (k v) (declare (ignore k)) (push v values)) val)
+            (nreverse values))
+          '()))))
+
+(defun can-parse-merge-p (trimmed)
+  "Check if TRIMMED is a MERGE operation."
+  (and (starts-with (string-upcase trimmed) "MERGE ")
+       (search " WITH " (string-upcase trimmed))))
+
+(defun try-merge (trimmed env)
+  "Parse and evaluate MERGE operation.
+   Format: MERGE map1 WITH map2"
+  (when (can-parse-merge-p trimmed)
+    (let* ((rest (trim (subseq trimmed 6)))
+           (with-pos (search " WITH " (string-upcase rest))))
+      (when with-pos
+        (let* ((map1-expr (trim (subseq rest 0 with-pos)))
+               (map2-expr (trim (subseq rest (+ with-pos 6))))
+               (map1 (eval-expr map1-expr env))
+               (map2 (eval-expr map2-expr env)))
+          (if (and (hash-table-p map1) (hash-table-p map2))
+              (let ((result (make-hash-table :test #'equal)))
+                ;; Copy map1 to result
+                (maphash (lambda (k v) (setf (gethash k result) v)) map1)
+                ;; Copy map2 to result (overwrites conflicting keys)
+                (maphash (lambda (k v) (setf (gethash k result) v)) map2)
+                result)
+              (if (hash-table-p map1) map1 map2)))))))
+
 (defun can-parse-csv-read-p (trimmed)
   "Check if TRIMMED is a CSV READ operation."
   (starts-with (string-upcase trimmed) "CSV READ "))
@@ -4386,6 +4542,42 @@ World' and ' rest'"
               (try-random trimmed env))
              
              ;; ========================================================================
+             ;; v1.9.0: ADVANCED LIST OPERATIONS - Must come BEFORE operators!
+             ;; ========================================================================
+             
+             ;; List: REVERSE list - reverse a list
+             ((can-parse-reverse-p trimmed)
+              (try-reverse trimmed env))
+             
+             ;; List: UNIQUE list - remove duplicates
+             ((can-parse-unique-p trimmed)
+              (try-unique trimmed env))
+             
+             ;; List: SLICE list FROM start TO end - extract subset
+             ((can-parse-slice-p trimmed)
+              (try-slice trimmed env))
+             
+             ;; List: SORT list [BY field] - sort list
+             ((can-parse-sort-p trimmed)
+              (try-sort trimmed env))
+             
+             ;; ========================================================================
+             ;; v1.9.0: MAP OPERATIONS - Must come BEFORE operators!
+             ;; ========================================================================
+             
+             ;; Map: KEYS OF map - get all keys
+             ((can-parse-keys-of-p trimmed)
+              (try-keys-of trimmed env))
+             
+             ;; Map: VALUES OF map - get all values
+             ((can-parse-values-of-p trimmed)
+              (try-values-of trimmed env))
+             
+             ;; Map: MERGE map1 WITH map2 - merge two maps
+             ((can-parse-merge-p trimmed)
+              (try-merge trimmed env))
+             
+             ;; ========================================================================
              ;; COMPARISON OPERATORS - Must come BEFORE arithmetic operators!
              ;; This allows "n % 2 = 0" to be parsed as comparison, not modulo then error
              ;; BUT: Don't match operators inside quoted strings
@@ -4947,18 +5139,25 @@ World' and ' rest'"
          (given 
           (when verbose (format t "~%Given:~%"))
           (dolist (var (cdr node))
-            (let ((name (cadr var))
+              (let ((name (cadr var))
                   (type (caddr var))
                   (val (cadddr var)))
                ;; Parse value intelligently:
               ;; - If val is a list literal [x, y, z], evaluate it
               ;; - If val is a quoted string, use it directly
+              ;; - For Map type with no value, create empty hash table
               ;; - Otherwise evaluate it as an expression
               (setf (gethash name env) 
-                    (if val 
-                        ;; Always evaluate the value - eval-expr handles strings, numbers, lists, etc.
-                        (eval-expr val env)
-                        nil))
+                    (cond
+                      (val
+                       ;; Always evaluate the value - eval-expr handles strings, numbers, lists, etc.
+                       (eval-expr val env))
+                      ((and (stringp type) (string-equal type "Map"))
+                       ;; Initialize Map type to empty hash table
+                       (make-hash-table :test #'equal))
+                      (t
+                       ;; Default to nil for other types
+                       nil)))
               (when verbose
                 (format t "  ~A: ~A = ~A~%" name type (gethash name env))))))
         

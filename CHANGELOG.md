@@ -9,10 +9,69 @@ All notable changes to the CNS (Cause-and-Effect Narrative Script) language.
 
 ## [Unreleased]
 
-### Planned for v1.9.0
+### Planned for v2.0.0
 - Process management (background jobs, signals, wait)
-- Advanced data operations (SORT, REVERSE, UNIQUE, SLICE)
-- Map operations (KEYS, VALUES, MERGE)
+- String utilities (PAD, STRIP, URL_ENCODE/DECODE)
+- Production polish and performance optimization
+
+---
+
+## [1.9.0] - 2025-11-04
+
+### Added - Advanced Data Operations
+
+**List Operations** (Expression forms):
+- **REVERSE list**: Reverse order of list elements
+  - `Then: reversed becomes REVERSE items`
+  - Returns new list with elements in reverse order
+- **UNIQUE list**: Remove duplicates from list
+  - `Then: unique becomes UNIQUE items`
+  - Preserves first occurrence of each element
+- **SORT list**: Sort list of primitives (numbers or strings)
+  - `Then: sorted becomes SORT items`
+  - Numeric sort for numbers, alphabetical for strings
+- **SORT list BY field**: Sort list of maps by field value
+  - `Then: sorted becomes SORT items BY "field_name"`
+  - Supports both numeric and string field values
+- **SLICE list FROM start TO end**: Extract subset of list
+  - `Then: subset becomes SLICE items FROM 0 TO 5`
+  - Zero-based indexing, end index exclusive
+  - Handles out-of-bounds gracefully
+
+**Map Operations** (Expression forms):
+- **KEYS OF map**: Extract all keys from map
+  - `Then: all_keys becomes KEYS OF config`
+  - Returns list of key strings
+- **VALUES OF map**: Extract all values from map
+  - `Then: all_values becomes VALUES OF config`
+  - Returns list of values
+- **MERGE map1 WITH map2**: Merge two maps
+  - `Then: combined becomes MERGE defaults WITH overrides`
+  - Second map overwrites conflicting keys
+  - Returns new map without modifying originals
+
+### Changed
+- **Map initialization**: Maps declared with type `Map` now automatically initialize to empty hash table
+  - Before: `config: Map` initialized to `nil`
+  - After: `config: Map` initialized to empty hash table
+  - Enables immediate use without explicit initialization
+
+### Examples
+- **test-list-operations.cns**: Comprehensive test of REVERSE, UNIQUE, SORT, SLICE
+- **test-map-operations.cns**: Demonstrates KEYS OF, VALUES OF, MERGE
+- **test-data-operations.cns**: Combined test of all v1.9.0 features
+
+### Impact
+- **Data processing**: Complete list manipulation without external libraries
+- **Configuration management**: Easy map merging and inspection
+- **LLM-friendly**: All operations use natural narrative syntax
+- **100% backward compatible**: No breaking changes
+
+### Technical Details
+- All operations follow `can-parse-X-p` / `try-X` pattern for consistency
+- Integrated into expression evaluation pipeline (before comparison operators)
+- List operations use Common Lisp's built-in functions (reverse, sort, remove-duplicates, subseq)
+- Map operations use hash table iteration (maphash) for efficiency
 
 ---
 

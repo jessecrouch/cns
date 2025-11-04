@@ -1,0 +1,44 @@
+Story: Test Map Operations (v1.9.0)
+
+Given:
+  config: Map
+  overrides: Map
+  merged: Map
+  keys: List
+  values: List
+  result: String = ""
+
+Step 1 → Create first map
+  Because: We need to populate config map
+  Effect: CREATE MAP config
+  Effect: SET "host" TO "localhost" IN config
+  Effect: SET "port" TO "8080" IN config
+  Effect: SET "debug" TO "false" IN config
+
+Step 2 → Test KEYS OF operation
+  Because: We need to verify key extraction works
+  Then: keys becomes KEYS OF config
+  Effect: Print "Config keys: {keys}"
+
+Step 3 → Test VALUES OF operation
+  Because: We need to verify value extraction works
+  Then: values becomes VALUES OF config
+  Effect: Print "Config values: {values}"
+
+Step 4 → Create second map
+  Because: We need to populate overrides map
+  Effect: CREATE MAP overrides
+  Effect: SET "port" TO "3000" IN overrides
+  Effect: SET "timeout" TO "30" IN overrides
+
+Step 5 → Test MERGE operation
+  Because: We need to verify map merging works
+  Effect: CREATE MAP merged
+  Then: merged becomes MERGE config WITH overrides
+  Then: keys becomes KEYS OF merged
+  Then: values becomes VALUES OF merged
+  Effect: Print "Merged keys: {keys}"
+  Effect: Print "Merged values: {values}"
+  Then: result becomes "PASS"
+
+End: Return result

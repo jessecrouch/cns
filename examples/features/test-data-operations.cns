@@ -1,0 +1,78 @@
+Story: Test Advanced List and Map Operations (v1.9.0)
+
+Given:
+  numbers: List = [5, 2, 8, 2, 1, 8, 3]
+  words: List = ["zebra", "apple", "mango", "banana"]
+  
+  reversed: List
+  unique: List
+  sorted_nums: List
+  sorted_words: List
+  subset: List
+  
+  config: Map
+  overrides: Map
+  merged: Map
+  keys: List
+  values: List
+  
+  result: String = ""
+
+Step 1 → Test REVERSE operation
+  Because: We need to verify list reversal works correctly
+  Then: reversed becomes REVERSE numbers
+  Effect: Print "Original: [5, 2, 8, 2, 1, 8, 3]"
+  Effect: Print "Reversed: {reversed}"
+
+Step 2 → Test UNIQUE operation
+  Because: We need to verify duplicate removal works
+  Then: unique becomes UNIQUE numbers
+  Effect: Print "Unique: {unique}"
+
+Step 3 → Test SORT on numbers
+  Because: We need to verify numeric sorting works
+  Then: sorted_nums becomes SORT numbers
+  Effect: Print "Sorted numbers: {sorted_nums}"
+
+Step 4 → Test SORT on strings
+  Because: We need to verify string sorting works
+  Then: sorted_words becomes SORT words
+  Effect: Print "Sorted words: {sorted_words}"
+
+Step 5 → Test SLICE operation
+  Because: We need to verify list slicing works
+  Then: subset becomes SLICE numbers FROM 1 TO 4
+  Effect: Print "Slice [1:4]: {subset}"
+
+Step 6 → Create test maps
+  Because: We need maps to test map operations
+  Effect: SET "host" TO "localhost" IN config
+  Effect: SET "port" TO "8080" IN config
+  Effect: SET "debug" TO "false" IN config
+  Effect: SET "port" TO "3000" IN overrides
+  Effect: SET "timeout" TO "30" IN overrides
+
+Step 7 → Test KEYS OF operation
+  Because: We need to verify key extraction works
+  Then: keys becomes KEYS OF config
+  Effect: Print "Config keys: {keys}"
+
+Step 8 → Test VALUES OF operation
+  Because: We need to verify value extraction works
+  Then: values becomes VALUES OF config
+  Effect: Print "Config values: {values}"
+
+Step 9 → Test MERGE operation
+  Because: We need to verify map merging works
+  Then: merged becomes MERGE config WITH overrides
+  Then: keys becomes KEYS OF merged
+  Then: values becomes VALUES OF merged
+  Effect: Print "Merged keys: {keys}"
+  Effect: Print "Merged values: {values}"
+
+Step 10 → Test SORT BY for list of maps
+  Because: We need to verify sorting maps by field works
+  Effect: Print "All v1.9.0 operations tested successfully!"
+  Then: result becomes "PASS"
+
+End: Return result

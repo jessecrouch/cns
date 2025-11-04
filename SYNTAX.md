@@ -25,7 +25,15 @@ Generate a complete CNS program that solves this task.
 | Get length | `LENGTH OF items` | `LEN(items)`, `items.length`, `SIZE(items)` |
 | Get first item | `FIRST FROM items` | `items[0]`, `items at 0`, `HEAD(items)` |
 | Add to list | `Effect: ADD item TO LIST items` | `items.append()`, `items.push()` |
+| Reverse list | `REVERSE items` | `items.reverse()`, `REVERSE(items)` |
+| Remove duplicates | `UNIQUE items` | `UNIQUE(items)`, `set(items)` |
+| Sort list | `SORT items` | `SORT(items)`, `items.sort()` |
+| Sort by field | `SORT items BY "field"` | `sortBy()`, `ORDER BY` |
+| Slice list | `SLICE items FROM 0 TO 5` | `items[0:5]`, `SLICE(items, 0, 5)` |
 | **Maps/Headers** |
+| Get all keys | `KEYS OF config` | `config.keys()`, `KEYS(config)` |
+| Get all values | `VALUES OF config` | `config.values()`, `VALUES(config)` |
+| Merge maps | `MERGE map1 WITH map2` | `{...map1, ...map2}`, `MERGE(map1, map2)` |
 | Access map value | ❌ Not available | `map["key"]`, `map.get("key")`, `REQUEST_HEADERS["X-Real-IP"]` |
 | **JSON** |
 | Parse JSON | `PARSE JSON response GET "key"` | `JSON.parse()`, `PARSE(response)` |
@@ -511,9 +519,58 @@ Then: first becomes FIRST FROM items
 # Add to list
 Effect: ADD item TO LIST items
 
+# Reverse list (v1.9.0)
+Then: reversed becomes REVERSE items
+
+# Remove duplicates (v1.9.0)
+Then: unique becomes UNIQUE items
+
+# Sort list of primitives (v1.9.0)
+Then: sorted becomes SORT items
+
+# Sort list of maps by field (v1.9.0)
+Then: sorted becomes SORT items BY "field_name"
+
+# Slice/extract subset (v1.9.0)
+Then: subset becomes SLICE items FROM 0 TO 5
+Then: subset becomes SLICE items FROM start TO end
+
 # Iterate (if supported in your CNS version)
 For each item in items:
   Effect: Print "Item: {item}"
+```
+
+**v1.9.0 List Operations:**
+- **REVERSE**: Returns a new list with elements in reverse order
+- **UNIQUE**: Returns a new list with duplicates removed
+- **SORT**: Returns a new sorted list (numbers or strings)
+- **SORT BY**: Sorts list of maps by specified field name
+- **SLICE**: Returns subset of list from start index to end index (0-based)
+
+---
+
+## Map Operations (v1.9.0)
+
+```cns
+# Get all keys from a map
+Then: all_keys becomes KEYS OF config
+
+# Get all values from a map
+Then: all_values becomes VALUES OF config
+
+# Merge two maps (second map overwrites conflicting keys)
+Then: combined becomes MERGE defaults WITH overrides
+```
+
+**v1.9.0 Map Operations:**
+- **KEYS OF**: Returns a list of all keys in the map
+- **VALUES OF**: Returns a list of all values in the map
+- **MERGE WITH**: Creates a new map combining two maps (right side wins conflicts)
+
+**Note**: Maps are initialized automatically when declared with type `Map`:
+```cns
+Given:
+  config: Map    # Automatically initialized to empty hash table
 ```
 
 ---
