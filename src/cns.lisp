@@ -365,6 +365,29 @@
               (replace-all text-val search-val replace-val)
               ""))))))
 
+(defun can-parse-join-p (trimmed)
+  "Check if TRIMMED is a JOIN operation."
+  (and (starts-with (string-upcase trimmed) "JOIN ")
+       (search " WITH " (string-upcase trimmed))))
+
+(defun try-join (trimmed env)
+  "Parse and evaluate JOIN operation."
+  (when (can-parse-join-p trimmed)
+    (let* ((rest (trim (subseq trimmed 5)))
+           (with-pos (search " WITH " (string-upcase rest))))
+      (when with-pos
+        (let* ((list-expr (trim (subseq rest 0 with-pos)))
+               (delim-expr (trim (subseq rest (+ with-pos 6))))
+               (list-val (eval-expr list-expr env))
+               (delim-val (eval-expr delim-expr env)))
+          (if (and (listp list-val) (stringp delim-val))
+              (with-output-to-string (s)
+                (loop for item in list-val
+                      for first = t then nil
+                      unless first do (write-string delim-val s)
+                      do (princ item s)))
+              ""))))))
+
 (defun try-comparison-simple (trimmed op-char comparison-fn env)
   "Try to parse TRIMMED as a comparison with 1-char operator (<, >, =).
    Returns (values result t) if successful, (values nil nil) if operator not found.
@@ -2446,22 +2469,8 @@ World' and ' rest'"
               (try-replace trimmed env))
             
              ;; String operation: JOIN list WITH "delimiter"
-             ((starts-with (string-upcase trimmed) "JOIN ")
-              (let* ((rest (trim (subseq trimmed 5)))
-                     (with-pos (search " WITH " (string-upcase rest))))
-                (if with-pos
-                    (let* ((list-expr (trim (subseq rest 0 with-pos)))
-                           (delim-expr (trim (subseq rest (+ with-pos 6))))
-                           (list-val (eval-expr list-expr env))
-                           (delim-val (eval-expr delim-expr env)))
-                      (if (and (listp list-val) (stringp delim-val))
-                          (with-output-to-string (s)
-                            (loop for item in list-val
-                                  for first = t then nil
-                                  unless first do (write-string delim-val s)
-                                  do (princ item s)))
-                          ""))
-                    "")))
+             ((can-parse-join-p trimmed)
+              (try-join trimmed env))
             
              ;; String operation: LENGTH_OF text
              ((starts-with (string-upcase trimmed) "LENGTH_OF ")
