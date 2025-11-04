@@ -20,6 +20,8 @@ quicklisp/
 # Editor artifacts
 *~
 *.bak
+*.backup
+*.tmp
 *.swp
 *.swo
 .#*
@@ -38,6 +40,8 @@ desktop.ini
 # Test artifacts
 test-output/
 *.log
+output.txt
+test-output.txt
 
 # OpenCode temp files
 opencodetmp/
@@ -52,3 +56,8 @@ tests/llm-tests/generated/
 # Build artifacts (starter packages)
 build/
 *.csv
+
+# Database files (test artifacts)
+*.db
+*.sqlite
+*.sqlite3
