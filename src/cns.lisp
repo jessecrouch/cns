@@ -1943,11 +1943,8 @@ World' and ' rest'"
                 (when result result)))
            
            ;; Comparison: n > 1 (must come AFTER >= check)
-            ((and (position #\> trimmed)
-                  (not (quoted-string-p trimmed)))
-             (let ((parts (split-string trimmed #\>)))
-               (> (eval-expr (trim (car parts)) env)
-                  (eval-expr (trim (cadr parts)) env))))
+            ((let ((result (try-comparison-simple trimmed #\> #'> env)))
+               (when result result)))
             
             ;; Comparison: n < 1 (must come AFTER <= check)
             ((and (position #\< trimmed)
