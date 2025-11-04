@@ -1974,18 +1974,14 @@ World' and ' rest'"
             ;; AND: Don't match inside quoted strings like "YYYY-MM-DD"
             ;; AND: Don't match in complex expressions like FORMAT TIME ... WITH "..."
             ;; AND: Don't match in filepaths like "/tmp/cns-test.txt"
-            ((and (search "-" trimmed)
-                  ;; Skip special contexts (quoted strings, filepaths, datetime expressions)
-                  (not (should-skip-operator-p trimmed))
-                  ;; Make sure there's something before the minus sign (not just whitespace)
-                  (let ((minus-pos (position #\- trimmed)))
-                    (and minus-pos
-                         (> minus-pos 0)
-                         ;; There's non-whitespace before the minus
-                         (> (length (trim (subseq trimmed 0 minus-pos))) 0))))
-             (let ((parts (split-string trimmed #\-)))
-               (- (eval-expr (trim (car parts)) env)
-                  (eval-expr (trim (cadr parts)) env))))
+            ((let ((minus-pos (position #\- trimmed)))
+               (when (and (search "-" trimmed)
+                          (not (should-skip-operator-p trimmed))
+                          minus-pos
+                          (> minus-pos 0)
+                          (> (length (trim (subseq trimmed 0 minus-pos))) 0))
+                 (let ((result (try-binary-operator trimmed #\- #'- env)))
+                   (when result result)))))
            
              ;; Addition/Concatenation: n + 1 or "hello" + "world" or "a" + b + "c"
              ((search "+" trimmed)
