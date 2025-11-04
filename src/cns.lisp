@@ -1969,9 +1969,7 @@ World' and ' rest'"
             ;; AND: Don't match in filepaths like "/tmp/cns-test.txt"
             ((and (search "-" trimmed)
                   ;; Make sure it's not a quoted string
-                  (not (and (> (length trimmed) 1)
-                           (char= (char trimmed 0) #\")
-                           (char= (char trimmed (1- (length trimmed))) #\")))
+                  (not (quoted-string-p trimmed))
                   ;; Skip if it looks like a filepath (starts with /)
                   (not (and (> (length trimmed) 0)
                            (char= (char trimmed 0) #\/)))
