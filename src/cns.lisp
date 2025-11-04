@@ -183,17 +183,37 @@
   (and (position op-char trimmed)
        (not (quoted-string-p trimmed))))
 
+(defun can-parse-single-equals-p (trimmed)
+  "Check if TRIMMED can be parsed as single = comparison.
+   Excludes cases where = is part of ==, !=, <=, >=, becomes, AND, OR."
+  (and (position #\= trimmed)
+       (not (quoted-string-p trimmed))
+       (not (search "==" trimmed))
+       (not (search "!=" trimmed))
+       (not (search "<=" trimmed))
+       (not (search ">=" trimmed))
+       (not (search "becomes" trimmed))
+       (not (search " AND " (string-upcase trimmed)))
+       (not (search " OR " (string-upcase trimmed)))))
+
 (defun try-comparison-simple (trimmed op-char comparison-fn env)
-  "Try to parse TRIMMED as a comparison with 1-char operator (<, >).
-   Returns (values result t) if successful, (values nil nil) if operator not found."
+  "Try to parse TRIMMED as a comparison with 1-char operator (<, >, =).
+   Returns (values result t) if successful, (values nil nil) if operator not found.
+   For =, handles both numeric and general equality."
   (if (can-parse-comparison-simple-p trimmed op-char)
       (let ((parts (split-string trimmed op-char)))
         (if (= (length parts) 2)
-            (values
-             (funcall comparison-fn
-                      (eval-expr (trim (car parts)) env)
-                      (eval-expr (trim (cadr parts)) env))
-             t)
+            (let ((left-val (eval-expr (trim (car parts)) env))
+                  (right-val (eval-expr (trim (cadr parts)) env)))
+              (values
+               ;; For = operator, handle both numeric and general equality
+               (if (char= op-char #\=)
+                   (if (and (numberp left-val) (numberp right-val))
+                       (funcall comparison-fn left-val right-val)
+                       (equal left-val right-val))
+                   ;; For other operators (<, >, etc.), just use the function
+                   (funcall comparison-fn left-val right-val))
+               t))
             (values nil nil)))
       (values nil nil)))
 
@@ -1983,23 +2003,8 @@ World' and ' rest'"
               ;; Comparison: n = 1 (must come after ==, !=, ≠, ≤, ≥, <=, >=)
               ;; Make sure = is not part of <=, >=, ==, "becomes", " AND ", or " OR "
               ;; Handles both numeric and boolean comparisons
-              ((and (position #\= trimmed)
-                    (not (quoted-string-p trimmed))
-                    (not (search "==" trimmed))
-                    (not (search "!=" trimmed))
-                    (not (search "<=" trimmed))
-                    (not (search ">=" trimmed))
-                    (not (search "becomes" trimmed))
-                    (not (search " AND " (string-upcase trimmed)))
-                    (not (search " OR " (string-upcase trimmed))))
-               (let* ((parts (split-string trimmed #\=))
-                      (left-val (eval-expr (trim (car parts)) env))
-                      (right-val (eval-expr (trim (cadr parts)) env)))
-                 ;; If both values are numbers, use numeric comparison
-                 ;; Otherwise use general equality (for booleans, strings, etc.)
-                 (if (and (numberp left-val) (numberp right-val))
-                     (= left-val right-val)
-                     (equal left-val right-val))))
+              ((can-parse-single-equals-p trimmed)
+               (try-comparison-simple trimmed #\= #'= env))
              
              ;; ========================================================================
              ;; ARITHMETIC OPERATORS - Must come AFTER comparisons but BEFORE literals!
