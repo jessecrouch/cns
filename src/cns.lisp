@@ -83,6 +83,15 @@
   (and (> (length str) 0)
        (char= (char str 0) #\/)))
 
+(defun datetime-or-string-expr-p (str)
+  "Check if STR is a datetime/string operation that might contain operators in arguments."
+  (let ((upper (string-upcase str)))
+    (or (starts-with upper "FORMAT TIME ")
+        (starts-with upper "ADD DAYS ")
+        (starts-with upper "ADD HOURS ")
+        (starts-with upper "ADD MINUTES ")
+        (starts-with upper "REPLACE "))))
+
 (defun split-string (str delimiter)
   "Split string by delimiter into list."
   (let ((result '())
@@ -1958,11 +1967,7 @@ World' and ' rest'"
                   ;; Skip if it looks like a filepath (starts with /)
                   (not (filepath-p trimmed))
                   ;; Skip if it starts with a keyword that might contain operators in arguments
-                  (not (starts-with (string-upcase trimmed) "FORMAT TIME "))
-                  (not (starts-with (string-upcase trimmed) "ADD DAYS "))
-                  (not (starts-with (string-upcase trimmed) "ADD HOURS "))
-                  (not (starts-with (string-upcase trimmed) "ADD MINUTES "))
-                  (not (starts-with (string-upcase trimmed) "REPLACE "))
+                  (not (datetime-or-string-expr-p trimmed))
                   ;; Make sure there's something before the minus sign (not just whitespace)
                   (let ((minus-pos (position #\- trimmed)))
                     (and minus-pos
