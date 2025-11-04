@@ -644,6 +644,36 @@
           (+ from-val (random (1+ (- to-val from-val))))
           (error "RANDOM FROM requires two integers")))))
 
+(defun can-parse-parse-int-p (trimmed)
+  "Check if TRIMMED is a PARSE_INT operation."
+  (starts-with (string-upcase trimmed) "PARSE_INT "))
+
+(defun try-parse-int (trimmed env)
+  "Parse and evaluate PARSE_INT operation."
+  (when (can-parse-parse-int-p trimmed)
+    (let* ((rest (trim (subseq trimmed 10)))
+           (str-val (eval-expr rest env)))
+      (if (stringp str-val)
+          (handler-case
+              (parse-integer (trim str-val))
+            (error () 0))
+          (if (numberp str-val) str-val 0)))))
+
+(defun can-parse-parse-float-p (trimmed)
+  "Check if TRIMMED is a PARSE_FLOAT operation."
+  (starts-with (string-upcase trimmed) "PARSE_FLOAT "))
+
+(defun try-parse-float (trimmed env)
+  "Parse and evaluate PARSE_FLOAT operation."
+  (when (can-parse-parse-float-p trimmed)
+    (let* ((rest (trim (subseq trimmed 12)))
+           (str-val (eval-expr rest env)))
+      (if (stringp str-val)
+          (handler-case
+              (read-from-string (trim str-val))
+            (error () 0.0))
+          (if (numberp str-val) str-val 0.0)))))
+
 (defun try-comparison-simple (trimmed op-char comparison-fn env)
   "Try to parse TRIMMED as a comparison with 1-char operator (<, >, =).
    Returns (values result t) if successful, (values nil nil) if operator not found.
@@ -2646,24 +2676,12 @@ World' and ' rest'"
               (try-lowercase trimmed env))
             
              ;; Type conversion: PARSE_INT text - convert string to integer
-             ((starts-with (string-upcase trimmed) "PARSE_INT ")
-              (let* ((rest (trim (subseq trimmed 10)))
-                     (str-val (eval-expr rest env)))
-                (if (stringp str-val)
-                    (handler-case
-                        (parse-integer (trim str-val))
-                      (error () 0))
-                    (if (numberp str-val) str-val 0))))
+             ((can-parse-parse-int-p trimmed)
+              (try-parse-int trimmed env))
             
              ;; Type conversion: PARSE_FLOAT text - convert string to float
-             ((starts-with (string-upcase trimmed) "PARSE_FLOAT ")
-              (let* ((rest (trim (subseq trimmed 12)))
-                     (str-val (eval-expr rest env)))
-                (if (stringp str-val)
-                    (handler-case
-                        (read-from-string (trim str-val))
-                      (error () 0.0))
-                    (if (numberp str-val) str-val 0.0))))
+             ((can-parse-parse-float-p trimmed)
+              (try-parse-float trimmed env))
             
              ;; String operation: REPLACE "search" WITH "replacement" IN text
              ((can-parse-replace-p trimmed)
