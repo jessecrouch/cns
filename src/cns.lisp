@@ -470,6 +470,25 @@
                time-val)))
         (t 0)))))
 
+(defun can-parse-add-hours-p (trimmed)
+  "Check if TRIMMED is an ADD HOURS operation."
+  (and (starts-with (string-upcase trimmed) "ADD HOURS ")
+       (search " BY " (string-upcase trimmed))))
+
+(defun try-add-hours (trimmed env)
+  "Parse and evaluate ADD HOURS operation."
+  (when (can-parse-add-hours-p trimmed)
+    (let* ((rest (trim (subseq trimmed 10)))
+           (by-pos (search " BY " (string-upcase rest))))
+      (when by-pos
+        (let* ((time-expr (trim (subseq rest 0 by-pos)))
+               (hours-expr (trim (subseq rest (+ by-pos 4))))
+               (time-val (eval-expr time-expr env))
+               (hours-val (eval-expr hours-expr env)))
+          (if (and (numberp time-val) (numberp hours-val))
+              (+ time-val (* hours-val 3600)) ; 3600 seconds per hour
+              time-val))))))
+
 (defun try-comparison-simple (trimmed op-char comparison-fn env)
   "Try to parse TRIMMED as a comparison with 1-char operator (<, >, =).
    Returns (values result t) if successful, (values nil nil) if operator not found.
@@ -2596,18 +2615,8 @@ World' and ' rest'"
               (try-add-days trimmed env))
             
              ;; Date/Time: ADD HOURS time BY n
-             ((starts-with (string-upcase trimmed) "ADD HOURS ")
-              (let* ((rest (trim (subseq trimmed 10)))
-                     (by-pos (search " BY " (string-upcase rest))))
-                (if by-pos
-                    (let* ((time-expr (trim (subseq rest 0 by-pos)))
-                           (hours-expr (trim (subseq rest (+ by-pos 4))))
-                           (time-val (eval-expr time-expr env))
-                           (hours-val (eval-expr hours-expr env)))
-                      (if (and (numberp time-val) (numberp hours-val))
-                          (+ time-val (* hours-val 3600)) ; 3600 seconds per hour
-                          time-val))
-                    0)))
+             ((can-parse-add-hours-p trimmed)
+              (try-add-hours trimmed env))
             
              ;; Date/Time: ADD MINUTES time BY n
              ((starts-with (string-upcase trimmed) "ADD MINUTES ")
