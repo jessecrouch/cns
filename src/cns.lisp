@@ -2013,12 +2013,8 @@ World' and ' rest'"
                (when result result)))
             
              ;; Arithmetic: modulo (n % 2 or 10 % n both work!)
-             ((and (search "%" trimmed)
-                   ;; Make sure it's not a quoted string
-                   (not (quoted-string-p trimmed)))
-              (let ((parts (split-string trimmed #\%)))
-                (mod (eval-expr (trim (car parts)) env)
-                     (eval-expr (trim (cadr parts)) env))))
+             ((let ((result (try-binary-operator trimmed #\% #'mod env)))
+                (when result result)))
             
              ;; Try to parse as number (handles integers and floats, including negative)
              ;; IMPORTANT: This must come AFTER operator checks!
