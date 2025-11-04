@@ -1967,16 +1967,8 @@ World' and ' rest'"
             
              ;; Comparison: n == 1 (double equals - MUST come before single =)
                ;; Handles both numeric and boolean comparisons
-               ((and (search "==" trimmed)
-                     (not (quoted-string-p trimmed)))
-                (let* ((pos (search "==" trimmed))
-                       (left-val (eval-expr (trim (subseq trimmed 0 pos)) env))
-                       (right-val (eval-expr (trim (subseq trimmed (+ pos 2))) env)))
-                  ;; If both values are numbers, use numeric comparison
-                  ;; Otherwise use general equality (for booleans, strings, etc.)
-                  (if (and (numberp left-val) (numberp right-val))
-                      (= left-val right-val)
-                      (equal left-val right-val))))
+               ((can-parse-comparison-operator-p trimmed "==")
+                (try-comparison-operator trimmed "==" #'= env))
              
              ;; Comparison: n != 1 (not equal with exclamation)
                ;; Handles both numeric and boolean comparisons
