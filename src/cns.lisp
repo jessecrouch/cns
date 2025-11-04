@@ -593,6 +593,57 @@
           (ceiling val)
           (error "CEIL requires a number")))))
 
+(defun can-parse-min-of-p (trimmed)
+  "Check if TRIMMED is a MIN OF operation."
+  (and (starts-with (string-upcase trimmed) "MIN OF ")
+       (search " AND " (string-upcase trimmed))))
+
+(defun try-min-of (trimmed env)
+  "Parse and evaluate MIN OF operation."
+  (when (can-parse-min-of-p trimmed)
+    (let* ((and-pos (search " AND " (string-upcase trimmed)))
+           (first-expr (trim (subseq trimmed 7 and-pos)))
+           (second-expr (trim (subseq trimmed (+ and-pos 5))))
+           (first-val (eval-expr first-expr env))
+           (second-val (eval-expr second-expr env)))
+      (if (and (numberp first-val) (numberp second-val))
+          (min first-val second-val)
+          (error "MIN requires two numbers")))))
+
+(defun can-parse-max-of-p (trimmed)
+  "Check if TRIMMED is a MAX OF operation."
+  (and (starts-with (string-upcase trimmed) "MAX OF ")
+       (search " AND " (string-upcase trimmed))))
+
+(defun try-max-of (trimmed env)
+  "Parse and evaluate MAX OF operation."
+  (when (can-parse-max-of-p trimmed)
+    (let* ((and-pos (search " AND " (string-upcase trimmed)))
+           (first-expr (trim (subseq trimmed 7 and-pos)))
+           (second-expr (trim (subseq trimmed (+ and-pos 5))))
+           (first-val (eval-expr first-expr env))
+           (second-val (eval-expr second-expr env)))
+      (if (and (numberp first-val) (numberp second-val))
+          (max first-val second-val)
+          (error "MAX requires two numbers")))))
+
+(defun can-parse-random-from-to-p (trimmed)
+  "Check if TRIMMED is a RANDOM FROM TO operation."
+  (and (starts-with (string-upcase trimmed) "RANDOM FROM ")
+       (search " TO " (string-upcase trimmed))))
+
+(defun try-random-from-to (trimmed env)
+  "Parse and evaluate RANDOM FROM TO operation."
+  (when (can-parse-random-from-to-p trimmed)
+    (let* ((to-pos (search " TO " (string-upcase trimmed)))
+           (from-expr (trim (subseq trimmed 12 to-pos)))
+           (to-expr (trim (subseq trimmed (+ to-pos 4))))
+           (from-val (eval-expr from-expr env))
+           (to-val (eval-expr to-expr env)))
+      (if (and (integerp from-val) (integerp to-val))
+          (+ from-val (random (1+ (- to-val from-val))))
+          (error "RANDOM FROM requires two integers")))))
+
 (defun try-comparison-simple (trimmed op-char comparison-fn env)
   "Try to parse TRIMMED as a comparison with 1-char operator (<, >, =).
    Returns (values result t) if successful, (values nil nil) if operator not found.
@@ -2282,40 +2333,16 @@ World' and ' rest'"
               (try-ceil trimmed env))
             
              ;; Math: MIN OF a AND b - minimum of two numbers
-             ((and (starts-with (string-upcase trimmed) "MIN OF ")
-                   (search " AND " (string-upcase trimmed)))
-              (let* ((and-pos (search " AND " (string-upcase trimmed)))
-                     (first-expr (trim (subseq trimmed 7 and-pos)))
-                     (second-expr (trim (subseq trimmed (+ and-pos 5))))
-                     (first-val (eval-expr first-expr env))
-                     (second-val (eval-expr second-expr env)))
-                (if (and (numberp first-val) (numberp second-val))
-                    (min first-val second-val)
-                    (error "MIN requires two numbers"))))
+             ((can-parse-min-of-p trimmed)
+              (try-min-of trimmed env))
             
              ;; Math: MAX OF a AND b - maximum of two numbers
-             ((and (starts-with (string-upcase trimmed) "MAX OF ")
-                   (search " AND " (string-upcase trimmed)))
-              (let* ((and-pos (search " AND " (string-upcase trimmed)))
-                     (first-expr (trim (subseq trimmed 7 and-pos)))
-                     (second-expr (trim (subseq trimmed (+ and-pos 5))))
-                     (first-val (eval-expr first-expr env))
-                     (second-val (eval-expr second-expr env)))
-                (if (and (numberp first-val) (numberp second-val))
-                    (max first-val second-val)
-                    (error "MAX requires two numbers"))))
+             ((can-parse-max-of-p trimmed)
+              (try-max-of trimmed env))
             
              ;; Math: RANDOM FROM a TO b - random integer in range [a, b]
-             ((and (starts-with (string-upcase trimmed) "RANDOM FROM ")
-                   (search " TO " (string-upcase trimmed)))
-              (let* ((to-pos (search " TO " (string-upcase trimmed)))
-                     (from-expr (trim (subseq trimmed 12 to-pos)))
-                     (to-expr (trim (subseq trimmed (+ to-pos 4))))
-                     (from-val (eval-expr from-expr env))
-                     (to-val (eval-expr to-expr env)))
-                (if (and (integerp from-val) (integerp to-val))
-                    (+ from-val (random (1+ (- to-val from-val))))
-                    (error "RANDOM FROM requires two integers"))))
+             ((can-parse-random-from-to-p trimmed)
+              (try-random-from-to trimmed env))
             
              ;; Math: RANDOM - random float between 0.0 and 1.0
              ((string-equal trimmed "RANDOM")
