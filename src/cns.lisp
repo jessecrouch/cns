@@ -2416,6 +2416,82 @@ World' and ' rest'"
               (format t "  Effect: Append to FILE ~A~%" filepath)))
           t)))))
 
+;; SHELL effect helper
+(defun can-handle-shell-effect-p (trimmed)
+  "Check if TRIMMED is a SHELL effect."
+  (starts-with (string-upcase trimmed) "SHELL "))
+
+(defun handle-shell-effect (trimmed env verbose)
+  "Execute SHELL command effect."
+  (when (can-handle-shell-effect-p trimmed)
+    (let* ((rest (trim (subseq trimmed 6)))
+           (rest-upper (string-upcase rest))
+           ;; Extract the command (quoted string)
+           (cmd-end (position #\" rest :start 1))
+           (command (if cmd-end
+                       (subseq rest 1 cmd-end)
+                       nil))
+           (after-cmd (if cmd-end (trim (subseq rest (1+ cmd-end))) ""))
+            (after-cmd-upper (string-upcase after-cmd))
+            ;; Find INTO, WITH EXIT_CODE, AND ERROR positions
+            (into-pos-space (search " INTO " after-cmd-upper))
+            (into-pos-start (when (starts-with after-cmd-upper "INTO ") 0))
+            (into-pos (or into-pos-space into-pos-start))
+            (exit-pos (search " WITH EXIT_CODE " after-cmd-upper))
+            (error-pos (search " AND ERROR " after-cmd-upper))
+            ;; Extract variable names
+            (output-var (when (and into-pos exit-pos)
+                         (let ((start (if (zerop into-pos) 5 (+ into-pos 6))))
+                           (trim (subseq after-cmd start exit-pos)))))
+            (exit-var (when exit-pos
+                       (let ((end (or error-pos (length after-cmd))))
+                         (trim (subseq after-cmd (+ exit-pos 16) end)))))
+            (error-var (when error-pos
+                        (trim (subseq after-cmd (+ error-pos 11))))))
+      (if command
+          (handler-case
+              (let* ((process (sb-ext:run-program "/bin/sh" 
+                                                 (list "-c" command)
+                                                 :output :stream
+                                                 :error :stream
+                                                 :wait t
+                                                 :search nil))
+                     (output-stream (sb-ext:process-output process))
+                     (error-stream (sb-ext:process-error process))
+                     (output (with-output-to-string (s)
+                              (loop for line = (read-line output-stream nil nil)
+                                    while line
+                                    do (format s "~A~%" line))))
+                     (error-output (with-output-to-string (s)
+                                    (loop for line = (read-line error-stream nil nil)
+                                          while line
+                                          do (format s "~A~%" line))))
+                     (exit-code (or (sb-ext:process-exit-code process) 0)))
+                ;; Store outputs in variables
+                (when output-var
+                  (setf (gethash output-var env) (string-trim '(#\Newline) output)))
+                (when exit-var
+                  (setf (gethash exit-var env) exit-code))
+                (when error-var
+                  (setf (gethash error-var env) (string-trim '(#\Newline) error-output)))
+                ;; Close streams
+                (close output-stream)
+                (close error-stream)
+                (when verbose
+                  (format t "  Effect: SHELL executed '~A' (exit: ~A)~%" command exit-code))
+                t)
+            (error (e)
+              (when output-var (setf (gethash output-var env) ""))
+              (when exit-var (setf (gethash exit-var env) 1))
+              (when error-var (setf (gethash error-var env) (format nil "~A" e)))
+              (when verbose
+                (format t "  Effect: SHELL error: ~A~%" e))
+              t))
+          (progn
+            (when verbose
+              (format t "  Effect: SHELL (invalid syntax)~%"))
+            t)))))
+
 ;;; ============================================================================
 ;;; Expression Evaluator - Helper Functions
 ;;; ============================================================================
@@ -3717,72 +3793,9 @@ World' and ' rest'"
        ;; SHELL: Execute shell commands with output capture
        ;; Syntax: SHELL "command" INTO output WITH EXIT_CODE code
        ;; Syntax: SHELL "command" INTO output WITH EXIT_CODE code AND ERROR error
-       ((starts-with (string-upcase trimmed) "SHELL ")
-       (let* ((rest (trim (subseq trimmed 6)))
-              (rest-upper (string-upcase rest))
-              ;; Extract the command (quoted string)
-              (cmd-end (position #\" rest :start 1))
-              (command (if cmd-end
-                          (subseq rest 1 cmd-end)
-                          nil))
-              (after-cmd (if cmd-end (trim (subseq rest (1+ cmd-end))) ""))
-               (after-cmd-upper (string-upcase after-cmd))
-               ;; Find INTO, WITH EXIT_CODE, AND ERROR positions
-               ;; Handle both " INTO " and "INTO " at start
-               (into-pos-space (search " INTO " after-cmd-upper))
-               (into-pos-start (when (starts-with after-cmd-upper "INTO ") 0))
-               (into-pos (or into-pos-space into-pos-start))
-               (exit-pos (search " WITH EXIT_CODE " after-cmd-upper))
-               (error-pos (search " AND ERROR " after-cmd-upper))
-               ;; Extract variable names
-               (output-var (when (and into-pos exit-pos)
-                            (let ((start (if (zerop into-pos) 5 (+ into-pos 6))))
-                              (trim (subseq after-cmd start exit-pos)))))
-               (exit-var (when exit-pos
-                          (let ((end (or error-pos (length after-cmd))))
-                            (trim (subseq after-cmd (+ exit-pos 16) end)))))
-               (error-var (when error-pos
-                           (trim (subseq after-cmd (+ error-pos 11))))))
-         (if command
-             (handler-case
-                 (let* ((process (sb-ext:run-program "/bin/sh" 
-                                                    (list "-c" command)
-                                                    :output :stream
-                                                    :error :stream
-                                                    :wait t
-                                                    :search nil))
-                        (output-stream (sb-ext:process-output process))
-                        (error-stream (sb-ext:process-error process))
-                        (output (with-output-to-string (s)
-                                 (loop for line = (read-line output-stream nil nil)
-                                       while line
-                                       do (format s "~A~%" line))))
-                        (error-output (with-output-to-string (s)
-                                       (loop for line = (read-line error-stream nil nil)
-                                             while line
-                                             do (format s "~A~%" line))))
-                        (exit-code (or (sb-ext:process-exit-code process) 0)))
-                   ;; Store outputs in variables
-                   (when output-var
-                     (setf (gethash output-var env) (string-trim '(#\Newline) output)))
-                   (when exit-var
-                     (setf (gethash exit-var env) exit-code))
-                   (when error-var
-                     (setf (gethash error-var env) (string-trim '(#\Newline) error-output)))
-                   ;; Close streams
-                   (close output-stream)
-                   (close error-stream)
-                   (when verbose
-                     (format t "  Effect: SHELL executed '~A' (exit: ~A)~%" command exit-code)))
-               (error (e)
-                 (when output-var (setf (gethash output-var env) ""))
-                 (when exit-var (setf (gethash exit-var env) 1))
-                 (when error-var (setf (gethash error-var env) (format nil "~A" e)))
-                 (when verbose
-                   (format t "  Effect: SHELL failed: ~A~%" e))))
-             (when verbose
-               (format t "  Effect: SHELL (invalid syntax)~%")))))
-      
+       ((can-handle-shell-effect-p trimmed)
+        (handle-shell-effect trimmed env verbose))
+       
        ;; GIT: Execute git operations
        ;; Syntax: GIT CLONE "url" INTO "directory" WITH STATUS result
        ;; Syntax: GIT STATUS INTO output WITH EXIT_CODE code
